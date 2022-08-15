@@ -126,6 +126,8 @@ source ~/flexiv_ros2_ws/install/setup.bash
         ros2 launch flexiv_bringup rizon.launch.py robot_ip:=<RobotIP> local_ip:=<LocalIP> robot_controller:=joint_impedance_controller
         ```
 
+        **NOTE**: The command starts the robot in the joint torque mode. In this mode, gravity and friction are compensated **only** for the robot **without** any attached objects (e.g. the gripper, camera).
+
         Open a new terminal and run the launch file:
 
         ```bash
