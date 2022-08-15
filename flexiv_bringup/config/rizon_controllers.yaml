@@ -1,0 +1,62 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 1000  # Hz
+
+    forward_position_controller:
+      type: position_controllers/JointGroupPositionController
+
+    joint_impedance_controller:
+      type: flexiv_controllers/JointImpedanceController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    rizon_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+forward_position_controller:
+  ros__parameters:
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+      - joint7
+
+joint_impedance_controller:
+  ros__parameters:
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+      - joint7
+    k_p: [100.0, 100.0, 100.0, 100.0, 100.0, 50.0, 50.0]
+    k_d: [60.0, 60.0, 60.0, 60.0, 20.0, 20.0, 20.0]
+
+rizon_arm_controller:
+  ros__parameters:
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+      - joint7
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    allow_integration_in_goal_trajectories: true
+    constraints:
+      stopped_velocity_tolerance: 0.01
+      goal_time: 0.0

@@ -1,0 +1,13 @@
+sine_sweep_impedance_controller:
+  ros__parameters:
+
+    controller_name: "joint_impedance_controller"
+    wait_sec_between_publish: 0.001
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+      - joint7

@@ -1,0 +1,10 @@
+publisher_joint_position_controller:
+  ros__parameters:
+
+    # controller: "forward_position_controller", "joint_impedance_controller"
+    controller_name: "forward_position_controller"
+    wait_sec_between_publish: 6
+
+    goal_names: ["pos1", "pos2"]
+    pos1: [0.0, -0.698, 0.0, 1.57, 0.0, 0.698, 0.0]
+    pos2: [-0.698, -0.698, 0.698, 1.57, 0.698, 0.698, 0.698]

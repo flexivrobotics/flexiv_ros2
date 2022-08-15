@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rizon4">
+  <!-- Enable setting arguments from the launch file -->
+  <xacro:arg name="robot_ip" default="" />
+  <xacro:arg name="local_ip" default="" />
+  <xacro:arg name="use_fake_hardware" default="false" />
+  <xacro:arg name="fake_sensor_commands" default="false" />
+  <xacro:arg name="initial_positions_file" default="$(find flexiv_description)/config/initial_positions.yaml"/>
+  <xacro:arg name="prefix" default="" />
+
+  <xacro:include filename="$(find flexiv_description)/urdf/rizon4_joints_links.xacro" />
+  <xacro:rizon4_joints_links product_id="A02L-M" prefix="$(arg prefix)" mesh_prefix_path="package://flexiv_description/" />
+
+  <xacro:include filename="$(find flexiv_description)/urdf/flexiv_arm_materials.xacro" />
+  <xacro:flexiv_arm_materials />
+
+  <xacro:include filename="$(find flexiv_description)/urdf/rizon4.ros2_control.xacro"/>
+  <xacro:rizon4_ros2_control prefix="$(arg prefix)" robot_ip="$(arg robot_ip)" local_ip="$(arg local_ip)" use_fake_hardware="$(arg use_fake_hardware)" fake_sensor_commands="$(arg fake_sensor_commands)" initial_positions_file="$(arg initial_positions_file)"/>
+
+  <!-- Used for fixing robot -->
+
+</robot>

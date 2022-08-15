@@ -1,0 +1,16 @@
+float64[7] q
+float64[7] theta
+float64[7] dq
+float64[7] dtheta
+float64[7] tau
+float64[7] tau_des
+float64[7] tau_dot
+float64[7] tau_ext
+CartesianState tcp_pose
+CartesianState tcp_pose_des
+CartesianVelocity tcp_vel
+CartesianState cam_pose
+CartesianState flange_pose
+CartesianState end_link_pose
+ExternalForce ext_force_tcp_frame
+ExternalForce ext_force_base_frame
