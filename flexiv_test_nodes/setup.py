@@ -34,8 +34,6 @@ Demo nodes for for testing flexiv_ros2.""",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "publisher_joint_position = \
-                flexiv_test_nodes.publisher_joint_position:main",
             "publisher_joint_trajectory_controller = \
                 flexiv_test_nodes.publisher_joint_trajectory_controller:main",
             "sine_sweep_position_controller = \

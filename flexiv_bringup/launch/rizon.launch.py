@@ -65,7 +65,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "robot_controller",
-            default_value="forward_position_controller",
+            default_value="rizon_arm_controller",
             description="Robot controller to start. Available: forward_position_controller, rizon_arm_controller, joint_impedance_controller.",
         )
     )

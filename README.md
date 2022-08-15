@@ -112,13 +112,13 @@ source ~/flexiv_ros2_ws/install/setup.bash
 
 2. Publish commands to controllers
 
-   - The default controller in the launch file is `forward_position_controller`. To send the goal position to the controller by using the node from `flexiv_test_nodes`, start the following command in a new terminal:
+   - The default controller in the launch file is `rizon_arm_controller`. To send the goal position to the controller by using the node from `flexiv_test_nodes`, start the following command in a new terminal:
 
         ```bash
-        ros2 launch flexiv_bringup test_joint_position_controller.launch.py
+        ros2 launch flexiv_bringup test_joint_trajectory_controller.launch.py
         ```
 
-        You can change the joint position goals in `flexiv_bringup/config/joint_position_publisher.yaml`.
+        You can change the joint position goals in `flexiv_bringup/config/joint_trajectory_position_publisher.yaml`.
 
    - To test another controller, define it using the `robot_controller` launch argument, for example the `joint_impedance_controller`:
 
