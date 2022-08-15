@@ -17,7 +17,6 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
-find_package(flexiv_msgs REQUIRED)
 
 add_library(
   ${PROJECT_NAME}
@@ -47,7 +46,6 @@ ament_target_dependencies(
   hardware_interface
   pluginlib
   rclcpp
-  flexiv_msgs
 )
 
 pluginlib_export_plugin_description_file(hardware_interface flexiv_hardware_interface_plugin.xml)
@@ -81,7 +79,6 @@ ament_export_dependencies(
   hardware_interface
   pluginlib
   rclcpp
-  flexiv_msgs
 )
 
 ament_package()
