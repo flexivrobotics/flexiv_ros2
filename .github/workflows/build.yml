@@ -1,0 +1,43 @@
+name: Foxy Source Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  foxy_source:
+    name: Foxy source job
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+    env:
+      ROS_DISTRO: foxy
+    steps:
+      - name: Setup ROS
+        uses: ros-tooling/setup-ros@0.3.4
+        with:
+          required-ros-distributions: ${{ env.ROS_DISTRO }}
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Build and run tests
+        id: action-ros-ci
+        uses: ros-tooling/action-ros-ci@0.2.6
+        with:
+          target-ros2-distro: ${{ env.ROS_DISTRO }}
+          package-name: |
+            flexiv_bringup
+            flexiv_controllers
+            flexiv_description
+            flexiv_hardware
+            flexiv_moveit_config
+            flexiv_msgs
+            flexiv_test_nodes
+          skip-tests: true
+          vcs-repo-file-url: https://raw.githubusercontent.com/ros2/ros2/${{ env.ROS_DISTRO }}/ros2.repos
+      - name: Upload artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: colcon-logs-${{ matrix.os }}
+          path: ros_ws/log

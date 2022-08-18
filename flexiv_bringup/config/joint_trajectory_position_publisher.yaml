@@ -1,0 +1,22 @@
+publisher_joint_trajectory_controller:
+  ros__parameters:
+
+    controller_name: "rizon_arm_controller"
+    wait_sec_between_publish: 6
+
+    goal_names: ["pos1", "pos2", "pos3", "pos4"]
+    pos1: [0.0, -0.698, 0.0, 1.57, 0.0, 0.698, 0.0]
+    pos2: [0.698, -0.698, 0.698, 1.57, 0.698, 0.698, 0.698]
+    pos3: [0.0, -0.698, 0.0, 1.57, 0.0, 0.698, 0.0]
+    pos4: [-0.698, -0.698, 0.698, 1.57, 0.698, 0.698, 0.698]
+
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+      - joint7
+
+    check_starting_point: true
