@@ -36,8 +36,3 @@ jobs:
             flexiv_test_nodes
           skip-tests: true
           vcs-repo-file-url: https://raw.githubusercontent.com/ros2/ros2/${{ env.ROS_DISTRO }}/ros2.repos
-      - name: Upload artifact
-        uses: actions/upload-artifact@v1
-        with:
-          name: colcon-logs-${{ matrix.os }}
-          path: ros_ws/log
