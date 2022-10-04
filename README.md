@@ -86,7 +86,7 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 
 - `robot_ip` (*required*) - IP address of the robot server (remote).
 - `local_ip` (*required*) - IP address of the workstation PC (local).
-- `rizon_type` (default: *rizon4s*) - type of the Flexiv Rizon robot.
+- `rizon_type` (default: *rizon4*) - type of the Flexiv Rizon robot.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
 - `start_rviz` (deafult: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
