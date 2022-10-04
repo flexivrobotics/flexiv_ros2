@@ -17,6 +17,15 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            "rizon_type",
+            description="Type of the Flexiv Rizon robot.",
+            default_value="rizon4",
+            choices=["rizon4", "rizon4s"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             "robot_ip",
             description="IP address of the robot server (remote).",
         )
@@ -71,6 +80,7 @@ def generate_launch_description():
     )
 
     # Initialize Arguments
+    rizon_type = LaunchConfiguration("rizon_type")
     robot_ip = LaunchConfiguration("robot_ip")
     local_ip = LaunchConfiguration("local_ip")
     start_rviz = LaunchConfiguration("start_rviz")
@@ -85,7 +95,7 @@ def generate_launch_description():
             PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
             PathJoinSubstitution(
-                [FindPackageShare("flexiv_description"), "urdf", "rizon4.urdf.xacro"]
+                [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
             ),
             " ",
             "robot_ip:=",
@@ -93,6 +103,9 @@ def generate_launch_description():
             " ",
             "local_ip:=",
             local_ip,
+            " ",
+            "rizon_type:=",
+            rizon_type,
             " ",
             "use_fake_hardware:=",
             use_fake_hardware,

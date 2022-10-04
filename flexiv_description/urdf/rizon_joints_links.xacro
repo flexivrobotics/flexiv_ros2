@@ -2,12 +2,12 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <!--
-    product_id = "A02L-M"
+    rizon_type = "rizon4", "rizon4s"
     prefix = "", "left_"
     mesh_prefix_path = "", "package://flexiv_description/"
     NOTE: accurate kinematic but approximated dynamics parameters
   -->
-  <xacro:macro name="rizon4_joints_links" params="product_id prefix mesh_prefix_path">
+  <xacro:macro name="rizon_joints_links" params="rizon_type prefix mesh_prefix_path">
 
     <!-- JOINTS-->
     <joint name="${prefix}base_joint" type="fixed">
@@ -75,8 +75,11 @@
     <joint name="${prefix}link7_to_flange" type="fixed">
       <parent link="${prefix}link7"/>
       <child link="${prefix}flange"/>
-      <xacro:if value="${product_id=='A02L-M'}">
+      <xacro:if value="${rizon_type=='rizon4'}">
         <origin xyz="0.0 0.0 0.081" rpy="0 0 ${-pi}"/>
+      </xacro:if>
+      <xacro:if value="${rizon_type=='rizon4s'}">
+        <origin xyz="0.0 0.0 0.124" rpy="0 0 ${-pi}"/>
       </xacro:if>
     </joint>
 
@@ -93,13 +96,13 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/visual/link0.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link0.obj" />
         </geometry>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/collision/link0.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link0.obj" />
         </geometry>
       </collision>
     </link>
@@ -113,13 +116,13 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/visual/link1.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link1.obj" />
         </geometry>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/collision/link1.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link1.obj" />
         </geometry>
       </collision>
     </link>
@@ -133,13 +136,13 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/visual/link2.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link2.obj" />
         </geometry>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/collision/link2.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link2.obj" />
         </geometry>
       </collision>
     </link>
@@ -153,13 +156,13 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/visual/link3.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link3.obj" />
         </geometry>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/collision/link3.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link3.obj" />
         </geometry>
       </collision>
     </link>
@@ -173,13 +176,13 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/visual/link4.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link4.obj" />
         </geometry>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/collision/link4.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link4.obj" />
         </geometry>
       </collision>
     </link>
@@ -193,13 +196,13 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/visual/link5.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link5.obj" />
         </geometry>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/collision/link5.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link5.obj" />
         </geometry>
       </collision>
     </link>
@@ -213,19 +216,19 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/visual/link6.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link6.obj" />
         </geometry>
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/rizon4/collision/link6.obj" />
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link6.obj" />
         </geometry>
       </collision>
     </link>
 
     <link name="${prefix}link7">
-      <xacro:if value="${product_id=='A02L-M'}">
+      <xacro:if value="${rizon_type=='rizon4'}">
         <inertial>
           <mass value="0.8" />
           <origin rpy="0 0 0" xyz="0.0 0.0 0.03" />
@@ -234,13 +237,32 @@
         <visual>
           <origin xyz="0 0 0" rpy="0 0 0"/>
           <geometry>
-            <mesh filename="${mesh_prefix_path}meshes/rizon4/visual/link7.obj" />
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link7.obj" />
           </geometry>
         </visual>
         <collision>
           <origin xyz="0 0 0" rpy="0 0 0"/>
           <geometry>
-            <mesh filename="${mesh_prefix_path}meshes/rizon4/collision/link7.obj" />
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link7.obj" />
+          </geometry>
+        </collision>
+      </xacro:if>
+      <xacro:if value="${rizon_type=='rizon4s'}">
+        <inertial>
+          <mass value="1.4" />
+          <origin xyz="0.0 0.0 0.05" rpy="0 0 0"/>
+          <inertia ixx="0.003" iyy="0.003" izz="0.002" ixy="0.0" ixz="0.0" iyz="0.0"/>
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link7.obj" />
+          </geometry>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link7.obj" />
           </geometry>
         </collision>
       </xacro:if>

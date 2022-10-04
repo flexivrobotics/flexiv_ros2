@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-    <xacro:macro name="rizon4_srdf" params="name prefix">
+    <xacro:macro name="rizon_srdf" params="name prefix">
         <group name="${prefix}${name}_arm">
             <chain base_link="${prefix}base_link" tip_link="${prefix}flange" />
         </group>

@@ -29,6 +29,15 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            "rizon_type",
+            description="Type of the Flexiv Rizon robot.",
+            default_value="rizon4",
+            choices=["rizon4", "rizon4s"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             "robot_ip",
             description="IP address of the robot server (remote).",
         )
@@ -66,6 +75,7 @@ def generate_launch_description():
         )
     )
 
+    rizon_type = LaunchConfiguration("rizon_type")
     robot_ip = LaunchConfiguration("robot_ip")
     local_ip = LaunchConfiguration("local_ip")
     use_fake_hardware = LaunchConfiguration("use_fake_hardware")
@@ -74,7 +84,7 @@ def generate_launch_description():
 
     # Get URDF via xacro
     flexiv_urdf_xacro = os.path.join(
-        get_package_share_directory("flexiv_description"), "urdf", "rizon4.urdf.xacro"
+        get_package_share_directory("flexiv_description"), "urdf", "rizon.urdf.xacro"
     )
 
     robot_description_content = Command(
@@ -89,6 +99,9 @@ def generate_launch_description():
             "local_ip:=",
             local_ip,
             " ",
+            "rizon_type:=",
+            rizon_type,
+            " ",
             "use_fake_hardware:=",
             use_fake_hardware,
             " ",
@@ -100,7 +113,7 @@ def generate_launch_description():
 
     # MoveIt configuration
     flexiv_srdf_xacro = os.path.join(
-        get_package_share_directory("flexiv_moveit_config"), "srdf", "rizon4.srdf.xacro"
+        get_package_share_directory("flexiv_moveit_config"), "srdf", "rizon.srdf.xacro"
     )
     robot_description_semantic_content = Command(
         [
@@ -109,7 +122,7 @@ def generate_launch_description():
             flexiv_srdf_xacro,
             " ",
             "name:=",
-            "rizon4",
+            "rizon",
         ]
     )
 

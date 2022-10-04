@@ -5,23 +5,15 @@
 
 For ROS2 users to easily work with [RDK](https://github.com/flexivrobotics/flexiv_rdk), the APIs of RDK are wrapped into ROS packages in `flexiv_ros2`. Key functionalities like real-time joint torque and position control are supported, and the integration with `ros2_control` framework and MoveIt 2 is also implemented.
 
-## License
-
-Flexiv RDK is licensed under the [Apache 2.0 license](https://www.apache.org/licenses/LICENSE-2.0.html).
-
 ## References
 
 [Flexiv RDK main webpage](https://rdk.flexiv.com/) contains important information like RDK user manual and network setup.
 
-## OS and distribution support
+## Compatibility
 
-Supported OS:
-
-- Linux: Ubuntu 20.04
-
-Supported ROS2 distribution:
-
-- [Foxy Fitzroy](https://docs.ros.org/en/foxy/index.html)
+| **Supported OS**          | **Supported ROS2 distribution**                         |
+|---------------------------|---------------------------------------------------------|
+| Ubuntu 20.04              | [Foxy Fitzroy](https://docs.ros.org/en/foxy/index.html) |
 
 ## Getting Started
 
@@ -33,21 +25,21 @@ This project was developed for ROS2 Foxy on Ubuntu 20.04. Other versions of Ubun
 
     ```bash
     sudo apt install -y \
-        python3-colcon-common-extensions \
-        python3-rosdep2
-        libeigen3-dev \
-        ros-foxy-xacro \
-        ros-foxy-tinyxml2-vendor \
-        ros-foxy-ros2-control \
-        ros-foxy-realtime-tools \
-        ros-foxy-control-toolbox \
-        ros-foxy-moveit \
-        ros-foxy-ros2-controllers \
-        ros-foxy-test-msgs \
-        ros-foxy-joint-state-publisher \
-        ros-foxy-joint-state-publisher-gui \
-        ros-foxy-robot-state-publisher \
-        ros-foxy-rviz2
+    python3-colcon-common-extensions \
+    python3-rosdep2 \
+    libeigen3-dev \
+    ros-foxy-xacro \
+    ros-foxy-tinyxml2-vendor \
+    ros-foxy-ros2-control \
+    ros-foxy-realtime-tools \
+    ros-foxy-control-toolbox \
+    ros-foxy-moveit \
+    ros-foxy-ros2-controllers \
+    ros-foxy-test-msgs \
+    ros-foxy-joint-state-publisher \
+    ros-foxy-joint-state-publisher-gui \
+    ros-foxy-robot-state-publisher \
+    ros-foxy-rviz2
     ```
 
 3. Setup workspace:
@@ -88,17 +80,29 @@ source ~/flexiv_ros2_ws/install/setup.bash
 
 **NOTE**: the instruction below is only a quick reference, see the [Flexiv ROS2 Documentation](https://rdk.flexiv.com/manual/ros2_packages.html) for more information.
 
-*(Details about the launch file can be found in [flexiv_bringup](/flexiv_bringup))*
+The prerequisites of using ROS2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/getting_started.html#enable-rdk-on-robot-server) and [establish connection](https://rdk.flexiv.com/manual/getting_started.html#establish-connection) between the workstation PC and the robot.
 
-1. Start robot, simulator or fake hardware:
+The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint state broadcaster, controllers and opens RViZ. The arguments for the launch file are as follows:
+
+- `robot_ip` (*required*) - IP address of the robot server (remote).
+- `local_ip` (*required*) - IP address of the workstation PC (local).
+- `rizon_type` (default: *rizon4*) - type of the Flexiv Rizon robot.
+- `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
+- `start_rviz` (deafult: *true*) - starts RViz automatically with the launch file.
+- `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
+- `robot_controller` (default: *rizon_arm_controller*) - robot controller to start. Available controllers: *forward_position_controller*, *rizon_arm_controller*, *joint_impedance_controller*.
+
+*(Details about other launch files can be found in [`flexiv_bringup`](/flexiv_bringup))*
+
+### Example Commands
+
+1. Start robot, or fake hardware:
 
     - Test with real robot:
 
         ```bash
-        ros2 launch flexiv_bringup rizon.launch.py robot_ip:=<RobotIP> local_ip:=<LocalIP>
+        ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip]
         ```
-
-        The launch file loads and starts the robot hardware, controllers and opens RViZ. Stop RViZ from auto-start use `start_rviz:=false` launch file argument.
 
         **NOTE**: Getting the following output in terminal is OK: `Warning: Invalid frame ID "link1" passed to canTransform argument source_frame - frame does not exist`. This happens because `joint_state_broadcaster` node need some time to start.
 
@@ -108,22 +112,20 @@ source ~/flexiv_ros2_ws/install/setup.bash
         ros2 launch flexiv_bringup rizon.launch.py robot_ip:=dont-care local_ip:=dont-care use_fake_hardware:=true
         ```
 
-        `use_fake_hardware` argument starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
-
 2. Publish commands to controllers
 
-   - The default controller in the launch file is `rizon_arm_controller`. To send the goal position to the controller by using the node from `flexiv_test_nodes`, start the following command in a new terminal:
+   - To send the goal position to the controller by using the node from `flexiv_test_nodes`, start the following command in a new terminal:
 
         ```bash
         ros2 launch flexiv_bringup test_joint_trajectory_controller.launch.py
         ```
 
-        You can change the joint position goals in `flexiv_bringup/config/joint_trajectory_position_publisher.yaml`.
+        The joint position goals can be changed in `flexiv_bringup/config/joint_trajectory_position_publisher.yaml`.
 
    - To test another controller, define it using the `robot_controller` launch argument, for example the `joint_impedance_controller`:
 
         ```bash
-        ros2 launch flexiv_bringup rizon.launch.py robot_ip:=<RobotIP> local_ip:=<LocalIP> robot_controller:=joint_impedance_controller
+        ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip] robot_controller:=joint_impedance_controller
         ```
 
         **NOTE**: The command starts the robot in the joint torque mode. In this mode, gravity and friction are compensated **only** for the robot **without** any attached objects (e.g. the gripper, camera).
@@ -143,7 +145,7 @@ source ~/flexiv_ros2_ws/install/setup.bash
 You can also run the MoveIt example and use the `MotionPlanning` plugin in RViZ to start planning:
 
 ```bash
-ros2 launch flexiv_bringup rizon_moveit.launch.py robot_ip:=<RobotIP> local_ip:=<LocalIP>
+ros2 launch flexiv_bringup rizon_moveit.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip]
 ```
 
 Test with fake hardware:
