@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:macro name="rizon4_ros2_control" params="prefix robot_ip local_ip use_fake_hardware:=^|false fake_sensor_commands:=^|false initial_positions_file">
+  <xacro:macro name="rizon_ros2_control" params="prefix robot_ip local_ip use_fake_hardware:=^|false fake_sensor_commands:=^|false initial_positions_file">
     <xacro:property name="initial_positions" value="${load_yaml(initial_positions_file)['initial_positions']}"/>
 
     <ros2_control name="FlexivHardwareInterface" type="system">

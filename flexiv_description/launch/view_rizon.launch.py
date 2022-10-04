@@ -13,6 +13,7 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     pkg_share = FindPackageShare("flexiv_description")
+    rizon_type = LaunchConfiguration("rizon_type")
     default_rviz_config_path = PathJoinSubstitution(
         [pkg_share, "rviz", "view_rizon.rviz"]
     )
@@ -21,8 +22,11 @@ def generate_launch_description():
             PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
             PathJoinSubstitution(
-                [FindPackageShare("flexiv_description"), "urdf", "rizon4.urdf.xacro"]
+                [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
             ),
+            " ",
+            "rizon_type:=",
+            rizon_type,
         ]
     )
 
@@ -60,6 +64,12 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                name="rizon_type",
+                default_value="rizon4",
+                description="Type of the Flexiv Rizon robot.",
+                choices=["rizon4", "rizon4s"],
+            ),
             DeclareLaunchArgument(
                 name="gui",
                 default_value="False",
