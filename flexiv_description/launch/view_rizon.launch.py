@@ -25,6 +25,9 @@ def generate_launch_description():
                 [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
             ),
             " ",
+            "name:=",
+            "rizon",
+            " ",
             "rizon_type:=",
             rizon_type,
         ]
@@ -68,7 +71,7 @@ def generate_launch_description():
                 name="rizon_type",
                 default_value="rizon4",
                 description="Type of the Flexiv Rizon robot.",
-                choices=["rizon4", "rizon4s"],
+                choices=["rizon4", "rizon4s", "rizon10"],
             ),
             DeclareLaunchArgument(
                 name="gui",
