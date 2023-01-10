@@ -93,7 +93,7 @@
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link0.obj" />
         </geometry>
-        <material name="rizon_light_grey" />
+        <material name="rizon_dark_grey" />
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -114,7 +114,7 @@
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link1.obj" />
         </geometry>
-        <material name="rizon_light_grey" />
+        <material name="rizon_dark_grey" />
       </visual>
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0" />
