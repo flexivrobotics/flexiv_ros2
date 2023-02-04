@@ -80,7 +80,7 @@ source ~/flexiv_ros2_ws/install/setup.bash
 
 **NOTE**: the instruction below is only a quick reference, see the [Flexiv ROS2 Documentation](https://rdk.flexiv.com/manual/ros2_packages.html) for more information.
 
-The prerequisites of using ROS2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/getting_started.html#enable-rdk-on-robot-server) and [establish connection](https://rdk.flexiv.com/manual/getting_started.html#establish-connection) between the workstation PC and the robot.
+The prerequisites of using ROS2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/getting_started.html#activate-rdk-server) and [establish connection](https://rdk.flexiv.com/manual/getting_started.html#establish-connection) between the workstation PC and the robot.
 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint state broadcaster, controllers and opens RViZ. The arguments for the launch file are as follows:
 
