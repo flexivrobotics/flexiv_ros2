@@ -101,10 +101,10 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
     - Test with real robot:
 
         ```bash
-        ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip]
+        ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip] rizon_type:=rizon4
         ```
 
-        **NOTE**: Getting the following output in terminal is OK: `Warning: Invalid frame ID "link1" passed to canTransform argument source_frame - frame does not exist`. This happens because `joint_state_broadcaster` node need some time to start.
+        **NOTE**: To test whether the connection between ROS and the robot is established, you could disable the starting of RViz first by setting the `start_rviz` launch argument to false.
 
     - Test with fake hardware (`ros2_control` capability):
 
