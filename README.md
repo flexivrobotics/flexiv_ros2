@@ -80,13 +80,13 @@ source ~/flexiv_ros2_ws/install/setup.bash
 
 **NOTE**: the instruction below is only a quick reference, see the [Flexiv ROS2 Documentation](https://rdk.flexiv.com/manual/ros2_packages.html) for more information.
 
-The prerequisites of using ROS2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/getting_started.html#enable-rdk-on-robot-server) and [establish connection](https://rdk.flexiv.com/manual/getting_started.html#establish-connection) between the workstation PC and the robot.
+The prerequisites of using ROS2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/getting_started.html#activate-rdk-server) and [establish connection](https://rdk.flexiv.com/manual/getting_started.html#establish-connection) between the workstation PC and the robot.
 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint state broadcaster, controllers and opens RViZ. The arguments for the launch file are as follows:
 
 - `robot_ip` (*required*) - IP address of the robot server (remote).
 - `local_ip` (*required*) - IP address of the workstation PC (local).
-- `rizon_type` (default: *rizon4*) - type of the Flexiv Rizon robot.
+- `rizon_type` (default: *rizon4*) - type of the Flexiv Rizon robot. (rizon4, rizon4s or rizon10)
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
 - `start_rviz` (deafult: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
@@ -101,10 +101,10 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
     - Test with real robot:
 
         ```bash
-        ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip]
+        ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip] rizon_type:=rizon4
         ```
 
-        **NOTE**: Getting the following output in terminal is OK: `Warning: Invalid frame ID "link1" passed to canTransform argument source_frame - frame does not exist`. This happens because `joint_state_broadcaster` node need some time to start.
+        **NOTE**: To test whether the connection between ROS and the robot is established, you could disable the starting of RViz first by setting the `start_rviz` launch argument to false.
 
     - Test with fake hardware (`ros2_control` capability):
 

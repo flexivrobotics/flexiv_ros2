@@ -32,7 +32,7 @@ def generate_launch_description():
             "rizon_type",
             description="Type of the Flexiv Rizon robot.",
             default_value="rizon4",
-            choices=["rizon4", "rizon4s"],
+            choices=["rizon4", "rizon4s", "rizon10"],
         )
     )
 
@@ -98,6 +98,9 @@ def generate_launch_description():
             " ",
             "local_ip:=",
             local_ip,
+            " ",
+            "name:=",
+            "rizon",
             " ",
             "rizon_type:=",
             rizon_type,
