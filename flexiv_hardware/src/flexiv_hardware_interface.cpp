@@ -314,7 +314,7 @@ return_type FlexivHardwareInterface::write()
             hw_commands_velocities_, targetAcceleration);
     } else if (torque_controller_running_
                && robot_->getMode() == flexiv::MODE_JOINT_TORQUE && !isNanEff) {
-        robot_->streamJointTorque(hw_commands_efforts_);
+        robot_->streamJointTorque(hw_commands_efforts_, true, true);
     }
 
     return return_type::OK;
@@ -400,27 +400,19 @@ return_type FlexivHardwareInterface::perform_command_mode_switch(
                StoppingInterface::STOP_POSITION)
                != stop_modes_.end()) {
         position_controller_running_ = false;
-        hw_commands_positions_ = hw_states_positions_;
+        robot_->stop();
     } else if (stop_modes_.size() != 0
                && std::find(stop_modes_.begin(), stop_modes_.end(),
                       StoppingInterface::STOP_VELOCITY)
                       != stop_modes_.end()) {
         velocity_controller_running_ = false;
-        for (std::size_t i = 0; i < n_joints; i++) {
-            if (std::isnan(hw_commands_velocities_[i])) {
-                hw_commands_velocities_[i] = 0;
-            }
-        }
+        robot_->stop();
     } else if (stop_modes_.size() != 0
                && std::find(stop_modes_.begin(), stop_modes_.end(),
                       StoppingInterface::STOP_EFFORT)
                       != stop_modes_.end()) {
         torque_controller_running_ = false;
-        for (std::size_t i = 0; i < n_joints; i++) {
-            if (std::isnan(hw_commands_efforts_[i])) {
-                hw_commands_efforts_[i] = 0;
-            }
-        }
+        robot_->stop();
     }
 
     if (start_modes_.size() != 0
@@ -429,41 +421,62 @@ return_type FlexivHardwareInterface::perform_command_mode_switch(
                != start_modes_.end()) {
         velocity_controller_running_ = false;
         torque_controller_running_ = false;
-        hw_commands_positions_ = hw_states_positions_;
-        position_controller_running_ = true;
-        if (robot_->getMode() != flexiv::MODE_JOINT_POSITION) {
-            robot_->setMode(flexiv::MODE_JOINT_POSITION);
+
+        // Hold joints before user commands arrives
+        std::fill(hw_commands_positions_.begin(), hw_commands_positions_.end(),
+            std::numeric_limits<double>::quiet_NaN());
+
+        // Set to joint position mode
+        robot_->setMode(flexiv::MODE_JOINT_POSITION);
+
+        // Wait for the mode to be switched
+        while (robot_->getMode() != flexiv::MODE_JOINT_POSITION) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
+
+        position_controller_running_ = true;
     } else if (start_modes_.size() != 0
                && std::find(start_modes_.begin(), start_modes_.end(),
                       hardware_interface::HW_IF_VELOCITY)
                       != start_modes_.end()) {
         position_controller_running_ = false;
         torque_controller_running_ = false;
-        for (std::size_t i = 0; i < n_joints; i++) {
-            if (std::isnan(hw_commands_velocities_[i])) {
-                hw_commands_velocities_[i] = 0;
-            }
+
+        // Hold joints before user commands arrives
+        std::fill(hw_commands_velocities_.begin(),
+            hw_commands_velocities_.end(),
+            std::numeric_limits<double>::quiet_NaN());
+
+        // Set to joint position mode
+        robot_->setMode(flexiv::MODE_JOINT_POSITION);
+
+        // Wait for the mode to be switched
+        while (robot_->getMode() != flexiv::MODE_JOINT_POSITION) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
+
         velocity_controller_running_ = true;
-        if (robot_->getMode() != flexiv::MODE_JOINT_POSITION) {
-            robot_->setMode(flexiv::MODE_JOINT_POSITION);
-        }
     } else if (start_modes_.size() != 0
                && std::find(start_modes_.begin(), start_modes_.end(),
                       hardware_interface::HW_IF_EFFORT)
                       != start_modes_.end()) {
         position_controller_running_ = false;
         velocity_controller_running_ = false;
-        for (std::size_t i = 0; i < n_joints; i++) {
-            if (std::isnan(hw_commands_efforts_[i])) {
-                hw_commands_efforts_[i] = 0;
-            }
+
+        // Hold joints when starting joint torque controller before user
+        // commands arrives
+        std::fill(hw_commands_efforts_.begin(), hw_commands_efforts_.end(),
+            std::numeric_limits<double>::quiet_NaN());
+
+        // Set to joint torque mode
+        robot_->setMode(flexiv::MODE_JOINT_TORQUE);
+
+        // Wait for the mode to be switched
+        while (robot_->getMode() != flexiv::MODE_JOINT_TORQUE) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
+
         torque_controller_running_ = true;
-        if (robot_->getMode() != flexiv::MODE_JOINT_TORQUE) {
-            robot_->setMode(flexiv::MODE_JOINT_TORQUE);
-        }
     }
 
     start_modes_.clear();
