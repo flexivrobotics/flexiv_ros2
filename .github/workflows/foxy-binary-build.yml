@@ -1,4 +1,4 @@
-name: Foxy Source Build
+name: Foxy Binary Build
 
 on:
   push:
