@@ -1,9 +1,9 @@
-# Flexiv ROS2
+# Flexiv ROS 2
 
 [![Foxy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/build.yml/badge.svg)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-For ROS2 users to easily work with [RDK](https://github.com/flexivrobotics/flexiv_rdk), the APIs of RDK are wrapped into ROS packages in `flexiv_ros2`. Key functionalities like real-time joint torque and position control are supported, and the integration with `ros2_control` framework and MoveIt 2 is also implemented.
+For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flexiv_rdk), the APIs of RDK are wrapped into ROS packages in `flexiv_ros2`. Key functionalities like real-time joint torque and position control are supported, and the integration with `ros2_control` framework and MoveIt 2 is also implemented.
 
 ## References
 
@@ -11,15 +11,15 @@ For ROS2 users to easily work with [RDK](https://github.com/flexivrobotics/flexi
 
 ## Compatibility
 
-| **Supported OS**          | **Supported ROS2 distribution**                         |
+| **Supported OS**          | **Supported ROS 2 distribution**                         |
 |---------------------------|---------------------------------------------------------|
 | Ubuntu 20.04              | [Foxy Fitzroy](https://docs.ros.org/en/foxy/index.html) |
 
 ## Getting Started
 
-This project was developed for ROS2 Foxy on Ubuntu 20.04. Other versions of Ubuntu and ROS2 may work, but are not officially supported.
+This project was developed for ROS 2 Foxy on Ubuntu 20.04. Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
 
-1. Install [ROS2 Foxy via Debian Packages](https://docs.ros.org/en/foxy/Installation/Ubuntu-Install-Debians.html)
+1. Install [ROS 2 Foxy via Debian Packages](https://docs.ros.org/en/foxy/Installation/Ubuntu-Install-Debians.html)
 
 2. Install `colcon` and additional ROS packages:
 
@@ -78,9 +78,9 @@ source ~/flexiv_ros2_ws/install/setup.bash
 
 ## Usage
 
-**NOTE**: the instruction below is only a quick reference, see the [Flexiv ROS2 Documentation](https://rdk.flexiv.com/manual/ros2_packages.html) for more information.
+**NOTE**: the instruction below is only a quick reference, see the [Flexiv ROS 2 Documentation](https://rdk.flexiv.com/manual/ros2_packages.html) for more information.
 
-The prerequisites of using ROS2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/getting_started.html#activate-rdk-server) and [establish connection](https://rdk.flexiv.com/manual/getting_started.html#establish-connection) between the workstation PC and the robot.
+The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/getting_started.html#activate-rdk-server) and [establish connection](https://rdk.flexiv.com/manual/getting_started.html#establish-connection) between the workstation PC and the robot.
 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint state broadcaster, controllers and opens RViZ. The arguments for the launch file are as follows:
 
