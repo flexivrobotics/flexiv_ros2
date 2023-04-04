@@ -11,6 +11,6 @@ CartesianState tcp_pose_des
 CartesianVelocity tcp_vel
 CartesianState cam_pose
 CartesianState flange_pose
-CartesianState end_link_pose
-ExternalForce ext_force_tcp_frame
-ExternalForce ext_force_base_frame
+ExternalWrench ft_sensor_raw
+ExternalWrench ext_wrench_tcp_frame
+ExternalWrench ext_wrench_base_frame
