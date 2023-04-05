@@ -6,11 +6,11 @@ float64[7] tau
 float64[7] tau_des
 float64[7] tau_dot
 float64[7] tau_ext
-CartesianState tcp_pose
-CartesianState tcp_pose_des
-CartesianVelocity tcp_vel
-CartesianState cam_pose
-CartesianState flange_pose
+geometry_msgs/Pose tcp_pose
+geometry_msgs/Pose tcp_pose_des
+geometry_msgs/Accel tcp_vel
+geometry_msgs/Pose cam_pose
+geometry_msgs/Pose flange_pose
 geometry_msgs/Wrench ft_sensor_raw
 geometry_msgs/Wrench ext_wrench_tcp_frame
 geometry_msgs/Wrench ext_wrench_base_frame

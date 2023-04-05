@@ -27,19 +27,29 @@ return_type FlexivHardwareInterface::configure(
         return return_type::ERROR;
     }
 
-    hw_states_positions_.resize(
+    hw_states_joint_positions_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_states_velocities_.resize(
+    hw_states_joint_velocities_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_states_efforts_.resize(
+    hw_states_joint_efforts_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_commands_positions_.resize(
+    hw_commands_joint_positions_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_commands_velocities_.resize(
+    hw_commands_joint_velocities_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_commands_efforts_.resize(
+    hw_commands_joint_efforts_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    internal_commands_positions_.resize(
+    hw_states_force_torque_sensor_.resize(
+        info_.sensors[0].state_interfaces.size(),
+        std::numeric_limits<double>::quiet_NaN());
+    hw_states_external_wrench_in_base_.resize(
+        info_.sensors[1].state_interfaces.size(),
+        std::numeric_limits<double>::quiet_NaN());
+    hw_states_external_wrench_in_tcp_.resize(
+        info_.sensors[2].state_interfaces.size(),
+        std::numeric_limits<double>::quiet_NaN());
+    hw_states_tcp_pose_.resize(7, std::numeric_limits<double>::quiet_NaN());
+    internal_commands_joint_positions_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE, StoppingInterface::NONE,
@@ -173,15 +183,42 @@ FlexivHardwareInterface::export_state_interfaces()
 
     std::vector<hardware_interface::StateInterface> state_interfaces;
     for (std::size_t i = 0; i < info_.joints.size(); i++) {
-        state_interfaces.emplace_back(
-            hardware_interface::StateInterface(info_.joints[i].name,
-                hardware_interface::HW_IF_POSITION, &hw_states_positions_[i]));
-        state_interfaces.emplace_back(
-            hardware_interface::StateInterface(info_.joints[i].name,
-                hardware_interface::HW_IF_VELOCITY, &hw_states_velocities_[i]));
-        state_interfaces.emplace_back(
-            hardware_interface::StateInterface(info_.joints[i].name,
-                hardware_interface::HW_IF_EFFORT, &hw_states_efforts_[i]));
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+            info_.joints[i].name, hardware_interface::HW_IF_POSITION,
+            &hw_states_joint_positions_[i]));
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+            info_.joints[i].name, hardware_interface::HW_IF_VELOCITY,
+            &hw_states_joint_velocities_[i]));
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+            info_.joints[i].name, hardware_interface::HW_IF_EFFORT,
+            &hw_states_joint_efforts_[i]));
+    }
+
+    for (std::size_t i = 0; i < info_.sensors.size(); i++) {
+        const auto& sensor = info_.sensors[i];
+        for (std::size_t j = 0; j < sensor.state_interfaces.size(); j++) {
+            if (i == 0) {
+                state_interfaces.emplace_back(
+                    hardware_interface::StateInterface(sensor.name,
+                        sensor.state_interfaces[j].name,
+                        &hw_states_force_torque_sensor_[j]));
+            } else if (i == 1) {
+                state_interfaces.emplace_back(
+                    hardware_interface::StateInterface(sensor.name,
+                        sensor.state_interfaces[j].name,
+                        &hw_states_external_wrench_in_base_[j]));
+            } else if (i == 2) {
+                state_interfaces.emplace_back(
+                    hardware_interface::StateInterface(sensor.name,
+                        sensor.state_interfaces[j].name,
+                        &hw_states_external_wrench_in_tcp_[j]));
+            } else if (i == 3) {
+                state_interfaces.emplace_back(
+                    hardware_interface::StateInterface(sensor.name,
+                        sensor.state_interfaces[j].name,
+                        &hw_states_tcp_pose_[j]));
+            }
+        }
     }
 
     return state_interfaces;
@@ -196,13 +233,13 @@ FlexivHardwareInterface::export_command_interfaces()
     for (size_t i = 0; i < info_.joints.size(); i++) {
         command_interfaces.emplace_back(hardware_interface::CommandInterface(
             info_.joints[i].name, hardware_interface::HW_IF_POSITION,
-            &hw_commands_positions_[i]));
+            &hw_commands_joint_positions_[i]));
         command_interfaces.emplace_back(hardware_interface::CommandInterface(
             info_.joints[i].name, hardware_interface::HW_IF_VELOCITY,
-            &hw_commands_velocities_[i]));
-        command_interfaces.emplace_back(
-            hardware_interface::CommandInterface(info_.joints[i].name,
-                hardware_interface::HW_IF_EFFORT, &hw_commands_efforts_[i]));
+            &hw_commands_joint_velocities_[i]));
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(
+            info_.joints[i].name, hardware_interface::HW_IF_EFFORT,
+            &hw_commands_joint_efforts_[i]));
     }
 
     return command_interfaces;
@@ -258,14 +295,26 @@ return_type FlexivHardwareInterface::read()
     }
 
     flexiv::RobotStates robot_states;
-
     if (robot_->isOperational() && robot_->getMode() != flexiv::Mode::IDLE) {
         robot_->getRobotStates(robot_states);
-        hw_states_positions_ = robot_states.q;
-        hw_states_velocities_ = robot_states.dtheta;
-        hw_states_efforts_ = robot_states.tau;
 
-        internal_commands_positions_ = hw_states_positions_;
+        hw_states_joint_positions_ = robot_states.q;
+        hw_states_joint_velocities_ = robot_states.dtheta;
+        hw_states_joint_efforts_ = robot_states.tau;
+        internal_commands_joint_positions_ = hw_states_joint_positions_;
+
+        hw_states_force_torque_sensor_ = robot_states.ftSensorRaw;
+        hw_states_external_wrench_in_base_ = robot_states.extWrenchInBase;
+        hw_states_external_wrench_in_tcp_ = robot_states.extWrenchInTcp;
+
+        // Convert quaternion order from [w, x, y, z] to [x, y, z, w]
+        hw_states_tcp_pose_[0] = robot_states.tcpPose[0];
+        hw_states_tcp_pose_[1] = robot_states.tcpPose[1];
+        hw_states_tcp_pose_[2] = robot_states.tcpPose[2];
+        hw_states_tcp_pose_[3] = robot_states.tcpPose[4];
+        hw_states_tcp_pose_[4] = robot_states.tcpPose[5];
+        hw_states_tcp_pose_[5] = robot_states.tcpPose[6];
+        hw_states_tcp_pose_[6] = robot_states.tcpPose[3];
     }
 
     return return_type::OK;
@@ -291,31 +340,32 @@ return_type FlexivHardwareInterface::write()
     bool isNanVel = false;
     bool isNanEff = false;
     for (std::size_t i = 0; i < n_joints; i++) {
-        if (hw_commands_positions_[i] != hw_commands_positions_[i])
+        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i])
             isNanPos = true;
-        if (hw_commands_velocities_[i] != hw_commands_velocities_[i])
+        if (hw_commands_joint_velocities_[i]
+            != hw_commands_joint_velocities_[i])
             isNanVel = true;
-        if (hw_commands_efforts_[i] != hw_commands_efforts_[i])
+        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i])
             isNanEff = true;
     }
 
     if (position_controller_running_
         && robot_->getMode() == flexiv::Mode::RT_JOINT_POSITION && !isNanPos) {
         robot_->streamJointPosition(
-            hw_commands_positions_, targetVelocity, targetAcceleration);
+            hw_commands_joint_positions_, targetVelocity, targetAcceleration);
     } else if (velocity_controller_running_
                && robot_->getMode() == flexiv::Mode::RT_JOINT_POSITION
                && !isNanVel) {
         for (std::size_t i = 0; i < n_joints; i++) {
-            internal_commands_positions_[i]
-                += hw_commands_velocities_[i] * duration.seconds();
+            internal_commands_joint_positions_[i]
+                += hw_commands_joint_velocities_[i] * duration.seconds();
         }
-        robot_->streamJointPosition(internal_commands_positions_,
-            hw_commands_velocities_, targetAcceleration);
+        robot_->streamJointPosition(internal_commands_joint_positions_,
+            hw_commands_joint_velocities_, targetAcceleration);
     } else if (torque_controller_running_
                && robot_->getMode() == flexiv::Mode::RT_JOINT_TORQUE
                && !isNanEff) {
-        robot_->streamJointTorque(hw_commands_efforts_, true, true);
+        robot_->streamJointTorque(hw_commands_joint_efforts_, true, true);
     }
 
     return return_type::OK;
@@ -424,7 +474,8 @@ return_type FlexivHardwareInterface::perform_command_mode_switch(
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
-        std::fill(hw_commands_positions_.begin(), hw_commands_positions_.end(),
+        std::fill(hw_commands_joint_positions_.begin(),
+            hw_commands_joint_positions_.end(),
             std::numeric_limits<double>::quiet_NaN());
 
         // Set to joint position mode
@@ -439,8 +490,8 @@ return_type FlexivHardwareInterface::perform_command_mode_switch(
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
-        std::fill(hw_commands_velocities_.begin(),
-            hw_commands_velocities_.end(),
+        std::fill(hw_commands_joint_velocities_.begin(),
+            hw_commands_joint_velocities_.end(),
             std::numeric_limits<double>::quiet_NaN());
 
         // Set to joint position mode
@@ -456,7 +507,8 @@ return_type FlexivHardwareInterface::perform_command_mode_switch(
 
         // Hold joints when starting joint torque controller before user
         // commands arrives
-        std::fill(hw_commands_efforts_.begin(), hw_commands_efforts_.end(),
+        std::fill(hw_commands_joint_efforts_.begin(),
+            hw_commands_joint_efforts_.end(),
             std::numeric_limits<double>::quiet_NaN());
 
         // Set to joint torque mode
