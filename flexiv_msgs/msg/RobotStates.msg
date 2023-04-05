@@ -11,6 +11,6 @@ CartesianState tcp_pose_des
 CartesianVelocity tcp_vel
 CartesianState cam_pose
 CartesianState flange_pose
-ExternalWrench ft_sensor_raw
-ExternalWrench ext_wrench_tcp_frame
-ExternalWrench ext_wrench_base_frame
+geometry_msgs/Wrench ft_sensor_raw
+geometry_msgs/Wrench ext_wrench_tcp_frame
+geometry_msgs/Wrench ext_wrench_base_frame

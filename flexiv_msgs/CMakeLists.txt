@@ -10,7 +10,6 @@ find_package(builtin_interfaces REQUIRED)
 set(msg_files
   msg/CartesianState.msg
   msg/CartesianVelocity.msg
-  msg/ExternalWrench.msg
   msg/JointPosVel.msg
   msg/Mode.msg
   msg/RobotStates.msg
