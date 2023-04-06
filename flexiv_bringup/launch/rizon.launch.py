@@ -169,7 +169,12 @@ def generate_launch_description():
 
     # Load broadcasters
     load_controllers = []
-    for controller in ["joint_state_broadcaster"]:
+    for controller in [
+        "joint_state_broadcaster",
+        "force_torque_sensor_broadcaster",
+        "external_wrench_in_base_broadcaster",
+        "external_wrench_in_tcp_broadcaster",
+    ]:
         load_controllers += [
             ExecuteProcess(
                 cmd=["ros2 run controller_manager spawner.py {}".format(controller)],

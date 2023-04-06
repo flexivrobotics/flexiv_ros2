@@ -11,8 +11,34 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
+    force_torque_sensor_broadcaster:
+      type: force_torque_sensor_broadcaster/ForceTorqueSensorBroadcaster
+
+    external_wrench_in_base_broadcaster:
+      type: flexiv_controllers/ExternalTcpWrenchBroadcaster
+
+    external_wrench_in_tcp_broadcaster:
+      type: flexiv_controllers/ExternalTcpWrenchBroadcaster
+
     rizon_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
+
+force_torque_sensor_broadcaster:
+  ros__parameters:
+    sensor_name: force_torque_sensor
+    frame_id: flange
+
+external_wrench_in_tcp_broadcaster:
+  ros__parameters:
+    sensor_name: external_wrench_in_tcp
+    frame_id: flange
+    topic_name: external_wrench_in_tcp
+
+external_wrench_in_base_broadcaster:
+  ros__parameters:
+    sensor_name: external_wrench_in_base
+    frame_id: flange
+    topic_name: external_wrench_in_base
 
 forward_position_controller:
   ros__parameters:

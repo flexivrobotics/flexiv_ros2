@@ -5,4 +5,10 @@
             The joint impedance controller commands a group of joints in effort interface.
         </description>
     </class>
+    <class name="flexiv_controllers/ExternalTcpWrenchBroadcaster"
+           type="flexiv_controllers::ExternalTcpWrenchBroadcaster" base_class_type="controller_interface::ControllerInterface">
+        <description>
+            The external tcp wrench broadcaster publishes the estimated external wrench applied on TCP.
+        </description>
+    </class>
 </library>
