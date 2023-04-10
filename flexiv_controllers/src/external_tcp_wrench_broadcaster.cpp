@@ -1,7 +1,7 @@
 /**
  * @file external_tcp_wrench_broadcaster.cpp
- * Controller to publish the estimated external wrench applied on TCP. Adapted
- * from ros2_controllers/force_torque_sensor_broadcaster
+ * @brief Controller to publish the estimated external wrench applied on TCP.
+ * Adapted from ros2_controllers/force_torque_sensor_broadcaster
  * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
