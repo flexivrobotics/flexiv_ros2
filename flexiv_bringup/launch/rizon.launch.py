@@ -174,6 +174,7 @@ def generate_launch_description():
         "force_torque_sensor_broadcaster",
         "external_wrench_in_base_broadcaster",
         "external_wrench_in_tcp_broadcaster",
+        "tcp_pose_state_broadcaster",
     ]:
         load_controllers += [
             ExecuteProcess(

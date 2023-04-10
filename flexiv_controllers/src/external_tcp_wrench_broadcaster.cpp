@@ -132,7 +132,7 @@ CallbackReturn ExternalTcpWrenchBroadcaster::on_configure(
         // register ft sensor data publisher
         sensor_state_publisher_
             = node_->create_publisher<geometry_msgs::msg::WrenchStamped>(
-                topic_name_, rclcpp::SystemDefaultsQoS());
+                "~/" + topic_name_, rclcpp::SystemDefaultsQoS());
         realtime_publisher_
             = std::make_unique<StatePublisher>(sensor_state_publisher_);
     } catch (const std::exception& e) {

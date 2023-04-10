@@ -19,6 +19,9 @@ controller_manager:
 
     external_wrench_in_tcp_broadcaster:
       type: flexiv_controllers/ExternalTcpWrenchBroadcaster
+    
+    tcp_pose_state_broadcaster:
+      type: flexiv_controllers/TcpPoseStateBroadcaster
 
     rizon_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
@@ -39,6 +42,12 @@ external_wrench_in_base_broadcaster:
     sensor_name: external_wrench_in_base
     frame_id: flange
     topic_name: external_wrench_in_base
+
+tcp_pose_state_broadcaster:
+  ros__parameters:
+    sensor_name: tcp_pose
+    frame_id: flange
+    topic_name: tcp_pose
 
 forward_position_controller:
   ros__parameters:

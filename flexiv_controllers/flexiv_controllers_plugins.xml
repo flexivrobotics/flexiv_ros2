@@ -11,4 +11,10 @@
             The external tcp wrench broadcaster publishes the estimated external wrench applied on TCP.
         </description>
     </class>
+    <class name="flexiv_controllers/TcpPoseStateBroadcaster"
+           type="flexiv_controllers::TcpPoseStateBroadcaster" base_class_type="controller_interface::ControllerInterface">
+        <description>
+            The TCP pose state broadcaster publishes the measured TCP pose expressed in base frame.
+        </description>
+    </class>
 </library>
