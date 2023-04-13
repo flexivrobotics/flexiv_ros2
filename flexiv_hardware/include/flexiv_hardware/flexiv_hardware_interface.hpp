@@ -1,6 +1,6 @@
 /**
  * @file flexiv_hardware_interface.hpp
- * Hardware interface to Flexiv robots for ROS2 control. Adapted from
+ * @brief Hardware interface to Flexiv robots for ROS 2 control. Adapted from
  * ros2_control_demos/ros2_control_demo_hardware/include/ros2_control_demo_hardware/rrbot_system_multi_interface.hpp
  * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
@@ -87,14 +87,33 @@ public:
     static const size_t n_joints = 7;
 
 private:
+    // Flexiv RDK
     std::unique_ptr<flexiv::Robot> robot_;
-    std::vector<double> hw_commands_positions_;
-    std::vector<double> hw_commands_velocities_;
-    std::vector<double> hw_commands_efforts_;
-    std::vector<double> hw_states_positions_;
-    std::vector<double> hw_states_velocities_;
-    std::vector<double> hw_states_efforts_;
-    std::vector<double> internal_commands_positions_;
+
+    // Joint commands
+    std::vector<double> hw_commands_joint_positions_;
+    std::vector<double> hw_commands_joint_velocities_;
+    std::vector<double> hw_commands_joint_efforts_;
+    std::vector<double> internal_commands_joint_positions_;
+
+    // Joint states
+    std::vector<double> hw_states_joint_positions_;
+    std::vector<double> hw_states_joint_velocities_;
+    std::vector<double> hw_states_joint_efforts_;
+
+    // Force-torque (FT) sensor raw reading in flange frame. The value is 0 if
+    // no FT sensor is installed.
+    std::vector<double> hw_states_force_torque_sensor_;
+
+    // Estimated external wrench applied on TCP and expressed in base frame.
+    std::vector<double> hw_states_external_wrench_in_base_;
+
+    // Estimated external wrench applied on TCP and expressed in TCP frame.
+    std::vector<double> hw_states_external_wrench_in_tcp_;
+
+    // Measured TCP pose expressed in base frame [x, y, z, qx, qy, qz, qw].
+    std::vector<double> hw_states_tcp_pose_;
+
     static rclcpp::Logger getLogger();
 
     // control modes

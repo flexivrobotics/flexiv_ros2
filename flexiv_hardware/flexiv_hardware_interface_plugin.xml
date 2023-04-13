@@ -4,7 +4,7 @@
            base_class_type="hardware_interface::SystemInterface">
 
         <description>
-            ROS2 Control Hardware interface for the Flexiv robots. This driver
+            ROS 2 Control Hardware interface for the Flexiv robots. This driver
             uses Flexiv RDK. Position, Velocity and Effort interfaces are supported.
         </description>
     </class>

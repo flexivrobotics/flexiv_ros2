@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>flexiv_bringup</name>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
   <description>Package with launch files and run-time configurations for Flexiv robots with `ros2_control`</description>
   <maintainer email="munseng.phoon@flexiv.com">Mun Seng Phoon</maintainer>
   <license>Apache License 2.0</license>
@@ -13,6 +13,7 @@
   <exec_depend>flexiv_description</exec_depend>
   <exec_depend>forward_command_controller</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>force_torque_sensor_broadcaster</exec_depend>
   <exec_depend>joint_trajectory_controller</exec_depend>
   <exec_depend>joint_state_publisher_gui</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>

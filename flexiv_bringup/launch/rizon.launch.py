@@ -1,14 +1,11 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, Shutdown
 from launch.conditions import IfCondition
-from launch.substitutions import (
-    Command,
-    FindExecutable,
-    LaunchConfiguration,
-    PathJoinSubstitution,
-)
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -90,13 +87,16 @@ def generate_launch_description():
     robot_controller = LaunchConfiguration("robot_controller")
 
     # Get URDF via xacro
+    flexiv_urdf_xacro = os.path.join(
+        get_package_share_directory("flexiv_description"), "urdf", "rizon.urdf.xacro"
+    )
+
+    # Get URDF via xacro
     robot_description_content = Command(
         [
-            PathJoinSubstitution([FindExecutable(name="xacro")]),
+            FindExecutable(name="xacro"),
             " ",
-            PathJoinSubstitution(
-                [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
-            ),
+            flexiv_urdf_xacro,
             " ",
             "robot_ip:=",
             robot_ip,
@@ -119,20 +119,28 @@ def generate_launch_description():
     )
     robot_description = {"robot_description": robot_description_content}
 
-    robot_controllers = PathJoinSubstitution(
-        [
-            FindPackageShare("flexiv_bringup"),
-            "config",
-            controllers_file,
-        ]
+    # RViZ
+    rviz_base = os.path.join(get_package_share_directory("flexiv_description"), "rviz")
+    rviz_config_file = os.path.join(rviz_base, "view_rizon.rviz")
+
+    rviz_node = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="rviz2",
+        output="log",
+        arguments=["-d", rviz_config_file],
+        condition=IfCondition(start_rviz),
     )
 
-    rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "rviz", "view_rizon.rviz"]
-    )
+    # Robot controllers
+    robot_controllers = [
+        get_package_share_directory("flexiv_bringup"),
+        "/config/",
+        controllers_file,
+    ]
 
     # Controller Manager
-    control_node = Node(
+    ros2_control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
         parameters=[robot_description, robot_controllers],
@@ -140,6 +148,7 @@ def generate_launch_description():
             "stdout": "screen",
             "stderr": "screen",
         },
+        on_exit=Shutdown(),
     )
 
     # Robot state publisher
@@ -151,40 +160,35 @@ def generate_launch_description():
         parameters=[robot_description],
     )
 
-    # Joint state broadcaster
-    joint_state_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner.py",
-        arguments=[
-            "joint_state_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
-        ],
-    )
-
-    # Load controller
+    # Run robot controller
     robot_controller_spawner = Node(
         package="controller_manager",
         executable="spawner.py",
         arguments=[robot_controller, "-c", "/controller_manager"],
     )
 
-    # RViZ
-    rviz_node = Node(
-        package="rviz2",
-        executable="rviz2",
-        name="rviz2",
-        output="log",
-        arguments=["-d", rviz_config_file],
-        condition=IfCondition(start_rviz),
-    )
+    # Load broadcasters
+    load_controllers = []
+    for controller in [
+        "joint_state_broadcaster",
+        "force_torque_sensor_broadcaster",
+        "external_wrench_in_base_broadcaster",
+        "external_wrench_in_tcp_broadcaster",
+        "tcp_pose_state_broadcaster",
+    ]:
+        load_controllers += [
+            ExecuteProcess(
+                cmd=["ros2 run controller_manager spawner.py {}".format(controller)],
+                shell=True,
+                output="screen",
+            )
+        ]
 
     nodes = [
-        control_node,
+        ros2_control_node,
         robot_state_publisher_node,
         rviz_node,
-        joint_state_broadcaster_spawner,
         robot_controller_spawner,
     ]
 
-    return LaunchDescription(declared_arguments + nodes)
+    return LaunchDescription(declared_arguments + nodes + load_controllers)

@@ -1,6 +1,6 @@
 /**
  * @file joint_impedance_controller.cpp
- * Joint impedance control as ROS2 controller. Adapted from
+ * @brief Joint impedance control as ROS 2 controller. Adapted from
  * ros2_controllers/forward_command_controller
  * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
@@ -26,7 +26,8 @@ JointImpedanceController::JointImpedanceController()
 : controller_interface::ControllerInterface()
 , rt_command_ptr_(nullptr)
 , joints_command_subscriber_(nullptr)
-{ }
+{
+}
 
 controller_interface::InterfaceConfiguration
 JointImpedanceController::command_interface_configuration() const

@@ -1,6 +1,6 @@
 /**
  * @file joint_impedance_controller.hpp
- * Joint impedance control as ROS2 controller. Adapted from
+ * @brief Joint impedance control as ROS 2 controller. Adapted from
  * ros2_controllers/forward_command_controller
  * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
