@@ -2,9 +2,11 @@ name: Foxy Binary Build
 
 on:
   push:
-    branches: [ develop ]
+    branches:
+      - foxy
   pull_request:
-    branches: [ develop ]
+    branches:
+      - foxy
 
 jobs:
   foxy_binary:
