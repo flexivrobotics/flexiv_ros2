@@ -53,7 +53,7 @@ class SineSweepPosition(Node):
     def joint_state_callback(self, msg):
         if not self.joint_state_msg_received:
             # retrieve joint states in correct order
-            joint_order = [1, 2, 4, 5, 0, 3, 6]
+            joint_order = [2, 5, 6, 1, 4, 7, 3]
             positions = msg.position
             # set the init pos in correct order
             self.init_pos = [i for _, i in sorted(zip(joint_order, positions))]
