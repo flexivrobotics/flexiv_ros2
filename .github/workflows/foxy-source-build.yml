@@ -3,6 +3,7 @@ name: Foxy Source Build
 on:
   push:
     branches:
+      - main
       - foxy
 
 jobs:
