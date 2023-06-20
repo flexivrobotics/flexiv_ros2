@@ -1,29 +1,26 @@
-name: Foxy Source Build
+name: Humble Source Build
 
 on:
   push:
     branches:
       - main
-      - foxy
 
 jobs:
-  foxy_source:
-    name: Foxy source job
-    runs-on: ubuntu-20.04
+  humble_source:
+    name: Humble source job
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
     env:
-      ROS_DISTRO: foxy
+      ROS_DISTRO: humble
     steps:
       - name: Setup ROS
-        uses: ros-tooling/setup-ros@v0.3
-        with:
-          required-ros-distributions: ${{ env.ROS_DISTRO }}
+        uses: ros-tooling/setup-ros@v0.6
       - name: Checkout
         uses: actions/checkout@v3
       - name: Build and run tests
         id: action-ros-ci
-        uses: ros-tooling/action-ros-ci@v0.2
+        uses: ros-tooling/action-ros-ci@v0.3
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           package-name: |
