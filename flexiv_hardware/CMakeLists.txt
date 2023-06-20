@@ -10,8 +10,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-option(BUILD_FOR_ARM64 "Link to RDK library for arm64 processor, otherwise link to x64" OFF)
-
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -31,14 +29,34 @@ target_include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/rdk/include
 )
 
-# Link arm64 or x64 version of libFlexivRdk
-if (${BUILD_FOR_ARM64})
-  target_link_libraries(${PROJECT_NAME}
-    ${CMAKE_CURRENT_SOURCE_DIR}/rdk/lib/libFlexivRdk.arm64-darwin.a)
-else()
-  target_link_libraries(${PROJECT_NAME}
-    ${CMAKE_CURRENT_SOURCE_DIR}/rdk/lib/libFlexivRdk.x86_64-linux-gnu.a)
+# Set static library
+message("OS: ${CMAKE_SYSTEM_NAME}")
+message("Processor: ${CMAKE_SYSTEM_PROCESSOR}")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "x86_64")
+    set(RDK_STATIC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/rdk/lib/libFlexivRdk.x86_64-linux-gnu.a")
+  elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+    set(RDK_STATIC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/rdk/lib/libFlexivRdk.aarch64-linux-gnu.a")
+  else()
+    message(FATAL_ERROR "Linux with ${CMAKE_SYSTEM_PROCESSOR} processor is currently not supported.")
+  endif()
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64")
+    set(RDK_STATIC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/rdk/lib/libFlexivRdk.arm64-darwin.a")
+  else()
+    message(FATAL_ERROR "Mac with ${CMAKE_SYSTEM_PROCESSOR} processor is currently not supported.")
+  endif()
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "AMD64")
+    set(RDK_STATIC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/rdk/lib/FlexivRdk.win_amd64.lib")
+  else()
+    message(FATAL_ERROR "Windows with ${CMAKE_SYSTEM_PROCESSOR} processor is currently not supported.")
+  endif()
 endif()
+
+target_link_libraries(${PROJECT_NAME}
+  ${RDK_STATIC_LIBRARY}
+)
 
 # Link ROS packages
 ament_target_dependencies(
