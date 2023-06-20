@@ -40,7 +40,7 @@ jobs:
           ros-foxy-robot-state-publisher
       - name: Build and run tests
         id: action-ros-ci
-        uses: ros-tooling/action-ros-ci@v0.2
+        uses: ros-tooling/action-ros-ci@v0.3
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           package-name: |

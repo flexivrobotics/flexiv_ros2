@@ -1,6 +1,5 @@
 # Flexiv ROS 2
 
-[![Foxy Source Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-source-build.yml/badge.svg)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-source-build.yml)
 [![Foxy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml/badge.svg?branch=foxy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
