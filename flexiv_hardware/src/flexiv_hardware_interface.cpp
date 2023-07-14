@@ -58,13 +58,13 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     controllers_initialized_ = false;
 
     if (info_.joints.size() != n_joints) {
-        RCLCPP_FATAL(getLogger(), "Got %d joints. Expected %d.", info_.joints.size(), n_joints);
+        RCLCPP_FATAL(getLogger(), "Got %ld joints. Expected %ld.", info_.joints.size(), n_joints);
         return hardware_interface::CallbackReturn::ERROR;
     }
 
     for (const hardware_interface::ComponentInfo& joint : info_.joints) {
         if (joint.command_interfaces.size() != 3) {
-            RCLCPP_FATAL(getLogger(), "Joint '%s' has %d command interfaces found. 3 expected.",
+            RCLCPP_FATAL(getLogger(), "Joint '%s' has %ld command interfaces found. 3 expected.",
                 joint.name.c_str(), joint.command_interfaces.size());
             return hardware_interface::CallbackReturn::ERROR;
         }
@@ -91,7 +91,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         }
 
         if (joint.state_interfaces.size() != 3) {
-            RCLCPP_FATAL(getLogger(), "Joint '%s' has %d state interfaces found. 3 expected.",
+            RCLCPP_FATAL(getLogger(), "Joint '%s' has %ld state interfaces found. 3 expected.",
                 joint.name.c_str(), joint.state_interfaces.size());
             return hardware_interface::CallbackReturn::ERROR;
         }
@@ -381,8 +381,8 @@ hardware_interface::return_type FlexivHardwareInterface::prepare_command_mode_sw
 }
 
 hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_switch(
-    const std::vector<std::string>& start_interfaces,
-    const std::vector<std::string>& stop_interfaces)
+    const std::vector<std::string>& /*start_interfaces*/,
+    const std::vector<std::string>& /*stop_interfaces*/)
 {
     if (stop_modes_.size() != 0
         && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_POSITION)
