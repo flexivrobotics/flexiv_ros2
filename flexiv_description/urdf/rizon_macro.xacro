@@ -8,35 +8,37 @@
     local_ip 
     use_fake_hardware:=false 
     fake_sensor_commands:=false 
-    initial_positions_file">
+    initial_positions:=${dict(joint1=0.0,joint2=-0.69813,joint3=0.0,joint4=1.570796,joint5=0.0,joint6=0.69813,joint7=0.0)}
+    ">
 
-    <xacro:include filename="$(find flexiv_description)/urdf/flexiv_arm_materials.xacro" />
+    <!-- Import Rviz colors -->
+    <xacro:include filename="$(find flexiv_description)/urdf/flexiv_arm.materials.xacro" />
 
     <!-- Rizon 4 or 4s-->
     <xacro:if value="${rizon_type=='rizon4' or rizon_type=='rizon4s'}">
       <xacro:include filename="$(find flexiv_description)/urdf/rizon4_joints_links.xacro" />
-      <xacro:rizon4_joints_links rizon_type="$(arg rizon_type)" prefix="$(arg prefix)" mesh_prefix_path="package://flexiv_description/" />
+      <xacro:rizon4_joints_links rizon_type="${rizon_type}" prefix="${prefix}" mesh_prefix_path="package://flexiv_description/" />
 
       <!-- ros2 control include -->
       <xacro:include filename="$(find flexiv_description)/urdf/rizon4.ros2_control.xacro"/>
-      <xacro:rizon4_ros2_control prefix="$(arg prefix)" robot_ip="$(arg robot_ip)" 
-        local_ip="$(arg local_ip)" use_fake_hardware="$(arg use_fake_hardware)" 
-        fake_sensor_commands="$(arg fake_sensor_commands)" 
-        initial_positions_file="$(arg initial_positions_file)"
+      <xacro:rizon4_ros2_control prefix="${prefix}" robot_ip="${robot_ip}" 
+        local_ip="${local_ip}" use_fake_hardware="${use_fake_hardware}" 
+        fake_sensor_commands="${fake_sensor_commands}" 
+        initial_positions="${initial_positions}"
         />
     </xacro:if>
 
     <!-- Rizon 10 -->
     <xacro:if value="${rizon_type=='rizon10'}">
       <xacro:include filename="$(find flexiv_description)/urdf/rizon10_joints_links.xacro" />
-      <xacro:rizon10_joints_links rizon_type="$(arg rizon_type)" prefix="$(arg prefix)" mesh_prefix_path="package://flexiv_description/" />
+      <xacro:rizon10_joints_links rizon_type="${rizon_type}" prefix="${prefix}" mesh_prefix_path="package://flexiv_description/" />
 
       <!-- ros2 control include -->
       <xacro:include filename="$(find flexiv_description)/urdf/rizon10.ros2_control.xacro"/>
-      <xacro:rizon10_ros2_control prefix="$(arg prefix)" robot_ip="$(arg robot_ip)" 
-        local_ip="$(arg local_ip)" use_fake_hardware="$(arg use_fake_hardware)" 
-        fake_sensor_commands="$(arg fake_sensor_commands)" 
-        initial_positions_file="$(arg initial_positions_file)"
+      <xacro:rizon10_ros2_control prefix="${prefix}" robot_ip="${robot_ip}" 
+        local_ip="${local_ip}" use_fake_hardware="${use_fake_hardware}" 
+        fake_sensor_commands="${fake_sensor_commands}" 
+        initial_positions="${initial_positions}"
         />
     </xacro:if>
 

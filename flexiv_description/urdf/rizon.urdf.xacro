@@ -18,6 +18,9 @@
   <xacro:arg name="fake_sensor_commands" default="false" />
   <xacro:arg name="initial_positions_file" default="$(find flexiv_description)/config/initial_positions.yaml"/>
 
+  <!-- convert to property to use substitution in function -->
+  <xacro:property name="initial_positions_file" default="$(arg initial_positions_file)"/>
+
   <xacro:rizon_robot 
     rizon_type="$(arg rizon_type)" 
     prefix="$(arg prefix)" 
@@ -25,7 +28,7 @@
     local_ip="$(arg local_ip)" 
     use_fake_hardware="$(arg use_fake_hardware)" 
     fake_sensor_commands="$(arg fake_sensor_commands)" 
-    initial_positions_file="$(arg initial_positions_file)">
+    initial_positions="${xacro.load_yaml(initial_positions_file)}">
   </xacro:rizon_robot>
 
 </robot>
