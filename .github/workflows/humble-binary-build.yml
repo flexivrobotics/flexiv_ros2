@@ -3,10 +3,10 @@ name: Humble Binary Build
 on:
   push:
     branches:
-      - humble
+      - main
   pull_request:
     branches:
-      - humble
+      - main
 
 jobs:
   humble_binary:
@@ -19,12 +19,23 @@ jobs:
     env:
       ROS_DISTRO: humble
     steps:
-      - name: Setup ROS
-        uses: ros-tooling/setup-ros@v0.6
-        with:
-          required-ros-distributions: ${{ env.ROS_DISTRO }}
       - name: Checkout
         uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+          libeigen3-dev \
+          ros-humble-xacro \
+          ros-humble-tinyxml2-vendor \
+          ros-humble-ros2-control \
+          ros-humble-realtime-tools \
+          ros-humble-control-toolbox \
+          ros-humble-moveit \
+          ros-humble-ros2-controllers \
+          ros-humble-test-msgs \
+          ros-humble-joint-state-publisher \
+          ros-humble-joint-state-publisher-gui \
+          ros-humble-robot-state-publisher
       - name: Build and run tests
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.3
