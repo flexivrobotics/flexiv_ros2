@@ -1,11 +1,10 @@
-import os
-
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, Shutdown
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, RegisterEventHandler
 from launch.conditions import IfCondition
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration
+from launch.event_handlers import OnProcessExit
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -87,14 +86,14 @@ def generate_launch_description():
     robot_controller = LaunchConfiguration("robot_controller")
 
     # Get URDF via xacro
-    flexiv_urdf_xacro = os.path.join(
-        get_package_share_directory("flexiv_description"), "urdf", "rizon.urdf.xacro"
+    flexiv_urdf_xacro = PathJoinSubstitution(
+        [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
     )
 
     # Get URDF via xacro
     robot_description_content = Command(
         [
-            FindExecutable(name="xacro"),
+            PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
             flexiv_urdf_xacro,
             " ",
@@ -119,9 +118,10 @@ def generate_launch_description():
     )
     robot_description = {"robot_description": robot_description_content}
 
-    # RViZ
-    rviz_base = os.path.join(get_package_share_directory("flexiv_description"), "rviz")
-    rviz_config_file = os.path.join(rviz_base, "view_rizon.rviz")
+    # RViZ    
+    rviz_config_file = PathJoinSubstitution(
+        [FindPackageShare("flexiv_description"), "rviz", "view_rizon.rviz"]
+    )
 
     rviz_node = Node(
         package="rviz2",
@@ -133,22 +133,16 @@ def generate_launch_description():
     )
 
     # Robot controllers
-    robot_controllers = [
-        get_package_share_directory("flexiv_bringup"),
-        "/config/",
-        controllers_file,
-    ]
+    robot_controllers = PathJoinSubstitution(
+        [FindPackageShare("flexiv_bringup"), "config", controllers_file]
+    )
 
     # Controller Manager
     ros2_control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
         parameters=[robot_description, robot_controllers],
-        output={
-            "stdout": "screen",
-            "stderr": "screen",
-        },
-        on_exit=Shutdown(),
+        output="both",
     )
 
     # Robot state publisher
@@ -163,14 +157,35 @@ def generate_launch_description():
     # Run robot controller
     robot_controller_spawner = Node(
         package="controller_manager",
-        executable="spawner.py",
-        arguments=[robot_controller, "-c", "/controller_manager"],
+        executable="spawner",
+        arguments=[robot_controller, "--controller-manager", "/controller_manager"],
+    )
+
+    joint_state_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
+    )
+    
+    # Delay rviz start after `joint_state_broadcaster`
+    delay_rviz_after_joint_state_broadcaster_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_state_broadcaster_spawner,
+            on_exit=[rviz_node],
+        )
+    )
+    
+    # Delay start of robot_controller after `joint_state_broadcaster`
+    delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_state_broadcaster_spawner,
+            on_exit=[robot_controller_spawner],
+        )
     )
 
     # Load broadcasters
     load_controllers = []
     for controller in [
-        "joint_state_broadcaster",
         "force_torque_sensor_broadcaster",
         "external_wrench_in_base_broadcaster",
         "external_wrench_in_tcp_broadcaster",
@@ -178,7 +193,7 @@ def generate_launch_description():
     ]:
         load_controllers += [
             ExecuteProcess(
-                cmd=["ros2 run controller_manager spawner.py {}".format(controller)],
+                cmd=["ros2 run controller_manager spawner {}".format(controller)],
                 shell=True,
                 output="screen",
             )
@@ -187,8 +202,9 @@ def generate_launch_description():
     nodes = [
         ros2_control_node,
         robot_state_publisher_node,
-        rviz_node,
-        robot_controller_spawner,
+        joint_state_broadcaster_spawner,
+        delay_rviz_after_joint_state_broadcaster_spawner,
+        delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
     ]
 
     return LaunchDescription(declared_arguments + nodes + load_controllers)
