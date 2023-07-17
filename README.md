@@ -1,10 +1,8 @@
 # Flexiv ROS 2
 
-[![Foxy Source Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-source-build.yml/badge.svg)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-source-build.yml)
-[![Foxy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml/badge.svg?branch=foxy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flexiv_rdk), the APIs of RDK are wrapped into ROS packages in `flexiv_ros2`. Key functionalities like real-time joint torque and position control are supported, and the integration with `ros2_control` framework and MoveIt 2 is also implemented.
+For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flexiv_rdk), the APIs of RDK are wrapped into ROS packages in `flexiv_ros2`. Key functionalities like real-time joint torque and position control are supported, and the integration with `ros2_control` framework and MoveIt! 2 is also implemented.
 
 ## References
 
@@ -12,15 +10,24 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 
 ## Compatibility
 
-| **Supported OS** | **Supported ROS 2 distribution**               |
-| ---------------------- | ---------------------------------------------------- |
-| Ubuntu 20.04           | [Foxy Fitzroy](https://docs.ros.org/en/foxy/index.html) |
+| **Supported OS** | **Supported ROS 2 distribution**                              |
+| ---------------- | ------------------------------------------------------------- |
+| Ubuntu 20.04     | [Foxy Fitzroy](https://docs.ros.org/en/foxy/index.html)       |
+| Ubuntu 22.04     | [Humble Hawksbill](https://docs.ros.org/en/humble/index.html) |
+
+### Release Status
+
+| **ROS 2 Distro**   | Foxy                                                            | Humble                                                |
+| ------------------ | --------------------------------------------------------------- | ----------------------------------------------------- |
+| **Branch**         | [foxy](https://github.com/flexivrobotics/flexiv_ros2/tree/foxy) | [main](https://github.com/flexivrobotics/flexiv_ros2) |
+| **Release Status** | [![Foxy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml/badge.svg?branch=foxy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml) | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=main)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) |
 
 ## Getting Started
 
-This project was developed for ROS 2 Foxy on Ubuntu 20.04. Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
+This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
 
-1. Install [ROS 2 Foxy via Debian Packages](https://docs.ros.org/en/foxy/Installation/Ubuntu-Install-Debians.html)
+1. Install [ROS 2 Humble via Debian Packages](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html)
+
 2. Install `colcon` and additional ROS packages:
 
    ```bash
@@ -28,19 +35,20 @@ This project was developed for ROS 2 Foxy on Ubuntu 20.04. Other versions of Ubu
    python3-colcon-common-extensions \
    python3-rosdep2 \
    libeigen3-dev \
-   ros-foxy-xacro \
-   ros-foxy-tinyxml2-vendor \
-   ros-foxy-ros2-control \
-   ros-foxy-realtime-tools \
-   ros-foxy-control-toolbox \
-   ros-foxy-moveit \
-   ros-foxy-ros2-controllers \
-   ros-foxy-test-msgs \
-   ros-foxy-joint-state-publisher \
-   ros-foxy-joint-state-publisher-gui \
-   ros-foxy-robot-state-publisher \
-   ros-foxy-rviz2
+   ros-humble-xacro \
+   ros-humble-tinyxml2-vendor \
+   ros-humble-ros2-control \
+   ros-humble-realtime-tools \
+   ros-humble-control-toolbox \
+   ros-humble-moveit \
+   ros-humble-ros2-controllers \
+   ros-humble-test-msgs \
+   ros-humble-joint-state-publisher \
+   ros-humble-joint-state-publisher-gui \
+   ros-humble-robot-state-publisher \
+   ros-humble-rviz2
    ```
+
 3. Setup workspace:
 
    ```bash
@@ -50,18 +58,20 @@ This project was developed for ROS 2 Foxy on Ubuntu 20.04. Other versions of Ubu
    cd flexiv_ros2/
    git submodule update --init --recursive
    ```
+
 4. Install dependencies:
 
    ```bash
    cd ~/flexiv_ros2_ws
    rosdep update
-   rosdep install --from-paths src --ignore-src --rosdistro foxy -r -y
+   rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
    ```
+
 5. Build and source the workspace:
 
    ```bash
    cd ~/flexiv_ros2_ws
-   source /opt/ros/foxy/setup.bash
+   source /opt/ros/humble/setup.bash
    colcon build --symlink-install
    source install/setup.bash
    ```
@@ -69,7 +79,7 @@ This project was developed for ROS 2 Foxy on Ubuntu 20.04. Other versions of Ubu
 **NOTE**: Remember to source the setup file and the workspace whenever a new terminal is opened:
 
 ```bash
-source /opt/ros/foxy/setup.bash
+source /opt/ros/humble/setup.bash
 source ~/flexiv_ros2_ws/install/setup.bash
 ```
 
@@ -107,6 +117,7 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
      ```bash
      ros2 launch flexiv_bringup rizon.launch.py robot_ip:=dont-care local_ip:=dont-care use_fake_hardware:=true
      ```
+
 2. Publish commands to controllers
 
    - To send the goal position to the controller by using the node from `flexiv_test_nodes`, start the following command in a new terminal:
@@ -152,10 +163,10 @@ ros2 launch flexiv_bringup rizon_moveit.launch.py robot_ip:=dont-care local_ip:=
 
 The robot driver (`rizon.launch.py`) publishes the following feedback states to the respective ROS topics:
 
-* `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/JointState.msg`](https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/JointState.html)]
-* `/external_wrench_in_tcp_broadcaster/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and moment $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
-* `/external_wrench_in_base_broadcaster/external_wrench_in_base`: Estimated external wrench applied on TCP and expressed in base frame $^{0}F_{ext}$ in force $[N]$ and moment $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
-* `/force_torque_sensor_broadcaster/wrench`: Force-torque (FT) sensor raw reading in flange frame: $^{flange}F_{raw}$ in force $[N]$ and moment $[Nm]$. The value is 0 if no FT sensor is installed. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
-* `/tcp_pose_broadcaster/tcp_pose`: Measured TCP pose expressed in base frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
+- `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/JointState.msg`](https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/JointState.html)]
+- `/external_wrench_in_tcp_broadcaster/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and moment $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
+- `/external_wrench_in_base_broadcaster/external_wrench_in_base`: Estimated external wrench applied on TCP and expressed in base frame $^{0}F_{ext}$ in force $[N]$ and moment $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
+- `/force_torque_sensor_broadcaster/wrench`: Force-torque (FT) sensor raw reading in flange frame: $^{flange}F_{raw}$ in force $[N]$ and moment $[Nm]$. The value is 0 if no FT sensor is installed. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
+- `/tcp_pose_broadcaster/tcp_pose`: Measured TCP pose expressed in base frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
 
 **NOTE**: The topic names of the broadcasters are specified in `flexiv_bringup/config/rizon_controllers.yaml`
