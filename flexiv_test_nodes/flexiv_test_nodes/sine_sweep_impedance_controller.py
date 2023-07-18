@@ -19,12 +19,12 @@ class SineSweepImpedance(Node):
         # Declare all parameters
         self.declare_parameter("controller_name", "joint_impedance_controller")
         self.declare_parameter("wait_sec_between_publish", 0.001)
-        self.declare_parameter("joints")
+        self.declare_parameter("speed_scaling", 1.0)
 
         # Read parameters
         controller_name = self.get_parameter("controller_name").value
         wait_sec_between_publish = self.get_parameter("wait_sec_between_publish").value
-        self.joints = self.get_parameter("joints").value
+        self.speed_scaling = self.get_parameter("speed_scaling").value
 
         publish_topic = "/" + controller_name + "/" + "commands"
 
@@ -44,7 +44,7 @@ class SineSweepImpedance(Node):
             target_pos = self.init_pos.copy()
             for i in range(7):
                 target_pos[i] = self.init_pos[i] + SWING_AMP * math.sin(
-                    2 * math.pi * SWING_FREQ * self.loop_time
+                    2 * math.pi * SWING_FREQ * self.speed_scaling * self.loop_time
                 )
             msg = JointPosVel()
             msg.positions = target_pos
