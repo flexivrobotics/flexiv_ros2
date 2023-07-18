@@ -1,0 +1,52 @@
+name: Humble Binary Build
+
+on:
+  push:
+    branches:
+      - humble
+  pull_request:
+    branches:
+      - humble
+
+jobs:
+  humble_binary:
+    name: Humble binary job
+    runs-on: ubuntu-22.04
+    container:
+      image: osrf/ros:humble-desktop
+    strategy:
+      fail-fast: false
+    env:
+      ROS_DISTRO: humble
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+          libeigen3-dev \
+          ros-humble-xacro \
+          ros-humble-tinyxml2-vendor \
+          ros-humble-ros2-control \
+          ros-humble-realtime-tools \
+          ros-humble-control-toolbox \
+          ros-humble-moveit \
+          ros-humble-ros2-controllers \
+          ros-humble-test-msgs \
+          ros-humble-joint-state-publisher \
+          ros-humble-joint-state-publisher-gui \
+          ros-humble-robot-state-publisher
+      - name: Build and run tests
+        id: action-ros-ci
+        uses: ros-tooling/action-ros-ci@v0.3
+        with:
+          target-ros2-distro: ${{ env.ROS_DISTRO }}
+          package-name: |
+            flexiv_bringup
+            flexiv_controllers
+            flexiv_description
+            flexiv_hardware
+            flexiv_moveit_config
+            flexiv_msgs
+            flexiv_test_nodes
+          skip-tests: true
