@@ -3,10 +3,10 @@ name: Humble Binary Build
 on:
   push:
     branches:
-      - main
+      - humble
   pull_request:
     branches:
-      - main
+      - humble
 
 jobs:
   humble_binary:

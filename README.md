@@ -19,8 +19,8 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 
 | **ROS 2 Distro**   | Foxy                                                            | Humble                                                |
 | ------------------ | --------------------------------------------------------------- | ----------------------------------------------------- |
-| **Branch**         | [foxy](https://github.com/flexivrobotics/flexiv_ros2/tree/foxy) | [main](https://github.com/flexivrobotics/flexiv_ros2) |
-| **Release Status** | [![Foxy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml/badge.svg?branch=foxy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml) | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=main)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) |
+| **Branch**         | [foxy](https://github.com/flexivrobotics/flexiv_ros2/tree/foxy) | [humble](https://github.com/flexivrobotics/flexiv_ros2) |
+| **Release Status** | [![Foxy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml/badge.svg?branch=foxy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml) | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) |
 
 ## Getting Started
 
