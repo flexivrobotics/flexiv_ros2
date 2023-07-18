@@ -443,8 +443,8 @@ return_type FlexivHardwareInterface::prepare_command_mode_switch(
 }
 
 return_type FlexivHardwareInterface::perform_command_mode_switch(
-    const std::vector<std::string>& start_interfaces,
-    const std::vector<std::string>& stop_interfaces)
+    const std::vector<std::string>& /*start_interfaces*/,
+    const std::vector<std::string>& /*stop_interfaces*/)
 {
     if (stop_modes_.size() != 0
         && std::find(stop_modes_.begin(), stop_modes_.end(),
