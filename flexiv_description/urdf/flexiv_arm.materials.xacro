@@ -1,8 +1,6 @@
 <?xml version="1.0" ?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:macro name="flexiv_arm_materials">
-
     <material name="rizon_blue">
       <color rgba="0.0 0.0 1.0 0.5"/>
     </material>
@@ -15,7 +13,5 @@
     <material name="rizon_white">
       <color rgba="1.0 1.0 1.0 1.0"/>
     </material>
-
-  </xacro:macro>
 
 </robot>

@@ -21,34 +21,27 @@
 #include "semantic_components/force_torque_sensor.hpp"
 
 namespace flexiv_controllers {
-using CallbackReturn
-    = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-class ExternalTcpWrenchBroadcaster
-: public controller_interface::ControllerInterface
+class ExternalTcpWrenchBroadcaster : public controller_interface::ControllerInterface
 {
 public:
     ExternalTcpWrenchBroadcaster();
 
-    controller_interface::InterfaceConfiguration
-    command_interface_configuration() const override;
+    controller_interface::InterfaceConfiguration command_interface_configuration() const override;
 
-    controller_interface::InterfaceConfiguration
-    state_interface_configuration() const override;
+    controller_interface::InterfaceConfiguration state_interface_configuration() const override;
 
-    controller_interface::return_type update() override;
+    controller_interface::return_type update(
+        const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
-    controller_interface::return_type init(
-        const std::string& controller_name) override;
+    CallbackReturn on_init() override;
 
-    CallbackReturn on_configure(
-        const rclcpp_lifecycle::State& previous_state) override;
+    CallbackReturn on_configure(const rclcpp_lifecycle::State& previous_state) override;
 
-    CallbackReturn on_activate(
-        const rclcpp_lifecycle::State& previous_state) override;
+    CallbackReturn on_activate(const rclcpp_lifecycle::State& previous_state) override;
 
-    CallbackReturn on_deactivate(
-        const rclcpp_lifecycle::State& previous_state) override;
+    CallbackReturn on_deactivate(const rclcpp_lifecycle::State& previous_state) override;
 
 protected:
     std::string sensor_name_;
@@ -56,13 +49,10 @@ protected:
     std::string frame_id_;
     std::string topic_name_;
 
-    std::unique_ptr<semantic_components::ForceTorqueSensor>
-        force_torque_sensor_;
+    std::unique_ptr<semantic_components::ForceTorqueSensor> force_torque_sensor_;
 
-    using StatePublisher
-        = realtime_tools::RealtimePublisher<geometry_msgs::msg::WrenchStamped>;
-    rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr
-        sensor_state_publisher_;
+    using StatePublisher = realtime_tools::RealtimePublisher<geometry_msgs::msg::WrenchStamped>;
+    rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr sensor_state_publisher_;
     std::unique_ptr<StatePublisher> realtime_publisher_;
 };
 

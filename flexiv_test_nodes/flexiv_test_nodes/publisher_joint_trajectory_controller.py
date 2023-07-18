@@ -1,4 +1,4 @@
-# Copyright 2021 Stogl Robotics Consulting UG (haftungsbeschränkt)
+# Copyright 2022 Stogl Robotics Consulting UG (haftungsbeschränkt)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ from builtin_interfaces.msg import Duration
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from rcl_interfaces.msg import ParameterDescriptor
 
 
 class PublisherJointTrajectory(Node):
@@ -26,9 +27,9 @@ class PublisherJointTrajectory(Node):
         self.declare_parameter("controller_name", "joint_trajectory_controller")
         self.declare_parameter("wait_sec_between_publish", 6)
         self.declare_parameter("goal_names", ["pos1", "pos2"])
-        self.declare_parameter("joints")
+        self.declare_parameter("joints", [""])
         self.declare_parameter("check_starting_point", False)
-        self.declare_parameter("starting_point_limits")
+        self.declare_parameter("starting_point_limits", False)
 
         # Read parameters
         controller_name = self.get_parameter("controller_name").value
@@ -56,17 +57,14 @@ class PublisherJointTrajectory(Node):
                 JointState, "joint_states", self.joint_state_callback, 10
             )
         # initialize starting point status
-        if not self.check_starting_point:
-            self.starting_point_ok = True
-        else:
-            self.starting_point_ok = False
+        self.starting_point_ok = not self.check_starting_point
 
         self.joint_state_msg_received = False
 
         # Read all positions from parameters
         self.goals = []
         for name in goal_names:
-            self.declare_parameter(name)
+            self.declare_parameter(name, descriptor=ParameterDescriptor(dynamic_typing=True))
             goal = self.get_parameter(name).value
             if goal is None or len(goal) == 0:
                 raise Exception(f'Values for goal "{name}" not set!')

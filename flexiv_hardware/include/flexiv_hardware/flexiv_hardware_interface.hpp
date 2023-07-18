@@ -1,7 +1,7 @@
 /**
  * @file flexiv_hardware_interface.hpp
  * @brief Hardware interface to Flexiv robots for ROS 2 control. Adapted from
- * ros2_control_demos/ros2_control_demo_hardware/include/ros2_control_demo_hardware/rrbot_system_multi_interface.hpp
+ * ros2_control_demos/example_3/hardware/include/ros2_control_demo_example_3/rrbot_system_multi_interface.hpp
  * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
@@ -19,20 +19,17 @@
 #include <rclcpp/macros.hpp>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/time.hpp>
+#include <rclcpp_lifecycle/state.hpp>
 
 // ros2_control hardware_interface
 #include <hardware_interface/hardware_info.hpp>
-#include <hardware_interface/base_interface.hpp>
 #include <hardware_interface/system_interface.hpp>
 #include <hardware_interface/types/hardware_interface_return_values.hpp>
-#include <hardware_interface/types/hardware_interface_status_values.hpp>
 
 #include "flexiv_hardware/visibility_control.h"
 
 // Flexiv
 #include "flexiv/Robot.hpp"
-
-using hardware_interface::return_type;
 
 namespace flexiv_hardware {
 
@@ -44,45 +41,46 @@ enum StoppingInterface
     STOP_EFFORT
 };
 
-class FlexivHardwareInterface
-: public hardware_interface::BaseInterface<hardware_interface::SystemInterface>
+class FlexivHardwareInterface : public hardware_interface::SystemInterface
 {
 public:
     RCLCPP_SHARED_PTR_DEFINITIONS(FlexivHardwareInterface)
 
     FLEXIV_HARDWARE_PUBLIC
-    return_type configure(
+    hardware_interface::CallbackReturn on_init(
         const hardware_interface::HardwareInfo& info) override;
 
     FLEXIV_HARDWARE_PUBLIC
-    std::vector<hardware_interface::StateInterface>
-    export_state_interfaces() override;
+    std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
     FLEXIV_HARDWARE_PUBLIC
-    std::vector<hardware_interface::CommandInterface>
-    export_command_interfaces() override;
+    std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
     FLEXIV_HARDWARE_PUBLIC
-    return_type prepare_command_mode_switch(
+    hardware_interface::return_type prepare_command_mode_switch(
         const std::vector<std::string>& start_interfaces,
         const std::vector<std::string>& stop_interfaces) override;
 
     FLEXIV_HARDWARE_PUBLIC
-    return_type perform_command_mode_switch(
+    hardware_interface::return_type perform_command_mode_switch(
         const std::vector<std::string>& start_interfaces,
         const std::vector<std::string>& stop_interfaces) override;
 
     FLEXIV_HARDWARE_PUBLIC
-    return_type start() override;
+    hardware_interface::CallbackReturn on_activate(
+        const rclcpp_lifecycle::State& previous_state) override;
 
     FLEXIV_HARDWARE_PUBLIC
-    return_type stop() override;
+    hardware_interface::CallbackReturn on_deactivate(
+        const rclcpp_lifecycle::State& previous_state) override;
 
     FLEXIV_HARDWARE_PUBLIC
-    return_type read() override;
+    hardware_interface::return_type read(
+        const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
     FLEXIV_HARDWARE_PUBLIC
-    return_type write() override;
+    hardware_interface::return_type write(
+        const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
     static const size_t n_joints = 7;
 

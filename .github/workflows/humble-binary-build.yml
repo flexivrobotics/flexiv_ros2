@@ -1,25 +1,23 @@
-name: Foxy Binary Build
+name: Humble Binary Build
 
 on:
   push:
     branches:
       - main
-      - foxy
   pull_request:
     branches:
       - main
-      - foxy
 
 jobs:
-  foxy_binary:
-    name: Foxy binary job
-    runs-on: ubuntu-20.04
+  humble_binary:
+    name: Humble binary job
+    runs-on: ubuntu-22.04
     container:
-      image: osrf/ros:foxy-desktop
+      image: osrf/ros:humble-desktop
     strategy:
       fail-fast: false
     env:
-      ROS_DISTRO: foxy
+      ROS_DISTRO: humble
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -27,17 +25,17 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y \
           libeigen3-dev \
-          ros-foxy-xacro \
-          ros-foxy-tinyxml2-vendor \
-          ros-foxy-ros2-control \
-          ros-foxy-realtime-tools \
-          ros-foxy-control-toolbox \
-          ros-foxy-moveit \
-          ros-foxy-ros2-controllers \
-          ros-foxy-test-msgs \
-          ros-foxy-joint-state-publisher \
-          ros-foxy-joint-state-publisher-gui \
-          ros-foxy-robot-state-publisher
+          ros-humble-xacro \
+          ros-humble-tinyxml2-vendor \
+          ros-humble-ros2-control \
+          ros-humble-realtime-tools \
+          ros-humble-control-toolbox \
+          ros-humble-moveit \
+          ros-humble-ros2-controllers \
+          ros-humble-test-msgs \
+          ros-humble-joint-state-publisher \
+          ros-humble-joint-state-publisher-gui \
+          ros-humble-robot-state-publisher
       - name: Build and run tests
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.3

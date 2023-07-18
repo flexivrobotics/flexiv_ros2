@@ -1,15 +1,13 @@
-# This launch file is based on
-# https://github.com/ros-planning/moveit_resources/blob/galactic/panda_moveit_config/launch/demo.launch.py
-
 import os
-
 import yaml
 from ament_index_python.packages import get_package_share_directory
+
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, Shutdown
+from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def load_yaml(package_name, file_path):
@@ -49,6 +47,14 @@ def generate_launch_description():
             description="IP address of the workstation PC (local).",
         )
     )
+    
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "start_rviz",
+            default_value="true",
+            description="start RViz automatically with the launch file",
+        )
+    )
 
     declared_arguments.append(
         DeclareLaunchArgument(
@@ -66,30 +72,31 @@ def generate_launch_description():
             Used only if 'use_fake_hardware' parameter is true.",
         )
     )
-
+    
     declared_arguments.append(
         DeclareLaunchArgument(
-            "db",
-            default_value="false",
-            description="Database flag",
+            "warehouse_sqlite_path",
+            default_value=os.path.expanduser("~/.ros/warehouse_ros.sqlite"),
+            description="Path to the sqlite database used by the warehouse_ros package.",
         )
     )
 
     rizon_type = LaunchConfiguration("rizon_type")
     robot_ip = LaunchConfiguration("robot_ip")
     local_ip = LaunchConfiguration("local_ip")
+    start_rviz = LaunchConfiguration("start_rviz")
     use_fake_hardware = LaunchConfiguration("use_fake_hardware")
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
-    db_config = LaunchConfiguration("db")
+    warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
 
     # Get URDF via xacro
-    flexiv_urdf_xacro = os.path.join(
-        get_package_share_directory("flexiv_description"), "urdf", "rizon.urdf.xacro"
+    flexiv_urdf_xacro = PathJoinSubstitution(
+        [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
     )
 
     robot_description_content = Command(
         [
-            FindExecutable(name="xacro"),
+            PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
             flexiv_urdf_xacro,
             " ",
@@ -115,12 +122,13 @@ def generate_launch_description():
     robot_description = {"robot_description": robot_description_content}
 
     # MoveIt configuration
-    flexiv_srdf_xacro = os.path.join(
-        get_package_share_directory("flexiv_moveit_config"), "srdf", "rizon.srdf.xacro"
+    flexiv_srdf_xacro = PathJoinSubstitution(
+        [FindPackageShare("flexiv_moveit_config"), "srdf", "rizon.srdf.xacro"]
     )
+    
     robot_description_semantic_content = Command(
         [
-            FindExecutable(name="xacro"),
+            PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
             flexiv_srdf_xacro,
             " ",
@@ -133,7 +141,9 @@ def generate_launch_description():
         "robot_description_semantic": robot_description_semantic_content
     }
 
-    kinematics_yaml = load_yaml("flexiv_moveit_config", "config/kinematics.yaml")
+    robot_description_kinematics = PathJoinSubstitution(
+        [FindPackageShare("flexiv_moveit_config"), "config", "kinematics.yaml"]
+    )
 
     # Planning Configuration
     ompl_planning_pipeline_config = {
@@ -180,6 +190,11 @@ def generate_launch_description():
         )
     }
 
+    warehouse_ros_config = {
+        "warehouse_plugin": "warehouse_ros_sqlite::DatabaseConnection",
+        "warehouse_host": warehouse_sqlite_path,
+    }
+
     # Start the actual move_group node/action server
     move_group_node = Node(
         package="moveit_ros_move_group",
@@ -188,20 +203,20 @@ def generate_launch_description():
         parameters=[
             robot_description,
             robot_description_semantic,
-            kinematics_yaml,
+            robot_description_kinematics,
             ompl_planning_pipeline_config,
             trajectory_execution,
             moveit_controllers,
             planning_scene_monitor_parameters,
             joint_limits_yaml,
+            warehouse_ros_config,
         ],
     )
 
     # RViz with MoveIt configuration
-    rviz_base = os.path.join(
-        get_package_share_directory("flexiv_moveit_config"), "rviz"
+    rviz_config_file = PathJoinSubstitution(
+        [FindPackageShare("flexiv_moveit_config"), "rviz", "moveit.rviz"]
     )
-    rviz_config_file = os.path.join(rviz_base, "moveit.rviz")
 
     rviz_node = Node(
         package="rviz2",
@@ -213,9 +228,11 @@ def generate_launch_description():
             robot_description,
             robot_description_semantic,
             ompl_planning_pipeline_config,
-            kinematics_yaml,
+            robot_description_kinematics,
             joint_limits_yaml,
+            warehouse_ros_config,
         ],
+        condition=IfCondition(start_rviz),
     )
 
     # Publish TF
@@ -226,54 +243,41 @@ def generate_launch_description():
         output="both",
         parameters=[robot_description],
     )
-
-    ros2_controllers_path = os.path.join(
-        get_package_share_directory("flexiv_bringup"),
-        "config",
-        "rizon_controllers.yaml",
+    
+    # Robot controllers
+    robot_controllers = PathJoinSubstitution(
+        [FindPackageShare("flexiv_bringup"), "config", "rizon_controllers.yaml"]
     )
+    
     # Run controller manager
     ros2_control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
-        parameters=[robot_description, ros2_controllers_path],
-        output={
-            "stdout": "screen",
-            "stderr": "screen",
-        },
-        on_exit=Shutdown(),
+        parameters=[robot_description, robot_controllers],
+        output="both",
     )
-
-    # Load controllers
-    load_controllers = []
-    for controller in ["rizon_arm_controller", "joint_state_broadcaster"]:
-        load_controllers += [
-            ExecuteProcess(
-                cmd=["ros2 run controller_manager spawner.py {}".format(controller)],
-                shell=True,
-                output="screen",
-            )
-        ]
-
-    # Warehouse mongodb server
-    mongodb_server_node = Node(
-        package="warehouse_ros_mongo",
-        executable="mongo_wrapper_ros.py",
-        parameters=[
-            {"warehouse_port": 33829},
-            {"warehouse_host": "localhost"},
-            {"warehouse_plugin": "warehouse_ros_mongo::MongoDatabaseConnection"},
-        ],
-        output="screen",
-        condition=IfCondition(db_config),
+    
+    # Run robot controller
+    robot_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["rizon_arm_controller", "--controller-manager", "/controller_manager"],
+    )
+    
+    # Run joint state broadcaster
+    joint_state_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
     )
 
     nodes = [
         move_group_node,
         robot_state_publisher_node,
-        rviz_node,
         ros2_control_node,
-        mongodb_server_node,
+        joint_state_broadcaster_spawner,
+        robot_controller_spawner,
+        rviz_node,
     ]
 
-    return LaunchDescription(declared_arguments + nodes + load_controllers)
+    return LaunchDescription(declared_arguments + nodes)
