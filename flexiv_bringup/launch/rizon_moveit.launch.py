@@ -3,7 +3,7 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess
+from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -256,23 +256,28 @@ def generate_launch_description():
         parameters=[robot_description, robot_controllers],
         output="both",
     )
-
-    # Load controllers
-    load_controllers = []
-    for controller in ["rizon_arm_controller", "joint_state_broadcaster"]:
-        load_controllers += [
-            ExecuteProcess(
-                cmd=["ros2 run controller_manager spawner {}".format(controller)],
-                shell=True,
-                output="screen",
-            )
-        ]
+    
+    # Run robot controller
+    robot_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["rizon_arm_controller", "--controller-manager", "/controller_manager"],
+    )
+    
+    # Run joint state broadcaster
+    joint_state_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
+    )
 
     nodes = [
         move_group_node,
         robot_state_publisher_node,
-        rviz_node,
         ros2_control_node,
+        joint_state_broadcaster_spawner,
+        robot_controller_spawner,
+        rviz_node,
     ]
 
-    return LaunchDescription(declared_arguments + nodes + load_controllers)
+    return LaunchDescription(declared_arguments + nodes)

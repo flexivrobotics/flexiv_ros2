@@ -1,5 +1,5 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, RegisterEventHandler
+from launch.actions import DeclareLaunchArgument, RegisterEventHandler
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
@@ -161,10 +161,39 @@ def generate_launch_description():
         arguments=[robot_controller, "--controller-manager", "/controller_manager"],
     )
 
+    # Run joint state broadcaster
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
+    )
+    
+    # Run force torque sensor broadcaster
+    force_torque_sensor_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["force_torque_sensor_broadcaster", "--controller-manager", "/controller_manager"],
+    )
+    
+    # Run external wrench in base broadcaster
+    external_wrench_in_base_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["external_wrench_in_base_broadcaster", "--controller-manager", "/controller_manager"],
+    )
+    
+    # Run external wrench in tcp broadcaster
+    external_wrench_in_tcp_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["external_wrench_in_tcp_broadcaster", "--controller-manager", "/controller_manager"],
+    )
+    
+    # Run tcp pose state broadcaster
+    tcp_pose_state_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["tcp_pose_state_broadcaster", "--controller-manager", "/controller_manager"],
     )
     
     # Delay rviz start after `joint_state_broadcaster`
@@ -183,28 +212,16 @@ def generate_launch_description():
         )
     )
 
-    # Load broadcasters
-    load_controllers = []
-    for controller in [
-        "force_torque_sensor_broadcaster",
-        "external_wrench_in_base_broadcaster",
-        "external_wrench_in_tcp_broadcaster",
-        "tcp_pose_state_broadcaster",
-    ]:
-        load_controllers += [
-            ExecuteProcess(
-                cmd=["ros2 run controller_manager spawner {}".format(controller)],
-                shell=True,
-                output="screen",
-            )
-        ]
-
     nodes = [
         ros2_control_node,
         robot_state_publisher_node,
         joint_state_broadcaster_spawner,
+        force_torque_sensor_broadcaster_spawner,
+        external_wrench_in_base_broadcaster_spawner,
+        external_wrench_in_tcp_broadcaster_spawner,
+        tcp_pose_state_broadcaster_spawner,
         delay_rviz_after_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
     ]
 
-    return LaunchDescription(declared_arguments + nodes + load_controllers)
+    return LaunchDescription(declared_arguments + nodes)
