@@ -16,6 +16,7 @@
 #include <rclcpp/logging.hpp>
 #include <rclcpp/qos.hpp>
 
+#include <controller_interface/helpers.hpp>
 #include <hardware_interface/loaned_command_interface.hpp>
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 
@@ -181,7 +182,7 @@ CallbackReturn JointImpedanceController::on_activate(
     //  also verify that we *only* have the resources defined in the "points"
     //  parameter
     std::vector<std::reference_wrapper<LoanedCommandInterface>> ordered_interfaces;
-    if (!get_ordered_interfaces(
+    if (!controller_interface::get_ordered_interfaces(
             command_interfaces_, joint_names_, hardware_interface::HW_IF_EFFORT, ordered_interfaces)
         || command_interfaces_.size() != ordered_interfaces.size()) {
         RCLCPP_ERROR(get_node()->get_logger(), "Expected %zu position command interfaces, got %zu",
@@ -189,16 +190,19 @@ CallbackReturn JointImpedanceController::on_activate(
         return CallbackReturn::ERROR;
     }
 
+    // reset command buffer if a command came through callback when controller was inactive
+    rt_command_ptr_ = realtime_tools::RealtimeBuffer<std::shared_ptr<CmdType>>(nullptr);
+
+    RCLCPP_INFO(get_node()->get_logger(), "Activate successful");
+
     return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn JointImpedanceController::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
-    // the effort on all joints is set to 0
-    for (auto index = 0ul; index < joint_names_.size(); ++index) {
-        command_interfaces_[index].set_value(0.0);
-    }
+    // reset command buffer
+    rt_command_ptr_ = realtime_tools::RealtimeBuffer<std::shared_ptr<CmdType>>(nullptr);
     return CallbackReturn::SUCCESS;
 }
 
