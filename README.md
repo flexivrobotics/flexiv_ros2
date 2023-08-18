@@ -54,7 +54,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
    ```bash
    mkdir -p ~/flexiv_ros2_ws/src
    cd ~/flexiv_ros2_ws/src
-   git clone https://github.com/flexivrobotics/flexiv_ros2.git
+   git clone -b foxy https://github.com/flexivrobotics/flexiv_ros2.git
    cd flexiv_ros2/
    git submodule update --init --recursive
    ```
