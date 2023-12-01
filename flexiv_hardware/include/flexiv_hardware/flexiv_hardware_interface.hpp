@@ -94,7 +94,6 @@ private:
     std::vector<double> hw_commands_joint_positions_;
     std::vector<double> hw_commands_joint_velocities_;
     std::vector<double> hw_commands_joint_efforts_;
-    std::vector<double> internal_commands_joint_positions_;
 
     // Joint states
     std::vector<double> hw_states_joint_positions_;
@@ -123,11 +122,6 @@ private:
     bool position_controller_running_;
     bool velocity_controller_running_;
     bool torque_controller_running_;
-
-    // Store time between update loops
-    rclcpp::Clock clock_;
-    rclcpp::Time last_timestamp_;
-    rclcpp::Time current_timestamp_;
 };
 
 } /* namespace flexiv_hardware */
