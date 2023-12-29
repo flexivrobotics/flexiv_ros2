@@ -40,7 +40,7 @@ external_wrench_in_tcp_broadcaster:
 external_wrench_in_base_broadcaster:
   ros__parameters:
     sensor_name: external_wrench_in_base
-    frame_id: base_link
+    frame_id: flange
     topic_name: external_wrench_in_base
 
 tcp_pose_state_broadcaster:
