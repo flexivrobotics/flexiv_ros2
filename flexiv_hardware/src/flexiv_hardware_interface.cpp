@@ -248,18 +248,37 @@ return_type FlexivHardwareInterface::start()
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     try {
+        // Clear fault on robot server if any
+        if (robot_->isFault()) {
+            RCLCPP_WARN(getLogger(),
+                "Fault occurred on robot server, trying to clear ...");
+            // Try to clear the fault
+            robot_->clearFault();
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            // Check again
+            if (robot_->isFault()) {
+                RCLCPP_FATAL(
+                    getLogger(), "Fault cannot be cleared, exiting ...");
+                return return_type::ERROR;
+            }
+            RCLCPP_INFO(getLogger(), "Fault on robot server is cleared");
+        }
+
+        // Enable the robot
+        RCLCPP_INFO(getLogger(), "Enabling robot ...");
         robot_->enable();
+
+        // Wait for the robot to become operational
+        while (!robot_->isOperational()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        RCLCPP_INFO(getLogger(), "Robot is now operational");
+
     } catch (const flexiv::Exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable robot.");
         RCLCPP_FATAL(getLogger(), e.what());
         return return_type::ERROR;
     }
-
-    // Wait for the robot to become operational
-    while (!robot_->isOperational()) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-    RCLCPP_INFO(getLogger(), "Robot is now operational");
 
     status_ = hardware_interface::status::STARTED;
     RCLCPP_INFO(getLogger(), "System successfully started!");
