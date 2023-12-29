@@ -4,6 +4,9 @@
 
 For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flexiv_rdk), the APIs of RDK are wrapped into ROS packages in `flexiv_ros2`. Key functionalities like real-time joint torque and position control are supported, and the integration with `ros2_control` framework and MoveIt! 2 is also implemented.
 
+> [!IMPORTANT]
+> For new features and bug fixes, please use the [Flexiv ROS 2 Humble](https://github.com/flexivrobotics/flexiv_ros2), as ROS 2 Foxy is EOL and the `flexiv_ros2` Foxy branch is no longer maintained.
+
 ## References
 
 [Flexiv RDK main webpage](https://rdk.flexiv.com/) contains important information like RDK user manual and network setup.
@@ -76,16 +79,17 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
    source install/setup.bash
    ```
 
-**NOTE**: Remember to source the setup file and the workspace whenever a new terminal is opened:
-
-```bash
-source /opt/ros/foxy/setup.bash
-source ~/flexiv_ros2_ws/install/setup.bash
-```
+> [!NOTE]
+> Remember to source the setup file and the workspace whenever a new terminal is opened:
+> ```bash
+> source /opt/ros/foxy/setup.bash
+> source ~/flexiv_ros2_ws/install/setup.bash
+> ```
 
 ## Usage
 
-**NOTE**: the instruction below is only a quick reference, see the [Flexiv ROS 2 Documentation](https://rdk.flexiv.com/manual/ros2_packages.html) for more information.
+> [!NOTE]
+> The instruction below is only a quick reference, see the [Flexiv ROS 2 Documentation](https://rdk.flexiv.com/manual/ros2_packages.html) for more information.
 
 The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/getting_started.html#activate-rdk-server) and [establish connection](https://rdk.flexiv.com/manual/getting_started.html#establish-connection) between the workstation PC and the robot.
 
@@ -111,12 +115,14 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
      ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip] rizon_type:=rizon4
      ```
 
-     **NOTE**: To test whether the connection between ROS and the robot is established, you could disable the starting of RViz first by setting the `start_rviz` launch argument to false.
    - Test with fake hardware (`ros2_control` capability):
 
      ```bash
      ros2 launch flexiv_bringup rizon.launch.py robot_ip:=dont-care local_ip:=dont-care use_fake_hardware:=true
      ```
+
+> [!TIP]
+> To test whether the connection between ROS and the robot is established, you could disable the starting of RViz first by setting the `start_rviz` launch argument to false.
 
 2. Publish commands to controllers
 
@@ -133,8 +139,6 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
      ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip] robot_controller:=joint_impedance_controller
      ```
 
-     **NOTE**: The command starts the robot in the joint torque mode. In this mode, gravity and friction are compensated **only** for the robot **without** any attached objects (e.g. the gripper, camera).
-
      Open a new terminal and run the launch file:
 
      ```bash
@@ -143,7 +147,11 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 
      The robot should run a sine-sweep motion with joint impedance control.
 
-     **NOTE**: joint impedance control is not supported in fake/simulated hardware.
+> [!NOTE]
+> The command starts the robot in the joint torque mode. In this mode, gravity and friction are compensated **only** for the robot **without** any attached objects (e.g. the gripper, camera).
+
+> [!NOTE]
+> Joint impedance control is not supported in fake/simulated hardware.
 
 ### Using MoveIt
 
@@ -169,4 +177,5 @@ The robot driver (`rizon.launch.py`) publishes the following feedback states to 
 - `/force_torque_sensor_broadcaster/wrench`: Force-torque (FT) sensor raw reading in flange frame: $^{flange}F_{raw}$ in force $[N]$ and moment $[Nm]$. The value is 0 if no FT sensor is installed. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 - `/tcp_pose_broadcaster/tcp_pose`: Measured TCP pose expressed in base frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
 
-**NOTE**: The topic names of the broadcasters are specified in `flexiv_bringup/config/rizon_controllers.yaml`
+> [!NOTE]
+> The topic names of the broadcasters are specified in `flexiv_bringup/config/rizon_controllers.yaml`
