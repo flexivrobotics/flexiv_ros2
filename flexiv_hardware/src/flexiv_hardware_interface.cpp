@@ -245,7 +245,7 @@ return_type FlexivHardwareInterface::start()
 {
     RCLCPP_INFO(getLogger(), "Starting... please wait...");
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     try {
         robot_->enable();
@@ -257,7 +257,7 @@ return_type FlexivHardwareInterface::start()
 
     // Wait for the robot to become operational
     while (!robot_->isOperational()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
     RCLCPP_INFO(getLogger(), "Robot is now operational");
 
@@ -271,7 +271,7 @@ return_type FlexivHardwareInterface::stop()
 {
     RCLCPP_INFO(getLogger(), "Stopping... please wait...");
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     robot_->stop();
     robot_->disconnect();
