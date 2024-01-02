@@ -49,8 +49,6 @@ return_type FlexivHardwareInterface::configure(
         info_.sensors[2].state_interfaces.size(),
         std::numeric_limits<double>::quiet_NaN());
     hw_states_tcp_pose_.resize(7, std::numeric_limits<double>::quiet_NaN());
-    internal_commands_joint_positions_.resize(
-        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE, StoppingInterface::NONE,
@@ -164,8 +162,6 @@ return_type FlexivHardwareInterface::configure(
         return return_type::ERROR;
     }
 
-    clock_ = rclcpp::Clock();
-
     status_ = hardware_interface::status::CONFIGURED;
     RCLCPP_INFO(getLogger(), "Successfully connected to robot");
     return return_type::OK;
@@ -249,23 +245,41 @@ return_type FlexivHardwareInterface::start()
 {
     RCLCPP_INFO(getLogger(), "Starting... please wait...");
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     try {
+        // Clear fault on robot server if any
+        if (robot_->isFault()) {
+            RCLCPP_WARN(getLogger(),
+                "Fault occurred on robot server, trying to clear ...");
+            // Try to clear the fault
+            robot_->clearFault();
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            // Check again
+            if (robot_->isFault()) {
+                RCLCPP_FATAL(
+                    getLogger(), "Fault cannot be cleared, exiting ...");
+                return return_type::ERROR;
+            }
+            RCLCPP_INFO(getLogger(), "Fault on robot server is cleared");
+        }
+
+        // Enable the robot
+        RCLCPP_INFO(getLogger(), "Enabling robot ...");
         robot_->enable();
+
+        // Wait for the robot to become operational
+        while (!robot_->isOperational()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        RCLCPP_INFO(getLogger(), "Robot is now operational");
+
     } catch (const flexiv::Exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable robot.");
         RCLCPP_FATAL(getLogger(), e.what());
         return return_type::ERROR;
     }
 
-    // Wait for the robot to become operational
-    while (!robot_->isOperational()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    RCLCPP_INFO(getLogger(), "Robot is now operational");
-
-    last_timestamp_ = clock_.now();
     status_ = hardware_interface::status::STARTED;
     RCLCPP_INFO(getLogger(), "System successfully started!");
 
@@ -276,7 +290,7 @@ return_type FlexivHardwareInterface::stop()
 {
     RCLCPP_INFO(getLogger(), "Stopping... please wait...");
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     robot_->stop();
     robot_->disconnect();
@@ -301,7 +315,6 @@ return_type FlexivHardwareInterface::read()
         hw_states_joint_positions_ = robot_states.q;
         hw_states_joint_velocities_ = robot_states.dtheta;
         hw_states_joint_efforts_ = robot_states.tau;
-        internal_commands_joint_positions_ = hw_states_joint_positions_;
 
         hw_states_force_torque_sensor_ = robot_states.ftSensorRaw;
         hw_states_external_wrench_in_base_ = robot_states.extWrenchInBase;
@@ -326,10 +339,6 @@ return_type FlexivHardwareInterface::write()
         RCLCPP_FATAL(getLogger(), "Hardware not started!");
         return return_type::ERROR;
     }
-
-    current_timestamp_ = clock_.now();
-    rclcpp::Duration duration = current_timestamp_ - last_timestamp_;
-    last_timestamp_ = current_timestamp_;
 
     std::vector<double> targetAcceleration(n_joints, 0);
     std::vector<double> targetVelocity(n_joints, 0);
@@ -356,11 +365,7 @@ return_type FlexivHardwareInterface::write()
     } else if (velocity_controller_running_
                && robot_->getMode() == flexiv::Mode::RT_JOINT_POSITION
                && !isNanVel) {
-        for (std::size_t i = 0; i < n_joints; i++) {
-            internal_commands_joint_positions_[i]
-                += hw_commands_joint_velocities_[i] * duration.seconds();
-        }
-        robot_->streamJointPosition(internal_commands_joint_positions_,
+        robot_->streamJointPosition(hw_states_joint_positions_,
             hw_commands_joint_velocities_, targetAcceleration);
     } else if (torque_controller_running_
                && robot_->getMode() == flexiv::Mode::RT_JOINT_TORQUE
