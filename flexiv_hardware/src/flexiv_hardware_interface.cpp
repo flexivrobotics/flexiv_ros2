@@ -46,8 +46,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     hw_states_external_wrench_in_tcp_.resize(
         info_.sensors[2].state_interfaces.size(), std::numeric_limits<double>::quiet_NaN());
     hw_states_tcp_pose_.resize(7, std::numeric_limits<double>::quiet_NaN());
-    internal_commands_joint_positions_.resize(
-        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE};
@@ -144,8 +142,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
-    clock_ = rclcpp::Clock();
-
     RCLCPP_INFO(getLogger(), "Successfully connected to robot");
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -230,7 +226,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
     }
     RCLCPP_INFO(getLogger(), "Robot is now operational");
 
-    last_timestamp_ = clock_.now();
     RCLCPP_INFO(getLogger(), "System successfully started!");
 
     return hardware_interface::CallbackReturn::SUCCESS;
@@ -261,7 +256,6 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         hw_states_joint_positions_ = robot_states.q;
         hw_states_joint_velocities_ = robot_states.dtheta;
         hw_states_joint_efforts_ = robot_states.tau;
-        internal_commands_joint_positions_ = hw_states_joint_positions_;
 
         hw_states_force_torque_sensor_ = robot_states.ftSensorRaw;
         hw_states_external_wrench_in_base_ = robot_states.extWrenchInBase;
@@ -283,10 +277,6 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 hardware_interface::return_type FlexivHardwareInterface::write(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    current_timestamp_ = clock_.now();
-    rclcpp::Duration duration = current_timestamp_ - last_timestamp_;
-    last_timestamp_ = current_timestamp_;
-
     std::vector<double> targetAcceleration(n_joints, 0);
     std::vector<double> targetVelocity(n_joints, 0);
     std::fill(targetAcceleration.begin(), targetAcceleration.end(), 0.0);
@@ -310,12 +300,8 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             hw_commands_joint_positions_, targetVelocity, targetAcceleration);
     } else if (velocity_controller_running_ && robot_->getMode() == flexiv::Mode::RT_JOINT_POSITION
                && !isNanVel) {
-        for (std::size_t i = 0; i < n_joints; i++) {
-            internal_commands_joint_positions_[i]
-                += hw_commands_joint_velocities_[i] * duration.seconds();
-        }
         robot_->streamJointPosition(
-            internal_commands_joint_positions_, hw_commands_joint_velocities_, targetAcceleration);
+            hw_states_joint_positions_, hw_commands_joint_velocities_, targetAcceleration);
     } else if (torque_controller_running_ && robot_->getMode() == flexiv::Mode::RT_JOINT_TORQUE
                && !isNanEff) {
         robot_->streamJointTorque(hw_commands_joint_efforts_, true, true);
