@@ -210,21 +210,39 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
 {
     RCLCPP_INFO(getLogger(), "Starting... please wait...");
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     try {
+        // Clear fault on robot server if any
+        if (robot_->isFault()) {
+            RCLCPP_WARN(getLogger(),
+                "Fault occurred on robot server, trying to clear ...");
+            // Try to clear the fault
+            robot_->clearFault();
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            // Check again
+            if (robot_->isFault()) {
+                RCLCPP_FATAL(
+                    getLogger(), "Fault cannot be cleared, exiting ...");
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+            RCLCPP_INFO(getLogger(), "Fault on robot server is cleared");
+        }
+
+        // Enable the robot
+        RCLCPP_INFO(getLogger(), "Enabling robot ...");
         robot_->enable();
+
+        // Wait for the robot to become operational
+        while (!robot_->isOperational()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        RCLCPP_INFO(getLogger(), "Robot is now operational");
     } catch (const flexiv::Exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable robot.");
         RCLCPP_FATAL(getLogger(), e.what());
         return hardware_interface::CallbackReturn::ERROR;
     }
-
-    // Wait for the robot to become operational
-    while (!robot_->isOperational()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    RCLCPP_INFO(getLogger(), "Robot is now operational");
 
     RCLCPP_INFO(getLogger(), "System successfully started!");
 
@@ -236,7 +254,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_deactivate(
 {
     RCLCPP_INFO(getLogger(), "Stopping... please wait...");
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     robot_->stop();
     robot_->disconnect();
