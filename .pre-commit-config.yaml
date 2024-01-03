@@ -1,0 +1,45 @@
+# To run checks over all the files in the repo manually:
+#
+#     pre-commit run -a
+#
+# Or run checks automatically every time before commit:
+#
+#     pre-commit install
+#
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: pretty-format-json
+        args: [--no-sort-keys, --autofix, --indent=4]
+
+  - repo: https://github.com/myint/docformatter
+    rev: v1.7.5
+    hooks:
+      - id: docformatter
+        args: [--in-place]
+
+  - repo: https://github.com/psf/black
+    rev: 23.9.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: [--line-length=88]
+
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format
+        description: Format files with ClangFormat.
+        entry: clang-format -i
+        language: system
+        files: \.(c|cc|cxx|cpp|cu|h|hh|hpp|hxx|java|js|m|proto)$
+        args: ["-fallback-style=none"]
