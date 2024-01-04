@@ -17,4 +17,10 @@
             The TCP pose state broadcaster publishes the measured TCP pose expressed in base frame.
         </description>
     </class>
+    <class name="flexiv_controllers/GPIOController"
+           type="flexiv_controllers::GPIOController" base_class_type="controller_interface::ControllerInterface">
+        <description>
+            The GPIO controller publishes the GPIO states.
+        </description>
+    </class>
 </library>

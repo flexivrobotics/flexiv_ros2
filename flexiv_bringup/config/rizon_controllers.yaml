@@ -19,12 +19,15 @@ controller_manager:
 
     external_wrench_in_tcp_broadcaster:
       type: flexiv_controllers/ExternalTcpWrenchBroadcaster
-    
+
     tcp_pose_state_broadcaster:
       type: flexiv_controllers/TcpPoseStateBroadcaster
 
     rizon_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
+
+    gpio_controller:
+      type: flexiv_controllers/GPIOController
 
 force_torque_sensor_broadcaster:
   ros__parameters:
