@@ -46,6 +46,8 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     hw_states_external_wrench_in_tcp_.resize(
         info_.sensors[2].state_interfaces.size(), std::numeric_limits<double>::quiet_NaN());
     hw_states_tcp_pose_.resize(7, std::numeric_limits<double>::quiet_NaN());
+    hw_states_gpio_in_.resize(16, std::numeric_limits<double>::quiet_NaN());
+    hw_commands_gpio_out_.resize(16, std::numeric_limits<double>::quiet_NaN());
     stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE};
@@ -184,6 +186,12 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
         }
     }
 
+    const std::string prefix = info_.hardware_parameters.at("prefix");
+    for (std::size_t i = 0; i < 16; i++) {
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+            prefix + "gpio", "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i]));
+    }
+
     return state_interfaces;
 }
 
@@ -202,6 +210,12 @@ FlexivHardwareInterface::export_command_interfaces()
             hardware_interface::HW_IF_EFFORT, &hw_commands_joint_efforts_[i]));
     }
 
+    const std::string prefix = info_.hardware_parameters.at("prefix");
+    for (size_t i = 0; i < 16; i++) {
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(
+            prefix + "gpio", "digital_output_" + std::to_string(i), &hw_commands_gpio_out_[i]));
+    }
+
     return command_interfaces;
 }
 
@@ -215,15 +229,13 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
     try {
         // Clear fault on robot server if any
         if (robot_->isFault()) {
-            RCLCPP_WARN(getLogger(),
-                "Fault occurred on robot server, trying to clear ...");
+            RCLCPP_WARN(getLogger(), "Fault occurred on robot server, trying to clear ...");
             // Try to clear the fault
             robot_->clearFault();
             std::this_thread::sleep_for(std::chrono::seconds(2));
             // Check again
             if (robot_->isFault()) {
-                RCLCPP_FATAL(
-                    getLogger(), "Fault cannot be cleared, exiting ...");
+                RCLCPP_FATAL(getLogger(), "Fault cannot be cleared, exiting ...");
                 return hardware_interface::CallbackReturn::ERROR;
             }
             RCLCPP_INFO(getLogger(), "Fault on robot server is cleared");
@@ -287,6 +299,12 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         hw_states_tcp_pose_[4] = robot_states.tcpPose[5];
         hw_states_tcp_pose_[5] = robot_states.tcpPose[6];
         hw_states_tcp_pose_[6] = robot_states.tcpPose[3];
+
+        // Read GPIO input states
+        auto gpio_in = robot_->readDigitalInput();
+        for (size_t i = 0; i < hw_states_gpio_in_.size(); i++) {
+            hw_states_gpio_in_[i] = static_cast<double>(gpio_in[i]);
+        }
     }
 
     return hardware_interface::return_type::OK;
@@ -304,12 +322,15 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     bool isNanVel = false;
     bool isNanEff = false;
     for (std::size_t i = 0; i < n_joints; i++) {
-        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i])
+        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
             isNanPos = true;
-        if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i])
+        }
+        if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i]) {
             isNanVel = true;
-        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i])
+        }
+        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i]) {
             isNanEff = true;
+        }
     }
 
     if (position_controller_running_ && robot_->getMode() == flexiv::Mode::RT_JOINT_POSITION
@@ -324,6 +345,19 @@ hardware_interface::return_type FlexivHardwareInterface::write(
                && !isNanEff) {
         robot_->streamJointTorque(hw_commands_joint_efforts_, true, true);
     }
+
+    // Write digital output
+    std::vector<unsigned int> ports_indices;
+    std::vector<bool> ports_values;
+    for (size_t i = 0; i < hw_commands_gpio_out_.size(); i++) {
+        if (hw_commands_gpio_out_[i] != hw_commands_gpio_out_[i]) {
+            continue;
+        }
+        ports_indices.push_back(i);
+        ports_values.push_back(static_cast<bool>(hw_commands_gpio_out_[i]));
+    }
+
+    robot_->writeDigitalOutput(ports_indices, ports_values);
 
     return hardware_interface::return_type::OK;
 }

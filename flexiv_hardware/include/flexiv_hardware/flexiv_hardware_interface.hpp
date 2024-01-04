@@ -111,6 +111,10 @@ private:
     // Measured TCP pose expressed in base frame [x, y, z, qx, qy, qz, qw].
     std::vector<double> hw_states_tcp_pose_;
 
+    // GPIO commands and states
+    std::vector<double> hw_commands_gpio_out_;
+    std::vector<double> hw_states_gpio_in_;
+
     static rclcpp::Logger getLogger();
 
     // control modes
