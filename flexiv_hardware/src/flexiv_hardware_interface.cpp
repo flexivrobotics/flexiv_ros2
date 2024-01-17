@@ -246,7 +246,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
         robot_->enable();
 
         // Wait for the robot to become operational
-        while (!robot_->isOperational()) {
+        while (!robot_->isOperational(false)) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         RCLCPP_INFO(getLogger(), "Robot is now operational");
@@ -280,7 +280,7 @@ hardware_interface::return_type FlexivHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
     flexiv::RobotStates robot_states;
-    if (robot_->isOperational() && robot_->getMode() != flexiv::Mode::IDLE) {
+    if (robot_->isOperational(false) && robot_->getMode() != flexiv::Mode::IDLE) {
         robot_->getRobotStates(robot_states);
 
         hw_states_joint_positions_ = robot_states.q;
