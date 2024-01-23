@@ -296,7 +296,9 @@ def generate_launch_description():
     )
 
     # Servo node for realtime control
-    servo_yaml = load_yaml("flexiv_moveit_config", "config/servo.yaml")
+    servo_yaml = load_yaml(
+        "flexiv_moveit_config", "config/rizon_moveit_servo_config.yaml"
+    )
     servo_params = {"moveit_servo": servo_yaml}
     servo_node = Node(
         package="moveit_servo",
