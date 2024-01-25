@@ -36,5 +36,6 @@
         <disable_collisions link1="${prefix}link4" link2="${prefix}link7" reason="Never"/>
         <disable_collisions link1="${prefix}link5" link2="${prefix}link6" reason="Adjacent"/>
         <disable_collisions link1="${prefix}link6" link2="${prefix}link7" reason="Adjacent"/>
+        <disable_collisions link1="${prefix}link7" link2="${prefix}flange" reason="Adjacent"/>
     </xacro:macro>
 </robot>

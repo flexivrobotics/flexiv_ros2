@@ -5,7 +5,12 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (
+    Command,
+    FindExecutable,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+)
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -17,7 +22,9 @@ def load_yaml(package_name, file_path):
     try:
         with open(absolute_file_path, "r") as file:
             return yaml.safe_load(file)
-    except EnvironmentError:  # parent of IOError, OSError *and* WindowsError where available
+    except (
+        EnvironmentError
+    ):  # parent of IOError, OSError *and* WindowsError where available
         return None
 
 
@@ -47,7 +54,7 @@ def generate_launch_description():
             description="IP address of the workstation PC (local).",
         )
     )
-    
+
     declared_arguments.append(
         DeclareLaunchArgument(
             "start_rviz",
@@ -72,12 +79,20 @@ def generate_launch_description():
             Used only if 'use_fake_hardware' parameter is true.",
         )
     )
-    
+
     declared_arguments.append(
         DeclareLaunchArgument(
             "warehouse_sqlite_path",
             default_value=os.path.expanduser("~/.ros/warehouse_ros.sqlite"),
             description="Path to the sqlite database used by the warehouse_ros package.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "start_servo",
+            default_value="false",
+            description="Start the MoveIt servo node?",
         )
     )
 
@@ -88,6 +103,7 @@ def generate_launch_description():
     use_fake_hardware = LaunchConfiguration("use_fake_hardware")
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
     warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
+    start_servo = LaunchConfiguration("start_servo")
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
@@ -125,7 +141,7 @@ def generate_launch_description():
     flexiv_srdf_xacro = PathJoinSubstitution(
         [FindPackageShare("flexiv_moveit_config"), "srdf", "rizon.srdf.xacro"]
     )
-    
+
     robot_description_semantic_content = Command(
         [
             PathJoinSubstitution([FindExecutable(name="xacro")]),
@@ -243,12 +259,12 @@ def generate_launch_description():
         output="both",
         parameters=[robot_description],
     )
-    
+
     # Robot controllers
     robot_controllers = PathJoinSubstitution(
         [FindPackageShare("flexiv_bringup"), "config", "rizon_controllers.yaml"]
     )
-    
+
     # Run controller manager
     ros2_control_node = Node(
         package="controller_manager",
@@ -256,19 +272,45 @@ def generate_launch_description():
         parameters=[robot_description, robot_controllers],
         output="both",
     )
-    
+
     # Run robot controller
     robot_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["rizon_arm_controller", "--controller-manager", "/controller_manager"],
+        arguments=[
+            "rizon_arm_controller",
+            "--controller-manager",
+            "/controller_manager",
+        ],
     )
-    
+
     # Run joint state broadcaster
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
+        arguments=[
+            "joint_state_broadcaster",
+            "--controller-manager",
+            "/controller_manager",
+        ],
+    )
+
+    # Servo node for realtime control
+    servo_yaml = load_yaml(
+        "flexiv_moveit_config", "config/rizon_moveit_servo_config.yaml"
+    )
+    servo_params = {"moveit_servo": servo_yaml}
+    servo_node = Node(
+        package="moveit_servo",
+        condition=IfCondition(start_servo),
+        executable="servo_node_main",
+        parameters=[
+            servo_params,
+            robot_description,
+            robot_description_semantic,
+            robot_description_kinematics,
+        ],
+        output="screen",
     )
 
     nodes = [
@@ -278,6 +320,7 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,
         robot_controller_spawner,
         rviz_node,
+        servo_node,
     ]
 
     return LaunchDescription(declared_arguments + nodes)
