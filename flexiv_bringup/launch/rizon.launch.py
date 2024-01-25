@@ -2,7 +2,12 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, RegisterEventHandler
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (
+    Command,
+    FindExecutable,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+)
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -118,7 +123,7 @@ def generate_launch_description():
     )
     robot_description = {"robot_description": robot_description_content}
 
-    # RViZ    
+    # RViZ
     rviz_config_file = PathJoinSubstitution(
         [FindPackageShare("flexiv_description"), "rviz", "view_rizon.rviz"]
     )
@@ -165,37 +170,64 @@ def generate_launch_description():
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
+        arguments=[
+            "joint_state_broadcaster",
+            "--controller-manager",
+            "/controller_manager",
+        ],
     )
-    
+
     # Run force torque sensor broadcaster
     force_torque_sensor_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["force_torque_sensor_broadcaster", "--controller-manager", "/controller_manager"],
+        arguments=[
+            "force_torque_sensor_broadcaster",
+            "--controller-manager",
+            "/controller_manager",
+        ],
     )
-    
+
     # Run external wrench in base broadcaster
     external_wrench_in_base_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["external_wrench_in_base_broadcaster", "--controller-manager", "/controller_manager"],
+        arguments=[
+            "external_wrench_in_base_broadcaster",
+            "--controller-manager",
+            "/controller_manager",
+        ],
     )
-    
+
     # Run external wrench in tcp broadcaster
     external_wrench_in_tcp_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["external_wrench_in_tcp_broadcaster", "--controller-manager", "/controller_manager"],
+        arguments=[
+            "external_wrench_in_tcp_broadcaster",
+            "--controller-manager",
+            "/controller_manager",
+        ],
     )
-    
+
     # Run tcp pose state broadcaster
     tcp_pose_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["tcp_pose_state_broadcaster", "--controller-manager", "/controller_manager"],
+        arguments=[
+            "tcp_pose_state_broadcaster",
+            "--controller-manager",
+            "/controller_manager",
+        ],
     )
-    
+
+    # Run gpio controller
+    gpio_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["gpio_controller", "--controller-manager", "/controller_manager"],
+    )
+
     # Delay rviz start after `joint_state_broadcaster`
     delay_rviz_after_joint_state_broadcaster_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
@@ -203,12 +235,14 @@ def generate_launch_description():
             on_exit=[rviz_node],
         )
     )
-    
+
     # Delay start of robot_controller after `joint_state_broadcaster`
-    delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=joint_state_broadcaster_spawner,
-            on_exit=[robot_controller_spawner],
+    delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = (
+        RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=joint_state_broadcaster_spawner,
+                on_exit=[robot_controller_spawner],
+            )
         )
     )
 
@@ -220,6 +254,7 @@ def generate_launch_description():
         external_wrench_in_base_broadcaster_spawner,
         external_wrench_in_tcp_broadcaster_spawner,
         tcp_pose_state_broadcaster_spawner,
+        gpio_controller_spawner,
         delay_rviz_after_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
     ]

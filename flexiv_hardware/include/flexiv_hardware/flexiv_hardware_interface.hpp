@@ -92,7 +92,6 @@ private:
     std::vector<double> hw_commands_joint_positions_;
     std::vector<double> hw_commands_joint_velocities_;
     std::vector<double> hw_commands_joint_efforts_;
-    std::vector<double> internal_commands_joint_positions_;
 
     // Joint states
     std::vector<double> hw_states_joint_positions_;
@@ -112,6 +111,10 @@ private:
     // Measured TCP pose expressed in base frame [x, y, z, qx, qy, qz, qw].
     std::vector<double> hw_states_tcp_pose_;
 
+    // GPIO commands and states
+    std::vector<double> hw_commands_gpio_out_;
+    std::vector<double> hw_states_gpio_in_;
+
     static rclcpp::Logger getLogger();
 
     // control modes
@@ -121,11 +124,6 @@ private:
     bool position_controller_running_;
     bool velocity_controller_running_;
     bool torque_controller_running_;
-
-    // Store time between update loops
-    rclcpp::Clock clock_;
-    rclcpp::Time last_timestamp_;
-    rclcpp::Time current_timestamp_;
 };
 
 } /* namespace flexiv_hardware */

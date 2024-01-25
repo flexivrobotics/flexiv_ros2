@@ -8,6 +8,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 
 set(msg_files
+  msg/Digital.msg
+  msg/GPIOStates.msg
   msg/JointPosVel.msg
   msg/Mode.msg
   msg/RobotStates.msg

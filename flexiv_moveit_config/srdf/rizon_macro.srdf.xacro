@@ -15,8 +15,6 @@
             <joint name="${prefix}joint7" value="0"/>
         </group_state>
 
-        <end_effector name="eef" parent_link="${prefix}flange" group="${prefix}${name}_arm"/>
-
         <virtual_joint name="virtual_joint" type="fixed" parent_frame="world" child_link="${prefix}base_link"/>
 
         <disable_collisions link1="${prefix}base_link" link2="${prefix}link1" reason="Adjacent"/>
@@ -38,5 +36,6 @@
         <disable_collisions link1="${prefix}link4" link2="${prefix}link7" reason="Never"/>
         <disable_collisions link1="${prefix}link5" link2="${prefix}link6" reason="Adjacent"/>
         <disable_collisions link1="${prefix}link6" link2="${prefix}link7" reason="Adjacent"/>
+        <disable_collisions link1="${prefix}link7" link2="${prefix}flange" reason="Adjacent"/>
     </xacro:macro>
 </robot>

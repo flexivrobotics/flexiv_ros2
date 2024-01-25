@@ -5,8 +5,8 @@ controller_manager:
     forward_position_controller:
       type: position_controllers/JointGroupPositionController
 
-    joint_impedance_controller:
-      type: flexiv_controllers/JointImpedanceController
+    rizon_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
 
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
@@ -14,17 +14,20 @@ controller_manager:
     force_torque_sensor_broadcaster:
       type: force_torque_sensor_broadcaster/ForceTorqueSensorBroadcaster
 
+    joint_impedance_controller:
+      type: flexiv_controllers/JointImpedanceController
+
+    gpio_controller:
+      type: flexiv_controllers/GPIOController
+
     external_wrench_in_base_broadcaster:
       type: flexiv_controllers/ExternalTcpWrenchBroadcaster
 
     external_wrench_in_tcp_broadcaster:
       type: flexiv_controllers/ExternalTcpWrenchBroadcaster
-    
+
     tcp_pose_state_broadcaster:
       type: flexiv_controllers/TcpPoseStateBroadcaster
-
-    rizon_arm_controller:
-      type: joint_trajectory_controller/JointTrajectoryController
 
 force_torque_sensor_broadcaster:
   ros__parameters:
@@ -40,7 +43,7 @@ external_wrench_in_tcp_broadcaster:
 external_wrench_in_base_broadcaster:
   ros__parameters:
     sensor_name: external_wrench_in_base
-    frame_id: base_link
+    frame_id: flange
     topic_name: external_wrench_in_base
 
 tcp_pose_state_broadcaster:
@@ -91,7 +94,6 @@ rizon_arm_controller:
     state_publish_rate: 100.0
     action_monitor_rate: 20.0
     allow_partial_joints_goal: false
-    allow_integration_in_goal_trajectories: true
     constraints:
       stopped_velocity_tolerance: 0.01
       goal_time: 0.0

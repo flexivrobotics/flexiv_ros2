@@ -46,8 +46,8 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     hw_states_external_wrench_in_tcp_.resize(
         info_.sensors[2].state_interfaces.size(), std::numeric_limits<double>::quiet_NaN());
     hw_states_tcp_pose_.resize(7, std::numeric_limits<double>::quiet_NaN());
-    internal_commands_joint_positions_.resize(
-        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+    hw_states_gpio_in_.resize(16, std::numeric_limits<double>::quiet_NaN());
+    hw_commands_gpio_out_.resize(16, std::numeric_limits<double>::quiet_NaN());
     stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE};
@@ -144,8 +144,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
-    clock_ = rclcpp::Clock();
-
     RCLCPP_INFO(getLogger(), "Successfully connected to robot");
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -188,6 +186,12 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
         }
     }
 
+    const std::string prefix = info_.hardware_parameters.at("prefix");
+    for (std::size_t i = 0; i < 16; i++) {
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+            prefix + "gpio", "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i]));
+    }
+
     return state_interfaces;
 }
 
@@ -206,6 +210,12 @@ FlexivHardwareInterface::export_command_interfaces()
             hardware_interface::HW_IF_EFFORT, &hw_commands_joint_efforts_[i]));
     }
 
+    const std::string prefix = info_.hardware_parameters.at("prefix");
+    for (size_t i = 0; i < 16; i++) {
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(
+            prefix + "gpio", "digital_output_" + std::to_string(i), &hw_commands_gpio_out_[i]));
+    }
+
     return command_interfaces;
 }
 
@@ -214,23 +224,38 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
 {
     RCLCPP_INFO(getLogger(), "Starting... please wait...");
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     try {
+        // Clear fault on robot server if any
+        if (robot_->isFault()) {
+            RCLCPP_WARN(getLogger(), "Fault occurred on robot server, trying to clear ...");
+            // Try to clear the fault
+            robot_->clearFault();
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            // Check again
+            if (robot_->isFault()) {
+                RCLCPP_FATAL(getLogger(), "Fault cannot be cleared, exiting ...");
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+            RCLCPP_INFO(getLogger(), "Fault on robot server is cleared");
+        }
+
+        // Enable the robot
+        RCLCPP_INFO(getLogger(), "Enabling robot ...");
         robot_->enable();
+
+        // Wait for the robot to become operational
+        while (!robot_->isOperational(false)) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        RCLCPP_INFO(getLogger(), "Robot is now operational");
     } catch (const flexiv::Exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable robot.");
         RCLCPP_FATAL(getLogger(), e.what());
         return hardware_interface::CallbackReturn::ERROR;
     }
 
-    // Wait for the robot to become operational
-    while (!robot_->isOperational()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    RCLCPP_INFO(getLogger(), "Robot is now operational");
-
-    last_timestamp_ = clock_.now();
     RCLCPP_INFO(getLogger(), "System successfully started!");
 
     return hardware_interface::CallbackReturn::SUCCESS;
@@ -241,7 +266,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_deactivate(
 {
     RCLCPP_INFO(getLogger(), "Stopping... please wait...");
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     robot_->stop();
     robot_->disconnect();
@@ -255,13 +280,12 @@ hardware_interface::return_type FlexivHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
     flexiv::RobotStates robot_states;
-    if (robot_->isOperational() && robot_->getMode() != flexiv::Mode::IDLE) {
+    if (robot_->isOperational(false) && robot_->getMode() != flexiv::Mode::IDLE) {
         robot_->getRobotStates(robot_states);
 
         hw_states_joint_positions_ = robot_states.q;
         hw_states_joint_velocities_ = robot_states.dtheta;
         hw_states_joint_efforts_ = robot_states.tau;
-        internal_commands_joint_positions_ = hw_states_joint_positions_;
 
         hw_states_force_torque_sensor_ = robot_states.ftSensorRaw;
         hw_states_external_wrench_in_base_ = robot_states.extWrenchInBase;
@@ -275,6 +299,12 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         hw_states_tcp_pose_[4] = robot_states.tcpPose[5];
         hw_states_tcp_pose_[5] = robot_states.tcpPose[6];
         hw_states_tcp_pose_[6] = robot_states.tcpPose[3];
+
+        // Read GPIO input states
+        auto gpio_in = robot_->readDigitalInput();
+        for (size_t i = 0; i < hw_states_gpio_in_.size(); i++) {
+            hw_states_gpio_in_[i] = static_cast<double>(gpio_in[i]);
+        }
     }
 
     return hardware_interface::return_type::OK;
@@ -283,10 +313,6 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 hardware_interface::return_type FlexivHardwareInterface::write(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    current_timestamp_ = clock_.now();
-    rclcpp::Duration duration = current_timestamp_ - last_timestamp_;
-    last_timestamp_ = current_timestamp_;
-
     std::vector<double> targetAcceleration(n_joints, 0);
     std::vector<double> targetVelocity(n_joints, 0);
     std::fill(targetAcceleration.begin(), targetAcceleration.end(), 0.0);
@@ -296,12 +322,15 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     bool isNanVel = false;
     bool isNanEff = false;
     for (std::size_t i = 0; i < n_joints; i++) {
-        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i])
+        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
             isNanPos = true;
-        if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i])
+        }
+        if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i]) {
             isNanVel = true;
-        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i])
+        }
+        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i]) {
             isNanEff = true;
+        }
     }
 
     if (position_controller_running_ && robot_->getMode() == flexiv::Mode::RT_JOINT_POSITION
@@ -310,16 +339,25 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             hw_commands_joint_positions_, targetVelocity, targetAcceleration);
     } else if (velocity_controller_running_ && robot_->getMode() == flexiv::Mode::RT_JOINT_POSITION
                && !isNanVel) {
-        for (std::size_t i = 0; i < n_joints; i++) {
-            internal_commands_joint_positions_[i]
-                += hw_commands_joint_velocities_[i] * duration.seconds();
-        }
         robot_->streamJointPosition(
-            internal_commands_joint_positions_, hw_commands_joint_velocities_, targetAcceleration);
+            hw_states_joint_positions_, hw_commands_joint_velocities_, targetAcceleration);
     } else if (torque_controller_running_ && robot_->getMode() == flexiv::Mode::RT_JOINT_TORQUE
                && !isNanEff) {
         robot_->streamJointTorque(hw_commands_joint_efforts_, true, true);
     }
+
+    // Write digital output
+    std::vector<unsigned int> ports_indices;
+    std::vector<bool> ports_values;
+    for (size_t i = 0; i < hw_commands_gpio_out_.size(); i++) {
+        if (hw_commands_gpio_out_[i] != hw_commands_gpio_out_[i]) {
+            continue;
+        }
+        ports_indices.push_back(i);
+        ports_values.push_back(static_cast<bool>(hw_commands_gpio_out_[i]));
+    }
+
+    robot_->writeDigitalOutput(ports_indices, ports_values);
 
     return hardware_interface::return_type::OK;
 }

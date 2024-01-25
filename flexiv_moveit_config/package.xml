@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>flexiv_moveit_config</name>
-  <version>0.8.0</version>
+  <version>0.9.1</version>
   <description>MoveIt2 configuration and launch files for Flexiv Rizon robots</description>
   <maintainer email="munseng.phoon@flexiv.com">Mun Seng Phoon</maintainer>
   <license>Apache 2.0</license>
@@ -18,6 +18,8 @@
   <exec_depend>moveit_kinematics</exec_depend>
   <exec_depend>moveit_planners_ompl</exec_depend>
   <exec_depend>moveit_ros_visualization</exec_depend>
+  <exec_depend>moveit_servo</exec_depend>
+  <exec_depend>moveit_simple_controller_manager</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>flexiv_description</exec_depend>
   <exec_depend>urdf</exec_depend>
