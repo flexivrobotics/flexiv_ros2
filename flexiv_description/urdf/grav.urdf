@@ -11,14 +11,14 @@
     <visual>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/visual/base.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/visual/base.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="flexiv_black"/>
     </visual>
     <collision>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/collision/base.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/collision/base.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -33,7 +33,7 @@
     <visual>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/visual/outer_bar.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/visual/outer_bar.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="flexiv_black"/>
     </visual>
@@ -47,7 +47,7 @@
     <visual>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/visual/inner_bar.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/visual/inner_bar.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="flexiv_black"/>
     </visual>
@@ -61,7 +61,7 @@
     <visual>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/visual/finger_mount.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/visual/finger_mount.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="flexiv_black"/>
     </visual>
@@ -75,13 +75,13 @@
     <visual>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/visual/finger_tip.obj" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/visual/finger_tip.obj" scale="0.001 0.001 0.001"/>
       </geometry>
     </visual>
     <collision>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/collision/finger_tip.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/collision/finger_tip.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
@@ -96,7 +96,7 @@
     <visual>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/visual/outer_bar.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/visual/outer_bar.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="flexiv_black"/>
     </visual>
@@ -110,7 +110,7 @@
     <visual>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/visual/inner_bar.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/visual/inner_bar.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="flexiv_black"/>
     </visual>
@@ -124,7 +124,7 @@
     <visual>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/visual/finger_mount.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/visual/finger_mount.stl" scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="flexiv_black"/>
     </visual>
@@ -138,13 +138,13 @@
     <visual>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/visual/finger_tip.obj" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/visual/finger_tip.obj" scale="0.001 0.001 0.001"/>
       </geometry>
     </visual>
     <collision>
       <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://flexiv/meshes/GN01/collision/finger_tip.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://flexiv_description/meshes/grav/collision/finger_tip.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
   </link>
