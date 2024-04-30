@@ -78,7 +78,7 @@ CallbackReturn TcpPoseStateBroadcaster::on_configure(
     }
 
     try {
-        // register ft sensor data publisher
+        // register TCP pose data publisher
         sensor_state_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
             "~/" + topic_name_, rclcpp::SystemDefaultsQoS());
         realtime_publisher_ = std::make_unique<StatePublisher>(sensor_state_publisher_);
@@ -99,10 +99,10 @@ CallbackReturn TcpPoseStateBroadcaster::on_configure(
 }
 
 controller_interface::return_type TcpPoseStateBroadcaster::update(
-    const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
+    const rclcpp::Time& time, const rclcpp::Duration& /*period*/)
 {
     if (realtime_publisher_ && realtime_publisher_->trylock()) {
-        realtime_publisher_->msg_.header.stamp = get_node()->now();
+        realtime_publisher_->msg_.header.stamp = time;
         cartesian_pose_sensor_->get_values_as_message(realtime_publisher_->msg_.pose);
         realtime_publisher_->unlockAndPublish();
     }
