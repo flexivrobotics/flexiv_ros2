@@ -1,7 +1,7 @@
 /**
  * @file cartesian_pose_sensor.hpp
  * @brief Sensor interface to read the Cartesian pose. Adapted from
- * ros2_control/semantic_components/include/semantic_components/force_torque_sensor.hpp
+ * ros2_control/controller_interface/include/semantic_components/force_torque_sensor.hpp
  * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
@@ -19,8 +19,7 @@
 
 namespace flexiv_controllers {
 class CartesianPoseSensor
-: public semantic_components::SemanticComponentInterface<
-      geometry_msgs::msg::Pose>
+: public semantic_components::SemanticComponentInterface<geometry_msgs::msg::Pose>
 {
 public:
     CartesianPoseSensor(const std::string& name)
@@ -38,10 +37,9 @@ public:
         std::fill(existing_axes_.begin(), existing_axes_.end(), true);
 
         // Set default position and orientation values to NaN
-        std::fill(positions_.begin(), positions_.end(),
-            std::numeric_limits<double>::quiet_NaN());
-        std::fill(orientations_.begin(), orientations_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        std::fill(positions_.begin(), positions_.end(), std::numeric_limits<double>::quiet_NaN());
+        std::fill(
+            orientations_.begin(), orientations_.end(), std::numeric_limits<double>::quiet_NaN());
     }
 
     virtual ~CartesianPoseSensor() = default;
@@ -49,12 +47,11 @@ public:
     /// Return positions
     std::array<double, 3>& get_positions()
     {
-        size_t interface_counter = 0;
+        size_t position_interface_counter = 0;
         for (size_t i = 0; i < 3; ++i) {
             if (existing_axes_[i]) {
-                positions_[i]
-                    = state_interfaces_[interface_counter].get().get_value();
-                ++interface_counter;
+                positions_[i] = state_interfaces_[position_interface_counter].get().get_value();
+                ++position_interface_counter;
             }
         }
         return positions_;
@@ -63,12 +60,13 @@ public:
     /// Return orientations
     std::array<double, 4>& get_orientations()
     {
-        size_t interface_counter = 0;
+        auto orientation_interface_counter
+            = std::count(existing_axes_.begin(), existing_axes_.begin() + 3, true);
         for (size_t i = 3; i < 7; ++i) {
             if (existing_axes_[i]) {
                 orientations_[i - 3]
-                    = state_interfaces_[interface_counter].get().get_value();
-                ++interface_counter;
+                    = state_interfaces_[orientation_interface_counter].get().get_value();
+                ++orientation_interface_counter;
             }
         }
         return orientations_;
