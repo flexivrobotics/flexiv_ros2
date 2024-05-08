@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>flexiv_bringup</name>
-  <version>0.9.1</version>
+  <version>0.10.0</version>
   <description>Package with launch files and run-time configurations for Flexiv robots with `ros2_control`</description>
   <maintainer email="munseng.phoon@flexiv.com">Mun Seng Phoon</maintainer>
   <license>Apache License 2.0</license>

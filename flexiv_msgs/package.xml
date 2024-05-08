@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>flexiv_msgs</name>
-  <version>0.9.1</version>
+  <version>0.10.0</version>
   <description>Robot states messages definiton used in RDK</description>
   <maintainer email="munseng.phoon@flexiv.com">Mun Seng Phoon</maintainer>
   <license>Apache License 2.0</license>
