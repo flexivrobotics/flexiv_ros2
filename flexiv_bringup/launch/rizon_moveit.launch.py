@@ -3,8 +3,9 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, RegisterEventHandler
 from launch.conditions import IfCondition
+from launch.event_handlers import OnProcessExit
 from launch.substitutions import (
     Command,
     FindExecutable,
@@ -29,12 +30,21 @@ def load_yaml(package_name, file_path):
 
 
 def generate_launch_description():
+    rizon_type_param_name = "rizon_type"
+    robot_ip_param_name = "robot_ip"
+    local_ip_param_name = "local_ip"
+    start_rviz_param_name = "start_rviz"
+    use_fake_hardware_param_name = "use_fake_hardware"
+    fake_sensor_commands_param_name = "fake_sensor_commands"
+    warehouse_sqlite_path_param_name = "warehouse_sqlite_path"
+    start_servo_param_name = "start_servo"
+
     # Declare command-line arguments
     declared_arguments = []
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "rizon_type",
+            rizon_type_param_name,
             description="Type of the Flexiv Rizon robot.",
             default_value="rizon4",
             choices=["rizon4", "rizon4s", "rizon10"],
@@ -43,21 +53,21 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "robot_ip",
+            robot_ip_param_name,
             description="IP address of the robot server (remote).",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "local_ip",
+            local_ip_param_name,
             description="IP address of the workstation PC (local).",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "start_rviz",
+            start_rviz_param_name,
             default_value="true",
             description="start RViz automatically with the launch file",
         )
@@ -65,7 +75,7 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "use_fake_hardware",
+            use_fake_hardware_param_name,
             default_value="false",
             description="Start robot with fake hardware mirroring command to its states.",
         )
@@ -73,7 +83,7 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "fake_sensor_commands",
+            fake_sensor_commands_param_name,
             default_value="false",
             description="Enable fake command interfaces for sensors used for simple simulations. \
             Used only if 'use_fake_hardware' parameter is true.",
@@ -82,7 +92,7 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "warehouse_sqlite_path",
+            warehouse_sqlite_path_param_name,
             default_value=os.path.expanduser("~/.ros/warehouse_ros.sqlite"),
             description="Path to the sqlite database used by the warehouse_ros package.",
         )
@@ -90,20 +100,20 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "start_servo",
+            start_servo_param_name,
             default_value="false",
             description="Start the MoveIt servo node?",
         )
     )
 
-    rizon_type = LaunchConfiguration("rizon_type")
-    robot_ip = LaunchConfiguration("robot_ip")
-    local_ip = LaunchConfiguration("local_ip")
-    start_rviz = LaunchConfiguration("start_rviz")
-    use_fake_hardware = LaunchConfiguration("use_fake_hardware")
-    fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
-    warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
-    start_servo = LaunchConfiguration("start_servo")
+    rizon_type = LaunchConfiguration(rizon_type_param_name)
+    robot_ip = LaunchConfiguration(robot_ip_param_name)
+    local_ip = LaunchConfiguration(local_ip_param_name)
+    start_rviz = LaunchConfiguration(start_rviz_param_name)
+    use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
+    fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
+    warehouse_sqlite_path = LaunchConfiguration(warehouse_sqlite_path_param_name)
+    start_servo = LaunchConfiguration(start_servo_param_name)
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
@@ -295,6 +305,17 @@ def generate_launch_description():
         ],
     )
 
+    # Run tcp pose state broadcaster
+    tcp_pose_state_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=[
+            "tcp_pose_state_broadcaster",
+            "--controller-manager",
+            "/controller_manager",
+        ],
+    )
+
     # Servo node for realtime control
     servo_yaml = load_yaml(
         "flexiv_moveit_config", "config/rizon_moveit_servo_config.yaml"
@@ -313,14 +334,33 @@ def generate_launch_description():
         output="screen",
     )
 
+    # Delay rviz start after `joint_state_broadcaster`
+    delay_rviz_after_joint_state_broadcaster_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_state_broadcaster_spawner,
+            on_exit=[rviz_node],
+        )
+    )
+
+    # Delay start of robot_controller after `joint_state_broadcaster`
+    delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = (
+        RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=joint_state_broadcaster_spawner,
+                on_exit=[robot_controller_spawner],
+            )
+        )
+    )
+
     nodes = [
         move_group_node,
         robot_state_publisher_node,
         ros2_control_node,
         joint_state_broadcaster_spawner,
-        robot_controller_spawner,
-        rviz_node,
+        tcp_pose_state_broadcaster_spawner,
         servo_node,
+        delay_rviz_after_joint_state_broadcaster_spawner,
+        delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
     ]
 
     return LaunchDescription(declared_arguments + nodes)

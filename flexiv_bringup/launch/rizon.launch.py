@@ -13,12 +13,20 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    rizon_type_param_name = "rizon_type"
+    robot_ip_param_name = "robot_ip"
+    local_ip_param_name = "local_ip"
+    start_rviz_param_name = "start_rviz"
+    use_fake_hardware_param_name = "use_fake_hardware"
+    fake_sensor_commands_param_name = "fake_sensor_commands"
+    robot_controller_param_name = "robot_controller"
+
     # Declare arguments
     declared_arguments = []
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "rizon_type",
+            rizon_type_param_name,
             description="Type of the Flexiv Rizon robot.",
             default_value="rizon4",
             choices=["rizon4", "rizon4s", "rizon10"],
@@ -27,21 +35,21 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "robot_ip",
+            robot_ip_param_name,
             description="IP address of the robot server (remote).",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "local_ip",
+            local_ip_param_name,
             description="IP address of the workstation PC (local).",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "start_rviz",
+            start_rviz_param_name,
             default_value="true",
             description="start RViz automatically with the launch file",
         )
@@ -49,7 +57,7 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "use_fake_hardware",
+            use_fake_hardware_param_name,
             default_value="false",
             description="Start robot with fake hardware mirroring command to its states.",
         )
@@ -57,7 +65,7 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "fake_sensor_commands",
+            fake_sensor_commands_param_name,
             default_value="false",
             description="Enable fake command interfaces for sensors used for simple simulations. \
             Used only if 'use_fake_hardware' parameter is true.",
@@ -66,29 +74,20 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "controllers_file",
-            default_value="rizon_controllers.yaml",
-            description="YAML file with the controllers configuration.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            "robot_controller",
+            robot_controller_param_name,
             default_value="rizon_arm_controller",
             description="Robot controller to start. Available: forward_position_controller, rizon_arm_controller, joint_impedance_controller.",
         )
     )
 
     # Initialize Arguments
-    rizon_type = LaunchConfiguration("rizon_type")
-    robot_ip = LaunchConfiguration("robot_ip")
-    local_ip = LaunchConfiguration("local_ip")
-    start_rviz = LaunchConfiguration("start_rviz")
-    use_fake_hardware = LaunchConfiguration("use_fake_hardware")
-    fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
-    controllers_file = LaunchConfiguration("controllers_file")
-    robot_controller = LaunchConfiguration("robot_controller")
+    rizon_type = LaunchConfiguration(rizon_type_param_name)
+    robot_ip = LaunchConfiguration(robot_ip_param_name)
+    local_ip = LaunchConfiguration(local_ip_param_name)
+    start_rviz = LaunchConfiguration(start_rviz_param_name)
+    use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
+    fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
+    robot_controller = LaunchConfiguration(robot_controller_param_name)
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
@@ -139,7 +138,7 @@ def generate_launch_description():
 
     # Robot controllers
     robot_controllers = PathJoinSubstitution(
-        [FindPackageShare("flexiv_bringup"), "config", controllers_file]
+        [FindPackageShare("flexiv_bringup"), "config", "rizon_controllers.yaml"]
     )
 
     # Controller Manager
