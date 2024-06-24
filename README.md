@@ -66,8 +66,26 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
    rosdep update
    rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
    ```
+   
+> [!NOTE]
+> Skip step 5 and 6 if you have compile and install [flexiv_rdk](https://github.com/flexivrobotics/flexiv_rdk).
 
-5. Build and source the workspace:
+5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`. Compile and install to the installation directory:
+
+   ```bash
+   cd ~/flexiv_ros2_ws/src/flexiv_ros2/flexiv_hardware/rdk/thirdparty
+   bash build_and_install_dependencies.sh ~/rdk_install
+   ```
+
+6. Configure `flexiv_rdk`:
+
+   ```bash
+   cd ~/flexiv_ros2_ws/src/flexiv_ros2/flexiv_hardware/rdk
+   mkdir build && cd build
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
+   ```
+
+7. Build and source the workspace:
 
    ```bash
    cd ~/flexiv_ros2_ws
@@ -169,9 +187,9 @@ The robot driver (`rizon.launch.py`) publishes the following feedback states to 
 
 - `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/JointState.msg`](https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/JointState.html)]
 - `/external_wrench_in_tcp_broadcaster/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and moment $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
-- `/external_wrench_in_base_broadcaster/external_wrench_in_base`: Estimated external wrench applied on TCP and expressed in base frame $^{0}F_{ext}$ in force $[N]$ and moment $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
+- `/external_wrench_in_world_broadcaster/external_wrench_in_world`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and moment $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 - `/force_torque_sensor_broadcaster/wrench`: Force-torque (FT) sensor raw reading in flange frame: $^{flange}F_{raw}$ in force $[N]$ and moment $[Nm]$. The value is 0 if no FT sensor is installed. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
-- `/tcp_pose_broadcaster/tcp_pose`: Measured TCP pose expressed in base frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
+- `/tcp_pose_broadcaster/tcp_pose`: Measured TCP pose expressed in world frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
 
 > [!NOTE]
 > The topic names of the broadcasters are specified in `flexiv_bringup/config/rizon_controllers.yaml`
