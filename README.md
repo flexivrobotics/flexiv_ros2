@@ -72,7 +72,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
    ```bash
    cd ~/flexiv_ros2_ws
    source /opt/ros/humble/setup.bash
-   colcon build --symlink-install
+   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/rdk_install
    source install/setup.bash
    ```
 
@@ -92,8 +92,7 @@ The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the 
 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, force torque sensor broadcaster, TCP wrench and TCP pose broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
-- `robot_ip` (*required*) - IP address of the robot server (remote).
-- `local_ip` (*required*) - IP address of the workstation PC (local).
+- `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
 - `rizon_type` (default: *rizon4*) - type of the Flexiv Rizon robot. (rizon4, rizon4s or rizon10)
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
 - `start_rviz` (deafult: *true*) - starts RViz automatically with the launch file.
@@ -109,13 +108,13 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
    - Test with real robot:
 
      ```bash
-     ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip] rizon_type:=rizon4
+     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] rizon_type:=rizon4
      ```
 
    - Test with fake hardware (`ros2_control` capability):
 
      ```bash
-     ros2 launch flexiv_bringup rizon.launch.py robot_ip:=dont-care local_ip:=dont-care use_fake_hardware:=true
+     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=dont-care use_fake_hardware:=true
      ```
 
 > [!TIP]
@@ -133,7 +132,7 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
    - To test another controller, define it using the `robot_controller` launch argument, for example the `joint_impedance_controller`:
 
      ```bash
-     ros2 launch flexiv_bringup rizon.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip] robot_controller:=joint_impedance_controller
+     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_controller:=joint_impedance_controller
      ```
 
      Open a new terminal and run the launch file:
@@ -155,13 +154,13 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 You can also run the MoveIt example and use the `MotionPlanning` plugin in RViZ to start planning:
 
 ```bash
-ros2 launch flexiv_bringup rizon_moveit.launch.py robot_ip:=[robot_ip] local_ip:=[local_ip]
+ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=[robot_sn]
 ```
 
 Test with fake hardware:
 
 ```bash
-ros2 launch flexiv_bringup rizon_moveit.launch.py robot_ip:=dont-care local_ip:=dont-care use_fake_hardware:=true
+ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=dont-care use_fake_hardware:=true
 ```
 
 ### Robot States

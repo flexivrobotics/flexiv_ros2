@@ -17,6 +17,24 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 
+# spdlog
+find_package(spdlog REQUIRED)
+if(spdlog_FOUND)
+  message(STATUS "Found spdlog: ${spdlog_DIR}")
+endif()
+
+# Fast-CDR
+find_package(fastcdr 1.0.24 REQUIRED)
+if(fastcdr_FOUND)
+  message(STATUS "Found fastcdr: ${fastcdr_DIR}")
+endif()
+
+# Fast-DDS (Fast-RTPS)
+find_package(fastrtps 2.6.2 REQUIRED)
+if(fastrtps_FOUND)
+  message(STATUS "Found fastrtps: ${fastrtps_DIR}")
+endif()
+
 add_library(
   ${PROJECT_NAME}
   SHARED
@@ -57,6 +75,9 @@ endif()
 
 target_link_libraries(${PROJECT_NAME}
   ${RDK_STATIC_LIBRARY}
+  spdlog::spdlog
+  fastrtps
+  fastcdr
 )
 
 # Link ROS packages
