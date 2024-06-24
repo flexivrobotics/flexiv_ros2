@@ -29,7 +29,7 @@
 #include "flexiv_hardware/visibility_control.h"
 
 // Flexiv
-#include "flexiv/Robot.hpp"
+#include "flexiv/rdk/robot.hpp"
 
 namespace flexiv_hardware {
 
@@ -82,11 +82,9 @@ public:
     hardware_interface::return_type write(
         const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
-    static const size_t n_joints = 7;
-
 private:
     // Flexiv RDK
-    std::unique_ptr<flexiv::Robot> robot_;
+    std::unique_ptr<flexiv::rdk::Robot> robot_;
 
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
@@ -102,8 +100,8 @@ private:
     // no FT sensor is installed.
     std::vector<double> hw_states_force_torque_sensor_;
 
-    // Estimated external wrench applied on TCP and expressed in base frame.
-    std::vector<double> hw_states_external_wrench_in_base_;
+    // Estimated external wrench applied on TCP and expressed in world frame.
+    std::vector<double> hw_states_external_wrench_in_world_;
 
     // Estimated external wrench applied on TCP and expressed in TCP frame.
     std::vector<double> hw_states_external_wrench_in_tcp_;
