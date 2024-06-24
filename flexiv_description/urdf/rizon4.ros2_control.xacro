@@ -3,8 +3,7 @@
 
   <xacro:macro name="rizon4_ros2_control" params="
     prefix
-    robot_ip
-    local_ip
+    robot_sn
     use_fake_hardware:=false
     fake_sensor_commands:=false
     initial_positions:=${dict(joint1=0.0,joint2=-0.69813,joint3=0.0,joint4=1.570796,joint5=0.0,joint6=0.69813,joint7=0.0)}
@@ -19,8 +18,7 @@
         </xacro:if>
         <xacro:unless value="${use_fake_hardware}">
           <plugin>flexiv_hardware/FlexivHardwareInterface</plugin>
-          <param name="robot_ip">${robot_ip}</param>
-          <param name="local_ip">${local_ip}</param>
+          <param name="robot_sn">${robot_sn}</param>
           <param name="prefix">${prefix}</param>
         </xacro:unless>
       </hardware>
@@ -153,7 +151,7 @@
         <state_interface name="torque.y"/>
         <state_interface name="torque.z"/>
       </sensor>
-      <sensor name="${prefix}external_wrench_in_base">
+      <sensor name="${prefix}external_wrench_in_world">
         <state_interface name="force.x"/>
         <state_interface name="force.y"/>
         <state_interface name="force.z"/>

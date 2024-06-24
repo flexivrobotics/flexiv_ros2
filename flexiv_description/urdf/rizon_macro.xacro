@@ -3,11 +3,10 @@
 
   <xacro:macro name="rizon_robot" params="
     rizon_type
-    prefix 
-    robot_ip 
-    local_ip 
-    use_fake_hardware:=false 
-    fake_sensor_commands:=false 
+    prefix
+    robot_sn
+    use_fake_hardware:=false
+    fake_sensor_commands:=false
     initial_positions:=${dict(joint1=0.0,joint2=-0.69813,joint3=0.0,joint4=1.570796,joint5=0.0,joint6=0.69813,joint7=0.0)}
     ">
 
@@ -21,9 +20,9 @@
 
       <!-- ros2 control include -->
       <xacro:include filename="$(find flexiv_description)/urdf/rizon4.ros2_control.xacro"/>
-      <xacro:rizon4_ros2_control prefix="${prefix}" robot_ip="${robot_ip}" 
-        local_ip="${local_ip}" use_fake_hardware="${use_fake_hardware}" 
-        fake_sensor_commands="${fake_sensor_commands}" 
+      <xacro:rizon4_ros2_control prefix="${prefix}" robot_sn="${robot_sn}"
+        use_fake_hardware="${use_fake_hardware}"
+        fake_sensor_commands="${fake_sensor_commands}"
         initial_positions="${initial_positions}"
         />
     </xacro:if>
@@ -35,13 +34,13 @@
 
       <!-- ros2 control include -->
       <xacro:include filename="$(find flexiv_description)/urdf/rizon10.ros2_control.xacro"/>
-      <xacro:rizon10_ros2_control prefix="${prefix}" robot_ip="${robot_ip}" 
-        local_ip="${local_ip}" use_fake_hardware="${use_fake_hardware}" 
-        fake_sensor_commands="${fake_sensor_commands}" 
+      <xacro:rizon10_ros2_control prefix="${prefix}" robot_sn="${robot_sn}"
+        use_fake_hardware="${use_fake_hardware}"
+        fake_sensor_commands="${fake_sensor_commands}"
         initial_positions="${initial_positions}"
         />
     </xacro:if>
 
   </xacro:macro>
-  
+
 </robot>

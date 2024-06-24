@@ -20,7 +20,7 @@ controller_manager:
     gpio_controller:
       type: flexiv_controllers/GPIOController
 
-    external_wrench_in_base_broadcaster:
+    external_wrench_in_world_broadcaster:
       type: flexiv_controllers/ExternalTcpWrenchBroadcaster
 
     external_wrench_in_tcp_broadcaster:
@@ -40,11 +40,11 @@ external_wrench_in_tcp_broadcaster:
     frame_id: flange
     topic_name: external_wrench_in_tcp
 
-external_wrench_in_base_broadcaster:
+external_wrench_in_world_broadcaster:
   ros__parameters:
-    sensor_name: external_wrench_in_base
+    sensor_name: external_wrench_in_world
     frame_id: flange
-    topic_name: external_wrench_in_base
+    topic_name: external_wrench_in_world
 
 tcp_pose_state_broadcaster:
   ros__parameters:

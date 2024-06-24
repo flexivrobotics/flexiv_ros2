@@ -3,7 +3,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg name)">
   <!-- Enable setting arguments from the launch file -->
   <xacro:arg name="name" default="rizon"/>
-  
+
   <!-- 'rizon_type' values: rizon4, rizon4s, rizon10 -->
   <xacro:arg name="rizon_type" default="rizon4"/>
 
@@ -12,8 +12,7 @@
 
   <!-- parameters -->
   <xacro:arg name="prefix" default="" />
-  <xacro:arg name="robot_ip" default="" />
-  <xacro:arg name="local_ip" default="" />
+  <xacro:arg name="robot_sn" default="" />
   <xacro:arg name="use_fake_hardware" default="false" />
   <xacro:arg name="fake_sensor_commands" default="false" />
   <xacro:arg name="initial_positions_file" default="$(find flexiv_description)/config/initial_positions.yaml"/>
@@ -21,13 +20,12 @@
   <!-- convert to property to use substitution in function -->
   <xacro:property name="initial_positions_file" default="$(arg initial_positions_file)"/>
 
-  <xacro:rizon_robot 
-    rizon_type="$(arg rizon_type)" 
-    prefix="$(arg prefix)" 
-    robot_ip="$(arg robot_ip)" 
-    local_ip="$(arg local_ip)" 
-    use_fake_hardware="$(arg use_fake_hardware)" 
-    fake_sensor_commands="$(arg fake_sensor_commands)" 
+  <xacro:rizon_robot
+    rizon_type="$(arg rizon_type)"
+    prefix="$(arg prefix)"
+    robot_sn="$(arg robot_sn)"
+    use_fake_hardware="$(arg use_fake_hardware)"
+    fake_sensor_commands="$(arg fake_sensor_commands)"
     initial_positions="${xacro.load_yaml(initial_positions_file)}">
   </xacro:rizon_robot>
 
