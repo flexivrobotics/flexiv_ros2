@@ -2,7 +2,6 @@
 # Description  : OBJ Exporter for SolidWorks
 # Version : 5.1.21245.3358
 # ModelUnit : MilliMeters
-mtllib link7.mtl
 v 0 0 0.0944
 v -0.00558 0.04782 0.0944
 v -0.0111 0.04685 0.0944
