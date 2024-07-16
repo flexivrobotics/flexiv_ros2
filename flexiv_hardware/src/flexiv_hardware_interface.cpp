@@ -56,9 +56,8 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     torque_controller_running_ = false;
     controllers_initialized_ = false;
 
-    if (info_.joints.size() != flexiv::rdk::kJointDOF) {
-        RCLCPP_FATAL(getLogger(), "Got %ld joints. Expected %ld.", info_.joints.size(),
-            flexiv::rdk::kJointDOF);
+    if (info_.joints.size() != kJointDoF) {
+        RCLCPP_FATAL(getLogger(), "Got %ld joints. Expected %ld.", info_.joints.size(), kJointDoF);
         return hardware_interface::CallbackReturn::ERROR;
     }
 
@@ -270,13 +269,12 @@ hardware_interface::return_type FlexivHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
     if (robot_->operational(false) && robot_->mode() != flexiv::rdk::Mode::IDLE) {
-        for (std::size_t i = 0; i < flexiv::rdk::kJointDOF; i++) {
-            hw_states_joint_positions_[i] = robot_->states().q[i];
-            hw_states_joint_velocities_[i] = robot_->states().dtheta[i];
-            hw_states_joint_efforts_[i] = robot_->states().tau[i];
-        }
 
-        for (std::size_t i = 0; i < flexiv::rdk::kCartDOF; i++) {
+        hw_states_joint_positions_ = robot_->states().q;
+        hw_states_joint_velocities_ = robot_->states().dtheta;
+        hw_states_joint_efforts_ = robot_->states().tau;
+
+        for (std::size_t i = 0; i < flexiv::rdk::kCartDoF; i++) {
             hw_states_force_torque_sensor_[i] = robot_->states().ft_sensor_raw[i];
             hw_states_external_wrench_in_world_[i] = robot_->states().ext_wrench_in_world[i];
             hw_states_external_wrench_in_tcp_[i] = robot_->states().ext_wrench_in_tcp[i];
@@ -304,14 +302,15 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 hardware_interface::return_type FlexivHardwareInterface::write(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    std::array<double, flexiv::rdk::kJointDOF> targetPosition = {};
-    std::array<double, flexiv::rdk::kJointDOF> targetVelocity = {};
-    std::array<double, flexiv::rdk::kJointDOF> targetAcceleration = {};
+    // Initialize target vectors to hold position
+    std::vector<double> target_pos(robot_->info().DoF);
+    std::vector<double> target_vel(robot_->info().DoF);
+    std::vector<double> target_acc(robot_->info().DoF);
 
     bool isNanPos = false;
     bool isNanVel = false;
     bool isNanEff = false;
-    for (std::size_t i = 0; i < flexiv::rdk::kJointDOF; i++) {
+    for (std::size_t i = 0; i < robot_->info().DoF; i++) {
         if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
             isNanPos = true;
         }
@@ -325,26 +324,18 @@ hardware_interface::return_type FlexivHardwareInterface::write(
 
     if (position_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_POSITION
         && !isNanPos) {
-        for (std::size_t i = 0; i < flexiv::rdk::kJointDOF; i++) {
-            targetPosition[i] = hw_commands_joint_positions_[i];
-        }
-        robot_->StreamJointPosition(targetPosition, targetVelocity, targetAcceleration);
+        target_pos = hw_commands_joint_positions_;
+        robot_->StreamJointPosition(target_pos, target_vel, target_acc);
     } else if (velocity_controller_running_
                && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_POSITION && !isNanVel) {
-        for (std::size_t i = 0; i < flexiv::rdk::kJointDOF; i++) {
-            targetPosition[i] = hw_commands_joint_positions_[i];
-        }
-        for (std::size_t i = 0; i < flexiv::rdk::kJointDOF; i++) {
-            targetVelocity[i] = hw_commands_joint_velocities_[i];
-        }
-        robot_->StreamJointPosition(targetPosition, targetVelocity, targetAcceleration);
+        target_pos = hw_commands_joint_positions_;
+        target_vel = hw_commands_joint_velocities_;
+        robot_->StreamJointPosition(target_pos, target_vel, target_acc);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
                && !isNanEff) {
-        std::array<double, flexiv::rdk::kJointDOF> targetTorque = {};
-        for (std::size_t i = 0; i < flexiv::rdk::kJointDOF; i++) {
-            targetTorque[i] = hw_commands_joint_efforts_[i];
-        }
-        robot_->StreamJointTorque(targetTorque, true, true);
+        std::vector<double> target_torque(robot_->info().DoF);
+        target_torque = hw_commands_joint_efforts_;
+        robot_->StreamJointTorque(target_torque, true, true);
     }
 
     // Write digital output
