@@ -77,12 +77,13 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
    bash build_and_install_dependencies.sh ~/rdk_install
    ```
 
-6. Configure `flexiv_rdk`:
+6. Configure and install `flexiv_rdk`:
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_ros2/flexiv_hardware/rdk
    mkdir build && cd build
    cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
+   cmake --build . --target install --config Release
    ```
 
 7. Build and source the workspace:
