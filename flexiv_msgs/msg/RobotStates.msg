@@ -9,8 +9,7 @@ float64[7] tau_ext
 geometry_msgs/Pose tcp_pose
 geometry_msgs/Pose tcp_pose_des
 geometry_msgs/Accel tcp_vel
-geometry_msgs/Pose cam_pose
 geometry_msgs/Pose flange_pose
 geometry_msgs/Wrench ft_sensor_raw
-geometry_msgs/Wrench ext_wrench_tcp_frame
-geometry_msgs/Wrench ext_wrench_base_frame
+geometry_msgs/Wrench ext_wrench_in_tcp
+geometry_msgs/Wrench ext_wrench_in_world
