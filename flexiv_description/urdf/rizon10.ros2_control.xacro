@@ -19,6 +19,7 @@
         <xacro:unless value="${use_fake_hardware}">
           <plugin>flexiv_hardware/FlexivHardwareInterface</plugin>
           <param name="robot_sn">${robot_sn}</param>
+          <param name="prefix">${prefix}</param>
         </xacro:unless>
       </hardware>
 
@@ -176,6 +177,42 @@
         <state_interface name="orientation.z"/>
         <state_interface name="orientation.w"/>
       </sensor>
+
+      <gpio name="${prefix}gpio">
+        <command_interface name="digital_output_0"/>
+        <command_interface name="digital_output_1"/>
+        <command_interface name="digital_output_2"/>
+        <command_interface name="digital_output_3"/>
+        <command_interface name="digital_output_4"/>
+        <command_interface name="digital_output_5"/>
+        <command_interface name="digital_output_6"/>
+        <command_interface name="digital_output_7"/>
+        <command_interface name="digital_output_8"/>
+        <command_interface name="digital_output_9"/>
+        <command_interface name="digital_output_10"/>
+        <command_interface name="digital_output_11"/>
+        <command_interface name="digital_output_12"/>
+        <command_interface name="digital_output_13"/>
+        <command_interface name="digital_output_14"/>
+        <command_interface name="digital_output_15"/>
+
+        <state_interface name="digital_input_0"/>
+        <state_interface name="digital_input_1"/>
+        <state_interface name="digital_input_2"/>
+        <state_interface name="digital_input_3"/>
+        <state_interface name="digital_input_4"/>
+        <state_interface name="digital_input_5"/>
+        <state_interface name="digital_input_6"/>
+        <state_interface name="digital_input_7"/>
+        <state_interface name="digital_input_8"/>
+        <state_interface name="digital_input_9"/>
+        <state_interface name="digital_input_10"/>
+        <state_interface name="digital_input_11"/>
+        <state_interface name="digital_input_12"/>
+        <state_interface name="digital_input_13"/>
+        <state_interface name="digital_input_14"/>
+        <state_interface name="digital_input_15"/>
+      </gpio>
 
     </ros2_control>
   </xacro:macro>
