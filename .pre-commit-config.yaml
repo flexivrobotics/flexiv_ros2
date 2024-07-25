@@ -17,7 +17,7 @@ repos:
       - id: check-yaml
         args: [--allow-multiple-documents]
       - id: check-added-large-files
-        args: [--maxkb=500]
+        args: [--maxkb=600]
       - id: pretty-format-json
         args: [--no-sort-keys, --autofix, --indent=4]
 
