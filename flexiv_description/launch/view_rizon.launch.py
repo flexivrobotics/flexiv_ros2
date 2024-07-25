@@ -71,7 +71,7 @@ def generate_launch_description():
                 name="rizon_type",
                 default_value="rizon4",
                 description="Type of the Flexiv Rizon robot.",
-                choices=["rizon4", "rizon4s", "rizon10"],
+                choices=["rizon4", "rizon4s", "rizon10", "rizon10s"],
             ),
             DeclareLaunchArgument(
                 name="gui",

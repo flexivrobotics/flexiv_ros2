@@ -2,7 +2,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <!--
-    rizon_type = "rizon10"
+    rizon_type = "rizon10", "rizon10s"
     prefix = "", "left_"
     mesh_prefix_path = "", "package://flexiv_description/"
     NOTE: accurate kinematic but approximated dynamics parameters
@@ -75,7 +75,12 @@
     <joint name="${prefix}link7_to_flange" type="fixed">
       <parent link="${prefix}link7"/>
       <child link="${prefix}flange"/>
-      <origin xyz="0.0 0.0 0.081" rpy="0 0 ${-pi}"/>
+      <xacro:if value="${rizon_type=='rizon10'}">
+        <origin xyz="0.0 0.0 0.081" rpy="0 0 ${-pi}"/>
+      </xacro:if>
+      <xacro:if value="${rizon_type=='rizon10s'}">
+        <origin xyz="0.0 0.0 0.124" rpy="0 0 ${-pi}"/>
+      </xacro:if>
     </joint>
 
     <!-- LINKS -->
@@ -88,14 +93,14 @@
         <origin rpy="0 0 0" xyz="0.0 -0.0 0.13" />
         <inertia ixx="0.08" ixy="0.0" ixz="-0.0003" iyy="0.08" iyz="0.001" izz="0.04" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link0.obj" />
         </geometry>
         <material name="rizon_dark_grey" />
       </visual>
-      <collision>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link0.stl" />
@@ -109,14 +114,21 @@
         <origin rpy="0 0 0" xyz="0.0 0.03 0.16" />
         <inertia ixx="0.18" ixy="0.0002" ixz="0.0001" iyy="0.17" iyz="0.02" izz="0.04" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link1.obj" />
         </geometry>
         <material name="rizon_dark_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.079 0.079 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link1.stl" />
@@ -130,14 +142,21 @@
         <origin rpy="0 0 0" xyz="0.0 0.03 0.11" />
         <inertia ixx="0.1" ixy="0.0" ixz="0.0001" iyy="0.08" iyz="0.02" izz="0.03" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link2.obj" />
         </geometry>
         <material name="rizon_dark_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="1.5707963 0 0" xyz="0 -0.0025 0" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.079 0.079 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link2.stl" />
@@ -151,14 +170,21 @@
         <origin rpy="0 0 0" xyz="0.0 -0.03 0.17" />
         <inertia ixx="0.03" ixy="-0.0001" ixz="-0.0001" iyy="0.03" iyz="-0.006" izz="0.01" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link3.obj" />
         </geometry>
         <material name="rizon_dark_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.062 0.062 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link3.stl" />
@@ -172,14 +198,21 @@
         <origin rpy="0 0 0" xyz="-0.01 0.03 0.1" />
         <inertia ixx="0.03" ixy="0.0" ixz="-0.0001" iyy="0.03" iyz="0.0007" izz="0.005" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link4.obj" />
         </geometry>
         <material name="rizon_dark_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="1.5707963 0 0" xyz="0 -0.0025 0" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.062 0.062 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link4.stl" />
@@ -193,14 +226,21 @@
         <origin rpy="0 0 0" xyz="0.0 0.0 0.13" />
         <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.001" izz="0.004" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link5.obj" />
         </geometry>
         <material name="rizon_dark_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.051 0.051 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link5.stl" />
@@ -214,14 +254,21 @@
         <origin rpy="0 0 0" xyz="0.02 0.06 0.07" />
         <inertia ixx="0.01" ixy="0.0003" ixz="0.001" iyy="0.01" iyz="0.002" izz="0.004" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link6.obj" />
         </geometry>
         <material name="rizon_dark_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="1.5707963 0 0" xyz="0 -0.0025 0" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.051 0.051 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link6.stl" />
@@ -230,24 +277,60 @@
     </link>
 
     <link name="${prefix}link7">
-      <inertial>
-        <mass value="0.9" />
-        <origin rpy="0 0 0" xyz="0.0 -0.0 0.03" />
-        <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
-      </inertial>
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link7.obj" />
-        </geometry>
-        <material name="rizon_dark_grey" />
-      </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link7.stl" />
-        </geometry>
-      </collision>
+      <xacro:if value="${rizon_type=='rizon10'}">
+        <inertial>
+          <mass value="0.9" />
+          <origin rpy="0 0 0" xyz="0.0 -0.0 0.03" />
+          <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+        <visual name="shell">
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link7.obj" />
+          </geometry>
+          <material name="rizon_dark_grey" />
+        </visual>
+        <visual name="ring">
+          <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/rizon10/visual/ring.obj" scale="0.051 0.051 0.002" />
+          </geometry>
+          <material name="rizon_white" />
+        </visual>
+        <collision name="hull">
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link7.stl" />
+          </geometry>
+        </collision>
+      </xacro:if>
+      <xacro:if value="${rizon_type=='rizon10s'}">
+        <inertial>
+          <mass value="1.5" />
+          <origin rpy="0 0 0" xyz="0.0 -0.0 0.05" />
+          <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+        <visual name="shell">
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link7.obj" />
+          </geometry>
+          <material name="rizon_dark_grey" />
+        </visual>
+        <visual name="ring">
+          <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/rizon10/visual/ring.obj" scale="0.051 0.051 0.002" />
+          </geometry>
+          <material name="rizon_white" />
+        </visual>
+        <collision name="hull">
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link7.stl" />
+          </geometry>
+        </collision>
+      </xacro:if>
     </link>
 
     <link name="${prefix}flange"/>

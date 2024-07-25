@@ -4,7 +4,7 @@
   <!-- Enable setting arguments from the launch file -->
   <xacro:arg name="name" default="rizon"/>
 
-  <!-- 'rizon_type' values: rizon4, rizon4s, rizon10 -->
+  <!-- 'rizon_type' values: rizon4, rizon4s, rizon10, rizon10s -->
   <xacro:arg name="rizon_type" default="rizon4"/>
 
   <!-- import main macro -->

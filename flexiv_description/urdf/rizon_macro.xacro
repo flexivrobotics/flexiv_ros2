@@ -27,8 +27,8 @@
         />
     </xacro:if>
 
-    <!-- Rizon 10 -->
-    <xacro:if value="${rizon_type=='rizon10'}">
+    <!-- Rizon 10 or 10s-->
+    <xacro:if value="${rizon_type=='rizon10' or rizon_type=='rizon10s'}">
       <xacro:include filename="$(find flexiv_description)/urdf/rizon10_joints_links.xacro" />
       <xacro:rizon10_joints_links rizon_type="${rizon_type}" prefix="${prefix}" mesh_prefix_path="package://flexiv_description/" />
 
