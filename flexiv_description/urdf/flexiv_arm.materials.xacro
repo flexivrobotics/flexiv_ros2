@@ -1,9 +1,6 @@
 <?xml version="1.0" ?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-    <material name="rizon_blue">
-      <color rgba="0.0 0.0 1.0 0.5"/>
-    </material>
     <material name="rizon_light_grey">
       <color rgba="0.7 0.7 0.7 1.0"/>
     </material>

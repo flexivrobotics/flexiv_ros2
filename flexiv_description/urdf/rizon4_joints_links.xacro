@@ -67,7 +67,7 @@
     <joint name="${prefix}joint7" type="revolute">
       <parent link="${prefix}link6"/>
       <child link="${prefix}link7"/>
-      <origin xyz="-0.055 0.070 0.11" rpy="0 ${-pi/2} 0"/>
+      <origin xyz="-0.015 0.073 0.11" rpy="0 ${-pi/2} 0"/>
       <axis xyz="0 0 1"/>
       <limit effort="39" lower="-2.9671" upper="2.9671" velocity="4.8869" />
     </joint>
@@ -93,14 +93,14 @@
         <origin rpy="0 0 0" xyz="0.0 -0.0 0.09" />
         <inertia ixx="0.02" ixy="0.0" ixz="0.0" iyy="0.02" iyz="0.0001" izz="0.009" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link0.obj" />
         </geometry>
         <material name="rizon_light_grey" />
       </visual>
-      <collision>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link0.stl" />
@@ -114,14 +114,21 @@
         <origin rpy="0 0 0" xyz="0.0 0.01 0.15" />
         <inertia ixx="0.03" ixy="0.0" ixz="0.0" iyy="0.03" iyz="0.002" izz="0.008" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link1.obj" />
         </geometry>
         <material name="rizon_light_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.062 0.062 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link1.stl" />
@@ -135,14 +142,21 @@
         <origin rpy="0 0 0" xyz="0.0 0.04 0.1" />
         <inertia ixx="0.02" ixy="0.0" ixz="0.0" iyy="0.02" iyz="-0.0003" izz="0.004" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link2.obj" />
         </geometry>
         <material name="rizon_light_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="${pi/2} 0 0" xyz="0 -0.0025 0" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.062 0.062 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link2.stl" />
@@ -156,14 +170,21 @@
         <origin rpy="0 0 0" xyz="-0.01 -0.0 0.13" />
         <inertia ixx="0.01" ixy="0.00" ixz="-0.001" iyy="0.01" iyz="-0.0007" izz="0.004" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link3.obj" />
         </geometry>
         <material name="rizon_light_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.051 0.051 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0" />
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link3.stl" />
@@ -177,14 +198,21 @@
         <origin rpy="0 0 0" xyz="-0.01 0.03 0.1" />
         <inertia ixx="0.02" ixy="0.00" ixz="-0.002" iyy="0.02" iyz="-0.001" izz="0.003" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link4.obj" />
         </geometry>
         <material name="rizon_light_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="${pi/2} 0 0" xyz="0 -0.0025 0" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.051 0.051 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link4.stl" />
@@ -198,14 +226,21 @@
         <origin rpy="0 0 0" xyz="0.0 0.0 0.13" />
         <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.001" izz="0.004" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link5.obj" />
         </geometry>
         <material name="rizon_light_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.051 0.051 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link5.stl" />
@@ -219,14 +254,21 @@
         <origin rpy="0 0 0" xyz="-0.01 0.06 0.07" />
         <inertia ixx="0.01" ixy="-0.000" ixz="-0.001" iyy="0.01" iyz="0.002" izz="0.004" />
       </inertial>
-      <visual>
+      <visual name="shell">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link6.obj" />
         </geometry>
         <material name="rizon_light_grey" />
       </visual>
-      <collision>
+      <visual name="ring">
+        <origin rpy="${pi/2} 0 0" xyz="0 -0.0025 0" />
+        <geometry>
+          <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.051 0.051 0.002" />
+        </geometry>
+        <material name="rizon_white" />
+      </visual>
+      <collision name="hull">
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link6.stl" />
@@ -241,14 +283,21 @@
           <origin rpy="0 0 0" xyz="0.0 0.0 0.03" />
           <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
         </inertial>
-        <visual>
+        <visual name="shell">
           <origin xyz="0 0 0" rpy="0 0 0"/>
           <geometry>
             <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link7.obj" />
           </geometry>
           <material name="rizon_light_grey" />
         </visual>
-        <collision>
+        <visual name="ring">
+          <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.051 0.051 0.002" />
+          </geometry>
+          <material name="rizon_white" />
+        </visual>
+        <collision name="hull">
           <origin xyz="0 0 0" rpy="0 0 0"/>
           <geometry>
             <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link7.stl" />
@@ -261,14 +310,21 @@
           <origin xyz="0.0 0.0 0.05" rpy="0 0 0"/>
           <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
         </inertial>
-        <visual>
+        <visual name="shell">
           <origin xyz="0 0 0" rpy="0 0 0"/>
           <geometry>
             <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/link7.obj" />
           </geometry>
           <material name="rizon_light_grey" />
         </visual>
-        <collision>
+        <visual name="ring">
+          <origin rpy="0 0 0" xyz="0 0 -0.0025" />
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/visual/ring.obj" scale="0.051 0.051 0.002" />
+          </geometry>
+          <material name="rizon_white" />
+        </visual>
+        <collision name="hull">
           <origin xyz="0 0 0" rpy="0 0 0"/>
           <geometry>
             <mesh filename="${mesh_prefix_path}meshes/${rizon_type}/collision/link7.stl" />
