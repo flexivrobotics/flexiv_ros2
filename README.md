@@ -66,7 +66,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
    rosdep update
    rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
    ```
-   
+
 > [!NOTE]
 > Skip step 5 and 6 if you have compile and install [flexiv_rdk](https://github.com/flexivrobotics/flexiv_rdk).
 
@@ -105,9 +105,9 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
 ## Usage
 
 > [!NOTE]
-> The instruction below is only a quick reference, see the [Flexiv ROS 2 Documentation](https://rdk.flexiv.com/manual/ros2_packages.html) for more information.
+> The instruction below is only a quick reference, see the [Flexiv ROS 2 Documentation](https://rdk.flexiv.com/manual/ros2_bridge.html) for more information.
 
-The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/getting_started.html#activate-rdk-server) and [establish connection](https://rdk.flexiv.com/manual/getting_started.html#establish-connection) between the workstation PC and the robot.
+The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/activate_rdk_server.html) and [establish connection](https://rdk.flexiv.com/manual/establish_connection.html) between the workstation PC and the robot.
 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, force torque sensor broadcaster, TCP wrench and TCP pose broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
