@@ -34,7 +34,6 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
 add_library(${PROJECT_NAME}
   SHARED
   src/joint_impedance_controller.cpp
-  src/external_tcp_wrench_broadcaster.cpp
   src/tcp_pose_state_broadcaster.cpp
   src/gpio_controller.cpp
 )

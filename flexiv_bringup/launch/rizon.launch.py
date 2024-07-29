@@ -164,39 +164,6 @@ def generate_launch_description():
         ],
     )
 
-    # Run force torque sensor broadcaster
-    force_torque_sensor_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "force_torque_sensor_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
-        ],
-    )
-
-    # Run external wrench in base broadcaster
-    external_wrench_in_world_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "external_wrench_in_world_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
-        ],
-    )
-
-    # Run external wrench in tcp broadcaster
-    external_wrench_in_tcp_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "external_wrench_in_tcp_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
-        ],
-    )
-
     # Run tcp pose state broadcaster
     tcp_pose_state_broadcaster_spawner = Node(
         package="controller_manager",
@@ -237,9 +204,6 @@ def generate_launch_description():
         ros2_control_node,
         robot_state_publisher_node,
         joint_state_broadcaster_spawner,
-        force_torque_sensor_broadcaster_spawner,
-        external_wrench_in_world_broadcaster_spawner,
-        external_wrench_in_tcp_broadcaster_spawner,
         tcp_pose_state_broadcaster_spawner,
         gpio_controller_spawner,
         delay_rviz_after_joint_state_broadcaster_spawner,

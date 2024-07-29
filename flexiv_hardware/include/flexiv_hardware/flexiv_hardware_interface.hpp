@@ -99,16 +99,6 @@ private:
     std::vector<double> hw_states_joint_velocities_;
     std::vector<double> hw_states_joint_efforts_;
 
-    // Force-torque (FT) sensor raw reading in flange frame. The value is 0 if
-    // no FT sensor is installed.
-    std::vector<double> hw_states_force_torque_sensor_;
-
-    // Estimated external wrench applied on TCP and expressed in world frame.
-    std::vector<double> hw_states_external_wrench_in_world_;
-
-    // Estimated external wrench applied on TCP and expressed in TCP frame.
-    std::vector<double> hw_states_external_wrench_in_tcp_;
-
     // Measured TCP pose expressed in base frame [x, y, z, qx, qy, qz, qw].
     std::vector<double> hw_states_tcp_pose_;
 

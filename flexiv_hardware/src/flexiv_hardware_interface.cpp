@@ -38,12 +38,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     hw_commands_joint_efforts_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_states_force_torque_sensor_.resize(
-        info_.sensors[0].state_interfaces.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_states_external_wrench_in_world_.resize(
-        info_.sensors[1].state_interfaces.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_states_external_wrench_in_tcp_.resize(
-        info_.sensors[2].state_interfaces.size(), std::numeric_limits<double>::quiet_NaN());
     hw_states_tcp_pose_.resize(flexiv::rdk::kPoseSize, std::numeric_limits<double>::quiet_NaN());
     hw_states_gpio_in_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
     hw_commands_gpio_out_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
@@ -161,15 +155,6 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
         const auto& sensor = info_.sensors[i];
         for (std::size_t j = 0; j < sensor.state_interfaces.size(); j++) {
             if (i == 0) {
-                state_interfaces.emplace_back(hardware_interface::StateInterface(sensor.name,
-                    sensor.state_interfaces[j].name, &hw_states_force_torque_sensor_[j]));
-            } else if (i == 1) {
-                state_interfaces.emplace_back(hardware_interface::StateInterface(sensor.name,
-                    sensor.state_interfaces[j].name, &hw_states_external_wrench_in_world_[j]));
-            } else if (i == 2) {
-                state_interfaces.emplace_back(hardware_interface::StateInterface(sensor.name,
-                    sensor.state_interfaces[j].name, &hw_states_external_wrench_in_tcp_[j]));
-            } else if (i == 3) {
                 state_interfaces.emplace_back(hardware_interface::StateInterface(
                     sensor.name, sensor.state_interfaces[j].name, &hw_states_tcp_pose_[j]));
             }
@@ -273,12 +258,6 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         hw_states_joint_positions_ = robot_->states().q;
         hw_states_joint_velocities_ = robot_->states().dtheta;
         hw_states_joint_efforts_ = robot_->states().tau;
-
-        for (std::size_t i = 0; i < flexiv::rdk::kCartDoF; i++) {
-            hw_states_force_torque_sensor_[i] = robot_->states().ft_sensor_raw[i];
-            hw_states_external_wrench_in_world_[i] = robot_->states().ext_wrench_in_world[i];
-            hw_states_external_wrench_in_tcp_[i] = robot_->states().ext_wrench_in_tcp[i];
-        }
 
         // Convert quaternion order from [w, x, y, z] to [x, y, z, w]
         hw_states_tcp_pose_[0] = robot_->states().tcp_pose[0];
