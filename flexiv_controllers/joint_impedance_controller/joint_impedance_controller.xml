@@ -1,0 +1,8 @@
+<library path="joint_impedance_controller">
+    <class name="joint_impedance_controller/JointImpedanceController"
+           type="joint_impedance_controller::JointImpedanceController" base_class_type="controller_interface::ControllerInterface">
+        <description>
+            The joint impedance controller commands a group of joints in effort interface.
+        </description>
+    </class>
+</library>

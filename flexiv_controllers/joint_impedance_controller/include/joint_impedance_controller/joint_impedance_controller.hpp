@@ -6,23 +6,23 @@
  * @author Flexiv
  */
 
-#ifndef FLEXIV_CONTROLLERS__JOINT_IMPEDANCE_CONTROLLER_HPP_
-#define FLEXIV_CONTROLLERS__JOINT_IMPEDANCE_CONTROLLER_HPP_
+#ifndef JOINT_IMPEDANCE_CONTROLLER__JOINT_IMPEDANCE_CONTROLLER_HPP_
+#define JOINT_IMPEDANCE_CONTROLLER__JOINT_IMPEDANCE_CONTROLLER_HPP_
 
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <controller_interface/controller_interface.hpp>
-#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
-#include <rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp>
-#include <rclcpp_lifecycle/state.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp/subscription.hpp>
-#include <realtime_tools/realtime_buffer.h>
+#include "controller_interface/controller_interface.hpp"
 #include "flexiv_msgs/msg/joint_pos_vel.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp/subscription.hpp"
+#include "rclcpp_lifecycle/lifecycle_publisher.hpp"
+#include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
+#include "rclcpp_lifecycle/state.hpp"
+#include "realtime_tools/realtime_buffer.h"
 
-namespace flexiv_controllers {
+namespace joint_impedance_controller {
 using CmdType = flexiv_msgs::msg::JointPosVel;
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
@@ -56,5 +56,5 @@ protected:
     rclcpp::Subscription<CmdType>::SharedPtr joints_command_subscriber_;
 };
 
-} /* namespace flexiv_controllers */
-#endif /* FLEXIV_CONTROLLERS__JOINT_IMPEDANCE_CONTROLLER_HPP_ */
+} /* namespace joint_impedance_controller */
+#endif /* JOINT_IMPEDANCE_CONTROLLER__JOINT_IMPEDANCE_CONTROLLER_HPP_ */

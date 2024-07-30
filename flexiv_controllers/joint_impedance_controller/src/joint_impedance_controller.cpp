@@ -6,7 +6,7 @@
  * @author Flexiv
  */
 
-#include "flexiv_controllers/joint_impedance_controller.hpp"
+#include "joint_impedance_controller/joint_impedance_controller.hpp"
 
 #include <algorithm>
 #include <string>
@@ -20,7 +20,7 @@
 #include <hardware_interface/loaned_command_interface.hpp>
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 
-namespace flexiv_controllers {
+namespace joint_impedance_controller {
 using hardware_interface::LoanedCommandInterface;
 
 JointImpedanceController::JointImpedanceController()
@@ -206,8 +206,8 @@ CallbackReturn JointImpedanceController::on_deactivate(
     return CallbackReturn::SUCCESS;
 }
 
-} /* namespace flexiv_controllers */
+} /* namespace joint_impedance_controller */
 #include "pluginlib/class_list_macros.hpp"
 
 PLUGINLIB_EXPORT_CLASS(
-    flexiv_controllers::JointImpedanceController, controller_interface::ControllerInterface)
+    joint_impedance_controller::JointImpedanceController, controller_interface::ControllerInterface)

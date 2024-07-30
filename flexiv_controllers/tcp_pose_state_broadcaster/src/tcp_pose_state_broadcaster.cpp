@@ -6,12 +6,12 @@
  * @author Flexiv
  */
 
-#include "flexiv_controllers/tcp_pose_state_broadcaster.hpp"
+#include "tcp_pose_state_broadcaster/tcp_pose_state_broadcaster.hpp"
 
 #include <memory>
 #include <string>
 
-namespace flexiv_controllers {
+namespace tcp_pose_state_broadcaster {
 
 TcpPoseStateBroadcaster::TcpPoseStateBroadcaster()
 : controller_interface::ControllerInterface()
@@ -31,16 +31,15 @@ TcpPoseStateBroadcaster::state_interface_configuration() const
 {
     controller_interface::InterfaceConfiguration state_interfaces_config;
     state_interfaces_config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
-    state_interfaces_config.names = cartesian_pose_sensor_->get_state_interface_names();
+    state_interfaces_config.names = cartesian_pose_state_->get_state_interface_names();
     return state_interfaces_config;
 }
 
 CallbackReturn TcpPoseStateBroadcaster::on_init()
 {
     try {
-        auto_declare<std::string>("sensor_name", "");
-        auto_declare<std::string>("frame_id", "");
-        auto_declare<std::string>("topic_name", "");
+        param_listener_ = std::make_shared<ParamListener>(get_node());
+        params_ = param_listener_->get_params();
     } catch (const std::exception& e) {
         fprintf(stderr, "Exception thrown during init stage with message: %s \n", e.what());
         return CallbackReturn::ERROR;
@@ -52,35 +51,47 @@ CallbackReturn TcpPoseStateBroadcaster::on_init()
 CallbackReturn TcpPoseStateBroadcaster::on_configure(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
+    params_ = param_listener_->get_params();
 
-    sensor_name_ = get_node()->get_parameter("sensor_name").as_string();
+    const bool no_interface_names_defined = params_.interface_names.position.x.empty()
+                                            && params_.interface_names.position.y.empty()
+                                            && params_.interface_names.position.z.empty()
+                                            && params_.interface_names.orientation.x.empty()
+                                            && params_.interface_names.orientation.y.empty()
+                                            && params_.interface_names.orientation.z.empty()
+                                            && params_.interface_names.orientation.w.empty();
 
-    if (sensor_name_.empty()) {
-        RCLCPP_ERROR(get_node()->get_logger(), "'sensor_name' parameter has to be specified.");
+    if (params_.sensor_name.empty() && no_interface_names_defined) {
+        RCLCPP_ERROR(get_node()->get_logger(),
+            "'sensor_name' or at least one "
+            "'interface_names.[position|orientation].[x|y|z|w]' parameter has to be specified.");
         return CallbackReturn::ERROR;
     }
 
-    frame_id_ = get_node()->get_parameter("frame_id").as_string();
-    if (frame_id_.empty()) {
-        RCLCPP_ERROR(get_node()->get_logger(), "'frame_id' parameter has to be specified.");
+    if (!params_.sensor_name.empty() && !no_interface_names_defined) {
+        RCLCPP_ERROR(get_node()->get_logger(),
+            "both 'sensor_name' and "
+            "'interface_names.[position|orientation].[x|y|z|w]' parameters can not be specified "
+            "together.");
         return CallbackReturn::ERROR;
     }
 
-    if (!sensor_name_.empty()) {
-        cartesian_pose_sensor_
-            = std::make_unique<CartesianPoseSensor>(CartesianPoseSensor(sensor_name_));
-    }
-
-    topic_name_ = get_node()->get_parameter("topic_name").as_string();
-    if (topic_name_.empty()) {
-        RCLCPP_ERROR(get_node()->get_logger(), "'topic_name' parameter has to be specified.");
-        return CallbackReturn::ERROR;
+    if (!params_.sensor_name.empty()) {
+        cartesian_pose_state_ = std::make_unique<semantic_components::CartesianPoseState>(
+            semantic_components::CartesianPoseState(params_.sensor_name));
+    } else {
+        auto const& position_names = params_.interface_names.position;
+        auto const& orientation_names = params_.interface_names.orientation;
+        cartesian_pose_state_ = std::make_unique<semantic_components::CartesianPoseState>(
+            semantic_components::CartesianPoseState(position_names.x, position_names.y,
+                position_names.z, orientation_names.x, orientation_names.y, orientation_names.z,
+                orientation_names.w));
     }
 
     try {
         // register TCP pose data publisher
         sensor_state_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
-            "~/" + topic_name_, rclcpp::SystemDefaultsQoS());
+            "~/tcp_pose", rclcpp::SystemDefaultsQoS());
         realtime_publisher_ = std::make_unique<StatePublisher>(sensor_state_publisher_);
     } catch (const std::exception& e) {
         fprintf(stderr,
@@ -91,7 +102,7 @@ CallbackReturn TcpPoseStateBroadcaster::on_configure(
     }
 
     realtime_publisher_->lock();
-    realtime_publisher_->msg_.header.frame_id = frame_id_;
+    realtime_publisher_->msg_.header.frame_id = params_.frame_id;
     realtime_publisher_->unlock();
 
     RCLCPP_DEBUG(get_node()->get_logger(), "configure successful");
@@ -103,7 +114,7 @@ controller_interface::return_type TcpPoseStateBroadcaster::update(
 {
     if (realtime_publisher_ && realtime_publisher_->trylock()) {
         realtime_publisher_->msg_.header.stamp = time;
-        cartesian_pose_sensor_->get_values_as_message(realtime_publisher_->msg_.pose);
+        cartesian_pose_state_->get_values_as_message(realtime_publisher_->msg_.pose);
         realtime_publisher_->unlockAndPublish();
     }
 
@@ -113,20 +124,20 @@ controller_interface::return_type TcpPoseStateBroadcaster::update(
 CallbackReturn TcpPoseStateBroadcaster::on_activate(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
-    cartesian_pose_sensor_->assign_loaned_state_interfaces(state_interfaces_);
+    cartesian_pose_state_->assign_loaned_state_interfaces(state_interfaces_);
     return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn TcpPoseStateBroadcaster::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
-    cartesian_pose_sensor_->release_interfaces();
+    cartesian_pose_state_->release_interfaces();
     return CallbackReturn::SUCCESS;
 }
 
-} /* namespace flexiv_controllers */
+} /* namespace tcp_pose_state_broadcaster */
 
 #include "pluginlib/class_list_macros.hpp"
 
 PLUGINLIB_EXPORT_CLASS(
-    flexiv_controllers::TcpPoseStateBroadcaster, controller_interface::ControllerInterface)
+    tcp_pose_state_broadcaster::TcpPoseStateBroadcaster, controller_interface::ControllerInterface)

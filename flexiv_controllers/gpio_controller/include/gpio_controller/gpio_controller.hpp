@@ -6,17 +6,17 @@
  * @author Flexiv
  */
 
-#ifndef FLEXIV_CONTROLLERS__GPIO_CONTROLLER_HPP_
-#define FLEXIV_CONTROLLERS__GPIO_CONTROLLER_HPP_
+#ifndef GPIO_CONTROLLER__GPIO_CONTROLLER_HPP_
+#define GPIO_CONTROLLER__GPIO_CONTROLLER_HPP_
 
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <controller_interface/controller_interface.hpp>
+#include "controller_interface/controller_interface.hpp"
 #include "flexiv_msgs/msg/gpio_states.hpp"
 
-namespace flexiv_controllers {
+namespace gpio_controller {
 using CmdType = flexiv_msgs::msg::GPIOStates;
 
 class GPIOController : public controller_interface::ControllerInterface
@@ -53,5 +53,5 @@ protected:
     rclcpp::Subscription<CmdType>::SharedPtr gpio_outputs_command_;
 };
 
-} /* namespace flexiv_controllers */
-#endif /* FLEXIV_CONTROLLERS__GPIO_CONTROLLER_HPP_ */
+} /* namespace gpio_controller */
+#endif /* GPIO_CONTROLLER__GPIO_CONTROLLER_HPP_ */

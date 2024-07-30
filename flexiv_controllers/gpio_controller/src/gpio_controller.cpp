@@ -6,11 +6,11 @@
  * @author Flexiv
  */
 
-#include "flexiv_controllers/gpio_controller.hpp"
+#include "gpio_controller/gpio_controller.hpp"
 
 #include <string>
 
-namespace flexiv_controllers {
+namespace gpio_controller {
 
 GPIOController::GPIOController()
 : controller_interface::ControllerInterface()
@@ -123,9 +123,8 @@ controller_interface::CallbackReturn GPIOController::on_deactivate(
     return LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-} // namespace flexiv_controllers
+} // namespace gpio_controller
 
 #include "pluginlib/class_list_macros.hpp"
 
-PLUGINLIB_EXPORT_CLASS(
-    flexiv_controllers::GPIOController, controller_interface::ControllerInterface)
+PLUGINLIB_EXPORT_CLASS(gpio_controller::GPIOController, controller_interface::ControllerInterface)

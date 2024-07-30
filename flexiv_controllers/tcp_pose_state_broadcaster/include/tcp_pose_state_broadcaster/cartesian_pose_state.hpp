@@ -1,13 +1,13 @@
 /**
- * @file cartesian_pose_sensor.hpp
+ * @file cartesian_pose_state.hpp
  * @brief Sensor interface to read the Cartesian pose. Adapted from
  * ros2_control/controller_interface/include/semantic_components/force_torque_sensor.hpp
  * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
 
-#ifndef FLEXIV_CONTROLLERS__CARTESIAN_POSE_SENSOR_HPP_
-#define FLEXIV_CONTROLLERS__CARTESIAN_POSE_SENSOR_HPP_
+#ifndef SEMANTIC_COMPONENTS__CARTESIAN_POSE_STATE_HPP_
+#define SEMANTIC_COMPONENTS__CARTESIAN_POSE_STATE_HPP_
 
 #include <limits>
 #include <string>
@@ -17,12 +17,12 @@
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "semantic_components/semantic_component_interface.hpp"
 
-namespace flexiv_controllers {
-class CartesianPoseSensor
-: public semantic_components::SemanticComponentInterface<geometry_msgs::msg::Pose>
+namespace semantic_components {
+class CartesianPoseState : public SemanticComponentInterface<geometry_msgs::msg::Pose>
 {
 public:
-    CartesianPoseSensor(const std::string& name)
+    /// Constructor for "standard" 7D Cartesian pose
+    explicit CartesianPoseState(const std::string& name)
     : SemanticComponentInterface(name, 7)
     {
         interface_names_.emplace_back(name_ + "/" + "position.x");
@@ -42,7 +42,37 @@ public:
             orientations_.begin(), orientations_.end(), std::numeric_limits<double>::quiet_NaN());
     }
 
-    virtual ~CartesianPoseSensor() = default;
+    /// Constructor for "custom" Cartesian pose
+    CartesianPoseState(const std::string& interface_position_x,
+        const std::string& interface_position_y, const std::string& interface_position_z,
+        const std::string& interface_orientation_x, const std::string& interface_orientation_y,
+        const std::string& interface_orientation_z, const std::string& interface_orientation_w)
+    : SemanticComponentInterface("", 7)
+    {
+        auto check_and_add_interface = [this](const std::string& interface_name, const int index) {
+            if (!interface_name.empty()) {
+                interface_names_.emplace_back(interface_name);
+                existing_axes_[index] = true;
+            } else {
+                existing_axes_[index] = false;
+            }
+        };
+
+        check_and_add_interface(interface_position_x, 0);
+        check_and_add_interface(interface_position_y, 1);
+        check_and_add_interface(interface_position_z, 2);
+        check_and_add_interface(interface_orientation_x, 3);
+        check_and_add_interface(interface_orientation_y, 4);
+        check_and_add_interface(interface_orientation_z, 5);
+        check_and_add_interface(interface_orientation_w, 6);
+
+        // Set default position and orientation values to NaN
+        std::fill(positions_.begin(), positions_.end(), std::numeric_limits<double>::quiet_NaN());
+        std::fill(
+            orientations_.begin(), orientations_.end(), std::numeric_limits<double>::quiet_NaN());
+    }
+
+    virtual ~CartesianPoseState() = default;
 
     /// Return positions
     std::array<double, 3>& get_positions()
@@ -95,6 +125,6 @@ protected:
     std::array<double, 4> orientations_;
 };
 
-} /* namespace flexiv_controllers */
+} /* namespace semantic_components */
 
-#endif /* FLEXIV_CONTROLLERS__CARTESIAN_POSE_SENSOR_HPP_ */
+#endif /* SEMANTIC_COMPONENTS__CARTESIAN_POSE_STATE_HPP_ */
