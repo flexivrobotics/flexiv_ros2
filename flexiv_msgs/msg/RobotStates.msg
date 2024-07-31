@@ -1,3 +1,6 @@
+# Header
+std_msgs/Header header
+
 # Measured joint positions using link-side encoder
 float64[7] q
 

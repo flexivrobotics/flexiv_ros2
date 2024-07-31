@@ -188,6 +188,7 @@ The robot driver (`rizon.launch.py`) publishes the following feedback states to 
 
 - `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/JointState.msg`](https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/JointState.html)]
 - `/tcp_pose_broadcaster/tcp_pose`: Measured TCP pose expressed in world frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
+- `/${robot_sn}/flexiv_robot_states`: [Flexiv robot states](https://rdk.flexiv.com/api/structflexiv_1_1rdk_1_1_robot_states.html#details) including the joint- and Cartesian-space robot states. [[`flexiv_msgs/msg/RobotStates.msg`](flexiv_msgs/msg/RobotStates.msg)]
 
 > [!NOTE]
 > The topic names of the broadcasters are specified in `flexiv_bringup/config/rizon_controllers.yaml`

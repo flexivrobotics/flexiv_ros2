@@ -1,0 +1,6 @@
+flexiv_robot_states_broadcaster:
+  robot_sn: {
+    type: string,
+    default_value: "",
+    description: "Robot arm serial number",
+  }

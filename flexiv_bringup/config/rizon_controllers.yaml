@@ -20,6 +20,9 @@ controller_manager:
     tcp_pose_state_broadcaster:
       type: tcp_pose_state_broadcaster/TcpPoseStateBroadcaster
 
+    flexiv_robot_states_broadcaster:
+      type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
+
 forward_position_controller:
   ros__parameters:
     joints:

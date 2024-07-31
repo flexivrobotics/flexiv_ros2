@@ -99,6 +99,10 @@ private:
     std::vector<double> hw_states_joint_velocities_;
     std::vector<double> hw_states_joint_efforts_;
 
+    // Robot States
+    flexiv::rdk::RobotStates hw_flexiv_robot_states_;
+    flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_ = &hw_flexiv_robot_states_;
+
     // Measured TCP pose expressed in base frame [x, y, z, qx, qy, qz, qw].
     std::vector<double> hw_states_tcp_pose_;
 

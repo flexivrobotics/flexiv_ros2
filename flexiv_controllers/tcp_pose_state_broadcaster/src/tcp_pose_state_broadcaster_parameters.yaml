@@ -2,7 +2,7 @@ tcp_pose_state_broadcaster:
   frame_id:
     {
       type: string,
-      default_value: "tcp",
+      default_value: "flange",
       description: "Sensor's frame_id in which values are published.",
       validation: { not_empty<>: null },
     }

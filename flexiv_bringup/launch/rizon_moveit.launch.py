@@ -4,7 +4,7 @@ from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, RegisterEventHandler
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import (
     Command,
@@ -267,7 +267,7 @@ def generate_launch_description():
     ros2_control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
-        parameters=[robot_description, robot_controllers],
+        parameters=[robot_description, robot_controllers, {"robot_sn": robot_sn}],
         output="both",
     )
 
@@ -302,6 +302,15 @@ def generate_launch_description():
             "--controller-manager",
             "/controller_manager",
         ],
+    )
+
+    # Run Flexiv robot states broadcaster
+    flexiv_robot_states_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["flexiv_robot_states_broadcaster"],
+        parameters=[{"robot_sn": robot_sn}],
+        condition=UnlessCondition(use_fake_hardware),
     )
 
     # Servo node for realtime control
@@ -346,6 +355,7 @@ def generate_launch_description():
         ros2_control_node,
         joint_state_broadcaster_spawner,
         tcp_pose_state_broadcaster_spawner,
+        flexiv_robot_states_broadcaster_spawner,
         servo_node,
         delay_rviz_after_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,

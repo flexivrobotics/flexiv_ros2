@@ -161,6 +161,12 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
         }
     }
 
+    std::string robot_sn = info_.hardware_parameters.at("robot_sn");
+    // Replace "-" with "_" in robot_sn to match the state interface name
+    std::replace(robot_sn.begin(), robot_sn.end(), '-', '_');
+    state_interfaces.emplace_back(hardware_interface::StateInterface(
+        robot_sn, "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_)));
+
     const std::string prefix = info_.hardware_parameters.at("prefix");
     for (std::size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
         state_interfaces.emplace_back(hardware_interface::StateInterface(
@@ -254,6 +260,8 @@ hardware_interface::return_type FlexivHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
     if (robot_->operational(false) && robot_->mode() != flexiv::rdk::Mode::IDLE) {
+
+        hw_flexiv_robot_states_ = robot_->states();
 
         hw_states_joint_positions_ = robot_->states().q;
         hw_states_joint_velocities_ = robot_->states().dtheta;

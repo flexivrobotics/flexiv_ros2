@@ -1,0 +1,8 @@
+<library path="flexiv_robot_states_broadcaster">
+    <class name="flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster"
+           type="flexiv_robot_states_broadcaster::FlexivRobotStatesBroadcaster" base_class_type="controller_interface::ControllerInterface">
+        <description>
+            The robot states broadcaster publishes the Flexiv robot states.
+        </description>
+    </class>
+</library>
