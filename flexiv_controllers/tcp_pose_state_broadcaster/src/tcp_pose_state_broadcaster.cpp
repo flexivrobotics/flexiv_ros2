@@ -1,8 +1,8 @@
 /**
  * @file tcp_pose_state_broadcaster.cpp
- * @brief Controller to publish the the measured TCP pose expressed in base
+ * @brief Controller to publish the the measured TCP pose expressed in world
  * frame.
- * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
+ * @copyright Copyright (C) 2016-2024 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
 

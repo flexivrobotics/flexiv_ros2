@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>flexiv_hardware</name>
-  <version>0.10.0</version>
+  <version>1.4.0</version>
   <description>Hardware interfaces to Flexiv robots for ROS 2 control</description>
   <maintainer email="munseng.phoon@flexiv.com">Mun Seng Phoon</maintainer>
   <license>Apache 2.0</license>

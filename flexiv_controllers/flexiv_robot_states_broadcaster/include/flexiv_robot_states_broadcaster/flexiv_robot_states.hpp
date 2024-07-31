@@ -1,3 +1,9 @@
+/**
+ * @file flexiv_robot_states.hpp
+ * @brief Semantic component interface to read the Flexiv robot states.
+ * @copyright Copyright (C) 2016-2024 Flexiv Ltd. All Rights Reserved.
+ */
+
 #ifndef SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 #define SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 

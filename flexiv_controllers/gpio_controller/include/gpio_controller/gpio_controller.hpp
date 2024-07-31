@@ -2,7 +2,7 @@
  * @file gpio_controller.hpp
  * @brief GPIO controller as ROS 2 controller. Adapted from
  * ros2_control_demos/example_10/gpio_controller
- * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
+ * @copyright Copyright (C) 2016-2024 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
 

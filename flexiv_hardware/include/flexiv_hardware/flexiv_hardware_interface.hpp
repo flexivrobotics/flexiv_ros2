@@ -2,7 +2,7 @@
  * @file flexiv_hardware_interface.hpp
  * @brief Hardware interface to Flexiv robots for ROS 2 control. Adapted from
  * ros2_control_demos/example_3/hardware/include/ros2_control_demo_example_3/rrbot_system_multi_interface.hpp
- * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
+ * @copyright Copyright (C) 2016-2024 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
 

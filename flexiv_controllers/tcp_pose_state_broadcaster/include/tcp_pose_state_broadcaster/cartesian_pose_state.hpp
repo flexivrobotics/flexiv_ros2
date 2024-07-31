@@ -2,7 +2,7 @@
  * @file cartesian_pose_state.hpp
  * @brief Sensor interface to read the Cartesian pose. Adapted from
  * ros2_control/controller_interface/include/semantic_components/force_torque_sensor.hpp
- * @copyright Copyright (C) 2016-2021 Flexiv Ltd. All Rights Reserved.
+ * @copyright Copyright (C) 2016-2024 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
 

@@ -1,3 +1,9 @@
+/**
+ * @file flexiv_robot_states_broadcaster.hpp
+ * @brief Header file for FlexivRobotStatesBroadcaster class
+ * @copyright Copyright (C) 2016-2024 Flexiv Ltd. All Rights Reserved.
+ */
+
 #ifndef FLEXIV_ROBOT_STATES_BROADCASTER__FLEXIV_ROBOT_STATES_BROADCASTER_HPP_
 #define FLEXIV_ROBOT_STATES_BROADCASTER__FLEXIV_ROBOT_STATES_BROADCASTER_HPP_
 

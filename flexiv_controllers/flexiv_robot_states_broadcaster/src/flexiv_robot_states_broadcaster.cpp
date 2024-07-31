@@ -1,3 +1,9 @@
+/**
+ * @file flexiv_robot_states_broadcaster.cpp
+ * @brief Controller to publish the Flexiv robot states.
+ * @copyright Copyright (C) 2016-2024 Flexiv Ltd. All Rights Reserved.
+ */
+
 #include "flexiv_robot_states_broadcaster/flexiv_robot_states_broadcaster.hpp"
 
 #include <memory>
