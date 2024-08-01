@@ -1,8 +1,0 @@
-<library path="tcp_pose_state_broadcaster">
-    <class name="tcp_pose_state_broadcaster/TcpPoseStateBroadcaster"
-           type="tcp_pose_state_broadcaster::TcpPoseStateBroadcaster" base_class_type="controller_interface::ControllerInterface">
-        <description>
-            The TCP pose state broadcaster publishes the measured TCP pose expressed in world frame.
-        </description>
-    </class>
-</library>

@@ -143,16 +143,6 @@
         <state_interface name="effort"/>
       </joint>
 
-      <sensor name="${prefix}tcp_pose">
-        <state_interface name="position.x"/>
-        <state_interface name="position.y"/>
-        <state_interface name="position.z"/>
-        <state_interface name="orientation.x"/>
-        <state_interface name="orientation.y"/>
-        <state_interface name="orientation.z"/>
-        <state_interface name="orientation.w"/>
-      </sensor>
-
       <gpio name="${prefix}gpio">
         <command_interface name="digital_output_0"/>
         <command_interface name="digital_output_1"/>

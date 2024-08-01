@@ -17,9 +17,6 @@ controller_manager:
     gpio_controller:
       type: gpio_controller/GPIOController
 
-    tcp_pose_state_broadcaster:
-      type: tcp_pose_state_broadcaster/TcpPoseStateBroadcaster
-
     flexiv_robot_states_broadcaster:
       type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
 

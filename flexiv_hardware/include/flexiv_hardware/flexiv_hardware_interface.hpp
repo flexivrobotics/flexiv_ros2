@@ -103,9 +103,6 @@ private:
     flexiv::rdk::RobotStates hw_flexiv_robot_states_;
     flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_ = &hw_flexiv_robot_states_;
 
-    // Measured TCP pose expressed in base frame [x, y, z, qx, qy, qz, qw].
-    std::vector<double> hw_states_tcp_pose_;
-
     // GPIO commands and states
     std::vector<double> hw_commands_gpio_out_;
     std::vector<double> hw_states_gpio_in_;

@@ -38,7 +38,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     hw_commands_joint_efforts_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_states_tcp_pose_.resize(flexiv::rdk::kPoseSize, std::numeric_limits<double>::quiet_NaN());
     hw_states_gpio_in_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
     hw_commands_gpio_out_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
     stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
@@ -151,16 +150,6 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
             info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_states_joint_efforts_[i]));
     }
 
-    for (std::size_t i = 0; i < info_.sensors.size(); i++) {
-        const auto& sensor = info_.sensors[i];
-        for (std::size_t j = 0; j < sensor.state_interfaces.size(); j++) {
-            if (i == 0) {
-                state_interfaces.emplace_back(hardware_interface::StateInterface(
-                    sensor.name, sensor.state_interfaces[j].name, &hw_states_tcp_pose_[j]));
-            }
-        }
-    }
-
     std::string robot_sn = info_.hardware_parameters.at("robot_sn");
     // Replace "-" with "_" in robot_sn to match the state interface name
     std::replace(robot_sn.begin(), robot_sn.end(), '-', '_');
@@ -266,15 +255,6 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         hw_states_joint_positions_ = robot_->states().q;
         hw_states_joint_velocities_ = robot_->states().dtheta;
         hw_states_joint_efforts_ = robot_->states().tau;
-
-        // Convert quaternion order from [w, x, y, z] to [x, y, z, w]
-        hw_states_tcp_pose_[0] = robot_->states().tcp_pose[0];
-        hw_states_tcp_pose_[1] = robot_->states().tcp_pose[1];
-        hw_states_tcp_pose_[2] = robot_->states().tcp_pose[2];
-        hw_states_tcp_pose_[3] = robot_->states().tcp_pose[4];
-        hw_states_tcp_pose_[4] = robot_->states().tcp_pose[5];
-        hw_states_tcp_pose_[5] = robot_->states().tcp_pose[6];
-        hw_states_tcp_pose_[6] = robot_->states().tcp_pose[3];
 
         // Read GPIO input states
         auto gpio_in = robot_->ReadDigitalInput();

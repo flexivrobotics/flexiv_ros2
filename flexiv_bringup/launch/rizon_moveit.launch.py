@@ -293,17 +293,6 @@ def generate_launch_description():
         ],
     )
 
-    # Run tcp pose state broadcaster
-    tcp_pose_state_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "tcp_pose_state_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
-        ],
-    )
-
     # Run Flexiv robot states broadcaster
     flexiv_robot_states_broadcaster_spawner = Node(
         package="controller_manager",
@@ -354,7 +343,6 @@ def generate_launch_description():
         robot_state_publisher_node,
         ros2_control_node,
         joint_state_broadcaster_spawner,
-        tcp_pose_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
         servo_node,
         delay_rviz_after_joint_state_broadcaster_spawner,
