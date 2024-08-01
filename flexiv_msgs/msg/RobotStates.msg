@@ -26,22 +26,22 @@ float64[7] tau_dot
 float64[7] tau_ext
 
 # Measured TCP pose expressed in world frame
-geometry_msgs/Pose tcp_pose
+geometry_msgs/PoseStamped tcp_pose
 
 # Desired TCP pose expressed in world frame
-geometry_msgs/Pose tcp_pose_des
+geometry_msgs/PoseStamped tcp_pose_des
 
 # Measured TCP velocity expressed in world frame
-geometry_msgs/Accel tcp_vel
+geometry_msgs/AccelStamped tcp_vel
 
 # Measured flange pose expressed in world frame
-geometry_msgs/Pose flange_pose
+geometry_msgs/PoseStamped flange_pose
 
 # Force-torque (FT) sensor raw reading in flange frame
-geometry_msgs/Wrench ft_sensor_raw
+geometry_msgs/WrenchStamped ft_sensor_raw
 
 # Estimated external wrench applied on TCP and expressed in TCP frame
-geometry_msgs/Wrench ext_wrench_in_tcp
+geometry_msgs/WrenchStamped ext_wrench_in_tcp
 
 # Estimated external wrench applied on TCP and expressed in world frame
-geometry_msgs/Wrench ext_wrench_in_world
+geometry_msgs/WrenchStamped ext_wrench_in_world

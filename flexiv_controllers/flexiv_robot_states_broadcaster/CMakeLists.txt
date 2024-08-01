@@ -14,6 +14,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(generate_parameter_library REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(flexiv_hardware REQUIRED)
 find_package(flexiv_msgs REQUIRED)
 find_package(hardware_interface REQUIRED)
@@ -28,6 +29,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   flexiv_hardware
   flexiv_msgs
   generate_parameter_library
+  geometry_msgs
   hardware_interface
   pluginlib
   rclcpp_lifecycle

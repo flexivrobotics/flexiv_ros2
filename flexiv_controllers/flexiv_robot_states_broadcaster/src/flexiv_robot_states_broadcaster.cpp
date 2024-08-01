@@ -65,11 +65,33 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
             semantic_components::FlexivRobotStates(robot_sn));
     }
 
+    // Create the publishers for the robot states
+    tcp_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
+        kTcpPoseTopic, rclcpp::SystemDefaultsQoS());
+    tcp_pose_desired_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
+        kTcpPoseDesiredTopic, rclcpp::SystemDefaultsQoS());
+    tcp_velocity_publisher_ = get_node()->create_publisher<geometry_msgs::msg::AccelStamped>(
+        kTcpVelocityTopic, rclcpp::SystemDefaultsQoS());
+    flange_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
+        kFlangePoseTopic, rclcpp::SystemDefaultsQoS());
+    ft_sensor_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
+        kFTSensorTopic, rclcpp::SystemDefaultsQoS());
+    external_wrench_in_tcp_publisher_
+        = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
+            kExternalWrenchInTcpFrameTopic, rclcpp::SystemDefaultsQoS());
+    external_wrench_in_world_publisher_
+        = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
+            kExternalWrenchInWorldFrameTopic, rclcpp::SystemDefaultsQoS());
+
     try {
         flexiv_robot_states_publisher_
             = get_node()->create_publisher<flexiv_msgs::msg::RobotStates>(
-                "/" + robot_sn + "/flexiv_robot_states", rclcpp::SystemDefaultsQoS());
-        realtime_publisher_ = std::make_unique<StatePublisher>(flexiv_robot_states_publisher_);
+                "/" + robot_sn + kRobotStatesTopic, rclcpp::SystemDefaultsQoS());
+        realtime_flexiv_robot_states_publisher_
+            = std::make_unique<StatePublisher>(flexiv_robot_states_publisher_);
+        // Initialize the robot states message
+        flexiv_robot_states_->init_robot_states_message(
+            realtime_flexiv_robot_states_publisher_->msg_);
     } catch (const std::exception& e) {
         fprintf(stderr, "Exception thrown during publisher creation with message: %s \n", e.what());
         return CallbackReturn::ERROR;
@@ -82,17 +104,28 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
 controller_interface::return_type FlexivRobotStatesBroadcaster::update(
     const rclcpp::Time& time, const rclcpp::Duration& /*period*/)
 {
-    if (realtime_publisher_ && realtime_publisher_->trylock()) {
-        realtime_publisher_->msg_.header.stamp = time;
+    if (realtime_flexiv_robot_states_publisher_
+        && realtime_flexiv_robot_states_publisher_->trylock()) {
+        realtime_flexiv_robot_states_publisher_->msg_.header.stamp = time;
 
-        if (!flexiv_robot_states_->get_values_as_message(realtime_publisher_->msg_)) {
+        if (!flexiv_robot_states_->get_values_as_message(
+                realtime_flexiv_robot_states_publisher_->msg_)) {
             RCLCPP_ERROR(get_node()->get_logger(),
                 "Failed to get fleixv robot states via flexiv robot states interface.");
-            realtime_publisher_->unlock();
+            realtime_flexiv_robot_states_publisher_->unlock();
             return controller_interface::return_type::ERROR;
         }
 
-        realtime_publisher_->unlockAndPublish();
+        realtime_flexiv_robot_states_publisher_->unlockAndPublish();
+
+        const auto& flexiv_robot_states_msg = realtime_flexiv_robot_states_publisher_->msg_;
+        tcp_pose_publisher_->publish(flexiv_robot_states_msg.tcp_pose);
+        tcp_pose_desired_publisher_->publish(flexiv_robot_states_msg.tcp_pose_des);
+        tcp_velocity_publisher_->publish(flexiv_robot_states_msg.tcp_vel);
+        flange_pose_publisher_->publish(flexiv_robot_states_msg.flange_pose);
+        ft_sensor_publisher_->publish(flexiv_robot_states_msg.ft_sensor_raw);
+        external_wrench_in_tcp_publisher_->publish(flexiv_robot_states_msg.ext_wrench_in_tcp);
+        external_wrench_in_world_publisher_->publish(flexiv_robot_states_msg.ext_wrench_in_world);
 
         return controller_interface::return_type::OK;
     } else {
