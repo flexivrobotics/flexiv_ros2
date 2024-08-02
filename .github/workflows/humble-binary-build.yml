@@ -43,7 +43,9 @@ jobs:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           package-name: |
             flexiv_bringup
-            flexiv_controllers
+            flexiv_robot_states_broadcaster
+            gpio_controller
+            joint_impedance_controller
             flexiv_description
             flexiv_hardware
             flexiv_moveit_config
