@@ -109,7 +109,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
 
 The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/activate_rdk_server.html) and [establish connection](https://rdk.flexiv.com/manual/establish_connection.html) between the workstation PC and the robot.
 
-The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, force torque sensor broadcaster, TCP wrench and TCP pose broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
+The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
 - `rizon_type` (default: *rizon4*) - type of the Flexiv Rizon robot. (rizon4, rizon4s, rizon10 or rizon10s)
@@ -189,9 +189,8 @@ The robot driver (`rizon.launch.py`) publishes the following feedback states to 
 - `/${robot_sn}/flexiv_robot_states`: [Flexiv robot states](https://rdk.flexiv.com/api/structflexiv_1_1rdk_1_1_robot_states.html#details) including the joint- and Cartesian-space robot states. [[`flexiv_msgs/msg/RobotStates.msg`](flexiv_msgs/msg/RobotStates.msg)]
 - `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/JointState.msg`](https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/JointState.html)]
 - `/flexiv_robot_states_broadcaster/tcp_pose`: Measured TCP pose expressed in world frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
-
-> [!NOTE]
-> The topic names of the broadcasters are specified in `flexiv_bringup/config/rizon_controllers.yaml`
+- `/flexiv_robot_states_broadcaster/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
+- `/flexiv_robot_states_broadcaster/external_wrench_in_world`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 
 ### GPIO
 
