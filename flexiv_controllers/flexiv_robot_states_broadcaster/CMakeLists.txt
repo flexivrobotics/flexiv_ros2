@@ -46,7 +46,10 @@ add_library(flexiv_robot_states_broadcaster
   src/flexiv_robot_states_broadcaster.cpp
 )
 
-target_include_directories(flexiv_robot_states_broadcaster PRIVATE include)
+target_include_directories(flexiv_robot_states_broadcaster PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../flexiv_hardware/rdk/include
+)
 
 target_link_libraries(flexiv_robot_states_broadcaster PUBLIC
   flexiv_robot_states_broadcaster_parameters
