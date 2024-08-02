@@ -70,7 +70,7 @@ public:
         message.flange_pose.header.frame_id = kWorldFrameId;
         message.ft_sensor_raw.header.frame_id = kFlangeFrameId;
         message.ext_wrench_in_tcp.header.frame_id = kFlangeFrameId;
-        message.ext_wrench_in_world.header.frame_id = kWorldFrameId;
+        message.ext_wrench_in_world.header.frame_id = kFlangeFrameId;
     }
 
     /// Return RobotStates message
