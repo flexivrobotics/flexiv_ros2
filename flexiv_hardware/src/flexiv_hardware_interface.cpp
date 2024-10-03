@@ -257,7 +257,7 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         hw_states_joint_efforts_ = robot_->states().tau;
 
         // Read GPIO input states
-        auto gpio_in = robot_->ReadDigitalInput();
+        auto gpio_in = robot_->digital_inputs();
         for (size_t i = 0; i < hw_states_gpio_in_.size(); i++) {
             hw_states_gpio_in_[i] = static_cast<double>(gpio_in[i]);
         }
@@ -316,7 +316,7 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         ports_values.push_back(static_cast<bool>(hw_commands_gpio_out_[i]));
     }
 
-    robot_->WriteDigitalOutput(ports_indices, ports_values);
+    robot_->SetDigitalOutputs(ports_indices, ports_values);
 
     return hardware_interface::return_type::OK;
 }
