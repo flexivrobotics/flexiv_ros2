@@ -1,0 +1,10 @@
+float64 width # m
+float64 velocity # m/s
+float64 max_force # N
+---
+bool success
+string error
+---
+float64 current_width # m
+float64 current_force # N
+bool moving
