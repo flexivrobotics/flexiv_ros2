@@ -44,7 +44,7 @@ rclcpp_components_register_nodes(gripper_action_server
 install(TARGETS gripper_action_server
   DESTINATION lib/${PROJECT_NAME})
 
-install(DIRECTORY config
+install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}/)
 
 ament_package()

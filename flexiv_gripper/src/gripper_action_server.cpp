@@ -10,8 +10,8 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
 : Node("flexiv_gripper_node", options)
 {
     this->declare_parameter("robot_sn", std::string());
-    this->declare_parameter("default_state_publish_rate", kDefaultStatePublishRate);
-    this->declare_parameter("default_feedback_publish_rate", kDefaultFeedbackPublishRate);
+    this->declare_parameter("state_publish_rate", kDefaultStatePublishRate);
+    this->declare_parameter("feedback_publish_rate", kDefaultFeedbackPublishRate);
     this->declare_parameter("default_velocity", kDefaultVelocity);
     this->declare_parameter("default_max_force", kDefaultMaxForce);
     this->declare_parameter("gripper_joint_names", std::vector<std::string>());
@@ -37,9 +37,9 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
     }
 
     const double kStatePublishRate
-        = static_cast<double>(this->get_parameter("default_state_publish_rate").as_int());
+        = static_cast<double>(this->get_parameter("state_publish_rate").as_int());
     const double kFeedbackPublishRate
-        = static_cast<double>(this->get_parameter("default_feedback_publish_rate").as_int());
+        = static_cast<double>(this->get_parameter("feedback_publish_rate").as_int());
     this->future_wait_timeout_ = rclcpp::WallRate(kFeedbackPublishRate).period();
 
     try {
