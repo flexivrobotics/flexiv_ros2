@@ -180,21 +180,27 @@ private:
         }
     }
 
+    /**
+     * @brief Return the command execution result.
+     * @tparam T Gripper action message type (Grasp or Move).
+     * @param[in] command  The function to execute the gripper command.
+     * @return Success or failure of the command execution.
+     */
     template <typename T>
-    auto CommandExecutionResult(const std::function<void()>& command)
-        -> std::function<std::shared_ptr<typename T::Result>()>
+    std::function<std::shared_ptr<typename T::Result>()> CommandExecutionResult(
+        const std::function<void()>& command)
     {
-        return [command]() {
+        return std::function<std::shared_ptr<typename T::Result>()>([command]() {
             auto result = std::make_shared<typename T::Result>();
             try {
-                // TODO: Check if the command is successful
+                command();
                 result->success = true;
             } catch (const std::exception& e) {
                 result->success = false;
                 result->error = e.what();
             }
             return result;
-        };
+        });
     }
 
     template <typename T>

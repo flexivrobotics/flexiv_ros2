@@ -134,7 +134,7 @@ void GripperActionServer::ExecuteMove(const std::shared_ptr<GoalHandleMove>& goa
 {
     auto command = [goal_handle, this]() {
         const auto goal = goal_handle->get_goal();
-        return gripper_->Move(goal->width, goal->velocity, goal->max_force);
+        gripper_->Move(goal->width, goal->velocity, goal->max_force);
     };
     ExecuteCommand(goal_handle, GripperAction::kMove, command);
 }
@@ -143,7 +143,7 @@ void GripperActionServer::ExecuteGrasp(const std::shared_ptr<GoalHandleGrasp>& g
 {
     auto command = [goal_handle, this]() {
         const auto goal = goal_handle->get_goal();
-        return gripper_->Grasp(goal->force);
+        gripper_->Grasp(goal->force);
     };
     ExecuteCommand(goal_handle, GripperAction::kGrasp, command);
 }
@@ -151,7 +151,7 @@ void GripperActionServer::ExecuteGrasp(const std::shared_ptr<GoalHandleGrasp>& g
 void GripperActionServer::StopServiceCallback(const std::shared_ptr<Trigger::Response>& response)
 {
     RCLCPP_INFO(this->get_logger(), "Stopping the gripper...");
-    auto result = CommandExecutionResult<Move>([this]() { return gripper_->Stop(); })();
+    auto result = CommandExecutionResult<Move>([this]() { gripper_->Stop(); })();
     response->success = result->success;
     response->message = result->error;
     if (response->success) {
