@@ -29,10 +29,10 @@
 
 namespace {
 
-const double kDefaultStatePublishRate = 30;    // [Hz]
-const double kDefaultFeedbackPublishRate = 10; // [Hz]
-const double kDefaultVelocity = 0.1;           // [m/s]
-const double kDefaultMaxForce = 20;            // [N]
+const int kDefaultStatePublishRate = 30;    // [Hz]
+const int kDefaultFeedbackPublishRate = 10; // [Hz]
+const double kDefaultVelocity = 0.1;        // [m/s]
+const double kDefaultMaxForce = 20;         // [N]
 }
 
 namespace flexiv_gripper {
