@@ -19,6 +19,7 @@
 #include "flexiv_msgs/action/move.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
 #include "std_srvs/srv/trigger.hpp"
 
 // Flexiv
@@ -100,6 +101,10 @@ private:
     double default_velocity_;
     double default_max_force_;
     std::chrono::nanoseconds future_wait_timeout_ {0};
+
+    // Gripper joint states publisher
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr gripper_joint_states_publisher_;
+    std::vector<std::string> gripper_joint_names_;
 
     /**
      * @brief Publish the current gripper states.

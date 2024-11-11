@@ -14,15 +14,27 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
     this->declare_parameter("default_feedback_publish_rate", kDefaultFeedbackPublishRate);
     this->declare_parameter("default_velocity", kDefaultVelocity);
     this->declare_parameter("default_max_force", kDefaultMaxForce);
+    this->declare_parameter("gripper_joint_names", std::vector<std::string>());
 
     std::string robot_sn;
     if (!this->get_parameter("robot_sn", robot_sn)) {
-        RCLCPP_ERROR(this->get_logger(), "Parameter 'robot_sn' is not set");
+        RCLCPP_FATAL(this->get_logger(), "Parameter 'robot_sn' is not set");
         throw std::invalid_argument("Parameter 'robot_sn' is not set");
     }
 
     this->default_velocity_ = this->get_parameter("default_velocity").as_double();
     this->default_max_force_ = this->get_parameter("default_max_force").as_double();
+
+    if (!this->get_parameter("gripper_joint_names", this->gripper_joint_names_)) {
+        RCLCPP_WARN(this->get_logger(), "Parameter 'gripper_joint_names' is not set");
+        this->gripper_joint_names_ = {"gripper_finger_joint_1", "gripper_finger_joint_2"};
+    }
+    if (this->gripper_joint_names_.size() != 2) {
+        RCLCPP_FATAL(this->get_logger(),
+            "Parameter 'gripper_joint_names' must have 2 elements, got %ld instead",
+            this->gripper_joint_names_.size());
+        throw std::invalid_argument("Invalid 'gripper_joint_names' parameter");
+    }
 
     const double kStatePublishRate
         = static_cast<double>(this->get_parameter("default_state_publish_rate").as_int());
@@ -112,6 +124,8 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
             return std::thread {[goal_handle, this]() { ExecuteGrasp(goal_handle); }}.detach();
         });
 
+    this->gripper_joint_states_publisher_
+        = this->create_publisher<sensor_msgs::msg::JointState>("~/gripper_joint_states", 1);
     this->state_publish_timer_ = this->create_wall_timer(
         rclcpp::WallRate(kStatePublishRate).period(), [this]() { return PublishGripperStates(); });
 }
@@ -168,8 +182,18 @@ void GripperActionServer::PublishGripperStates()
 {
     std::lock_guard<std::mutex> lock(gripper_states_mutex_);
     this->current_gripper_states_ = gripper_->states();
-    this->is_gripper_moving_ = gripper_->moving();
-    // TODO: Publish the gripper states to the topic
+    // Publish the gripper states
+    sensor_msgs::msg::JointState gripper_joint_states;
+    gripper_joint_states.header.stamp = this->now();
+    gripper_joint_states.name.push_back(this->gripper_joint_names_[0]);
+    gripper_joint_states.name.push_back(this->gripper_joint_names_[1]);
+    gripper_joint_states.position.push_back(this->current_gripper_states_.width / 2);
+    gripper_joint_states.position.push_back(this->current_gripper_states_.width / 2);
+    gripper_joint_states.velocity.push_back(0.0);
+    gripper_joint_states.velocity.push_back(0.0);
+    gripper_joint_states.effort.push_back(this->current_gripper_states_.force);
+    gripper_joint_states.effort.push_back(this->current_gripper_states_.force);
+    this->gripper_joint_states_publisher_->publish(gripper_joint_states);
 }
 
 } // namespace flexiv_gripper

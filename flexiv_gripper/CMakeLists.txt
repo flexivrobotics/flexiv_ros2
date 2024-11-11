@@ -17,6 +17,7 @@ find_package(flexiv_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 
 add_library(gripper_action_server
@@ -33,6 +34,7 @@ ament_target_dependencies(gripper_action_server
   rclcpp
   rclcpp_action
   rclcpp_components
+  sensor_msgs
   std_srvs)
 
 rclcpp_components_register_nodes(gripper_action_server
