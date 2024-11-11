@@ -37,12 +37,14 @@ ament_target_dependencies(gripper_action_server
   sensor_msgs
   std_srvs)
 
-rclcpp_components_register_nodes(gripper_action_server
+rclcpp_components_register_node(gripper_action_server
   PLUGIN "flexiv_gripper::GripperActionServer"
   EXECUTABLE flexiv_gripper_node)
 
 install(TARGETS gripper_action_server
-  DESTINATION lib/${PROJECT_NAME})
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
 
 install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}/)
