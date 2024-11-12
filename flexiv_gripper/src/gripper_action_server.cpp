@@ -162,6 +162,89 @@ void GripperActionServer::ExecuteGrasp(const std::shared_ptr<GoalHandleGrasp>& g
     ExecuteCommand(goal_handle, GripperAction::kGrasp, command);
 }
 
+void GripperActionServer::ExecuteGripperCommand(
+    const std::shared_ptr<GoalHandleGripperCommand>& goal_handle)
+{
+    const auto goal = goal_handle->get_goal();
+    const double target_width = 2 * goal->command.position;
+
+    std::unique_lock<std::mutex> guard(gripper_states_mutex_);
+    auto result = std::make_shared<control_msgs::action::GripperCommand::Result>();
+    const double current_width = current_gripper_states_.width;
+    if (target_width > current_gripper_states_.max_width || target_width < 0) {
+        RCLCPP_ERROR(this->get_logger(), "Invalid gripper target width: %f. Max width = %f",
+            target_width, current_gripper_states_.max_width);
+        goal_handle->abort(result);
+        return;
+    }
+    if (std::abs(target_width - current_width) < 1e-3) {
+        RCLCPP_INFO(this->get_logger(), "Gripper is already at the target width: %f", target_width);
+        result->effort = current_gripper_states_.force;
+        result->position = current_gripper_states_.width;
+        result->reached_goal = true;
+        result->stalled = false;
+        goal_handle->succeed(result);
+        return;
+    }
+    guard.unlock();
+
+    auto command = [target_width, this]() {
+        gripper_->Move(target_width, kDefaultVelocity, kDefaultMaxForce);
+    };
+
+    ExecuteGripperCommandHelper(goal_handle, command);
+}
+
+void GripperActionServer::ExecuteGripperCommandHelper(
+    const std::shared_ptr<GoalHandleGripperCommand>& goal_handle,
+    const std::function<void()>& command)
+{
+    const auto action_name = GetGripperActionName(GripperAction::kGripperCommand);
+    RCLCPP_INFO(this->get_logger(), "Gripper %s action has been received", action_name.c_str());
+
+    auto command_execution_result = [command, this]() {
+        auto result = std::make_shared<GripperCommand::Result>();
+        try {
+            command();
+            result->reached_goal = true;
+        } catch (const std::exception& e) {
+            result->reached_goal = false;
+            RCLCPP_INFO(this->get_logger(), "Gripper command failed: %s", e.what());
+        }
+        return result;
+    };
+
+    std::future<std::shared_ptr<typename GripperCommand::Result>> result_future
+        = std::async(std::launch::async, command_execution_result);
+
+    while (!IsResultReady(result_future, future_wait_timeout_) && rclcpp::ok()) {
+        if (goal_handle->is_canceling()) {
+            gripper_->Stop();
+            auto result = result_future.get();
+            RCLCPP_INFO(
+                this->get_logger(), "Gripper %s action has been canceled", action_name.c_str());
+            goal_handle->canceled(result);
+            return;
+        }
+        PublishGripperCommandFeedback(goal_handle);
+    }
+
+    if (rclcpp::ok()) {
+        const auto result = result_future.get();
+        std::lock_guard<std::mutex> guard(gripper_states_mutex_);
+        result->position = current_gripper_states_.width;
+        result->effort = current_gripper_states_.force;
+        if (result->reached_goal) {
+            RCLCPP_INFO(
+                this->get_logger(), "Gripper %s action has been completed", action_name.c_str());
+            goal_handle->succeed(result);
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Gripper %s action has failed", action_name.c_str());
+            goal_handle->abort(result);
+        }
+    }
+}
+
 void GripperActionServer::StopServiceCallback(const std::shared_ptr<Trigger::Response>& response)
 {
     RCLCPP_INFO(this->get_logger(), "Stopping the gripper...");
@@ -194,6 +277,16 @@ void GripperActionServer::PublishGripperStates()
     gripper_joint_states.effort.push_back(this->current_gripper_states_.force);
     gripper_joint_states.effort.push_back(this->current_gripper_states_.force);
     this->gripper_joint_states_publisher_->publish(gripper_joint_states);
+}
+
+void GripperActionServer::PublishGripperCommandFeedback(
+    const std::shared_ptr<rclcpp_action::ServerGoalHandle<GripperCommand>>& goal_handle)
+{
+    auto feedback = std::make_shared<GripperCommand::Feedback>();
+    std::lock_guard<std::mutex> guard(gripper_states_mutex_);
+    feedback->position = current_gripper_states_.width;
+    feedback->effort = current_gripper_states_.force;
+    goal_handle->publish_feedback(feedback);
 }
 
 } // namespace flexiv_gripper

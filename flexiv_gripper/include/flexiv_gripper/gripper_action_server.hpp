@@ -15,6 +15,7 @@
 #include <thread>
 
 // ROS
+#include "control_msgs/action/gripper_command.hpp"
 #include "flexiv_msgs/action/grasp.hpp"
 #include "flexiv_msgs/action/move.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -60,6 +61,9 @@ public:
     using Move = flexiv_msgs::action::Move;
     using GoalHandleMove = rclcpp_action::ServerGoalHandle<Move>;
 
+    using GripperCommand = control_msgs::action::GripperCommand;
+    using GoalHandleGripperCommand = rclcpp_action::ServerGoalHandle<GripperCommand>;
+
     using Trigger = std_srvs::srv::Trigger;
 
     explicit GripperActionServer(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
@@ -69,7 +73,8 @@ private:
     enum class GripperAction
     {
         kGrasp,
-        kMove
+        kMove,
+        kGripperCommand
     };
 
     // return string of the gripper action
@@ -80,6 +85,8 @@ private:
                 return {"Grasping"};
             case GripperAction::kMove:
                 return {"Moving"};
+            case GripperAction::kGripperCommand:
+                return {"GripperCommand"};
             default:
                 throw std::invalid_argument("Invalid gripper action");
         }
@@ -91,6 +98,7 @@ private:
 
     rclcpp_action::Server<Grasp>::SharedPtr grasp_action_server_;
     rclcpp_action::Server<Move>::SharedPtr move_action_server_;
+    rclcpp_action::Server<GripperCommand>::SharedPtr gripper_command_action_server_;
     rclcpp::Service<Trigger>::SharedPtr stop_service_;
     rclcpp::TimerBase::SharedPtr state_publish_timer_;
 
@@ -140,12 +148,25 @@ private:
     void ExecuteGrasp(const std::shared_ptr<GoalHandleGrasp>& goal_handle);
 
     /**
+     * @brief Perform the gripper command action.
+     * @param[in] goal_handle The goal handle of the action.
+     */
+    void ExecuteGripperCommand(const std::shared_ptr<GoalHandleGripperCommand>& goal_handle);
+
+    /**
+     * @brief Execute the gripper command and return the result.
+     * @param[in] goal_handle The goal handle of the action.
+     * @param[in] command The RDK function to execute the gripper command.
+     */
+    void ExecuteGripperCommandHelper(const std::shared_ptr<GoalHandleGripperCommand>& goal_handle,
+        const std::function<void()>& command);
+
+    /**
      * @brief Execute the gripper command and return the result.
      * @tparam T Gripper action message type (Grasp or Move).
      * @param[in] goal_handle The goal handle of the action.
      * @param[in] action The gripper action to execute.
-     * @param[in] command The function to execute the gripper command. Return true if the command is
-     * successful.
+     * @param[in] command The RDK function to execute the gripper command.
      */
     template <typename T>
     void ExecuteCommand(const std::shared_ptr<rclcpp_action::ServerGoalHandle<T>>& goal_handle,
@@ -208,6 +229,11 @@ private:
         });
     }
 
+    /**
+     * @brief Publish the gripper states feedback in the action server.
+     * @tparam T Gripper action message type (Grasp or Move).
+     * @param[in] goal_handle The goal handle of the action.
+     */
     template <typename T>
     void PublishGripperStatesFeedback(
         const std::shared_ptr<rclcpp_action::ServerGoalHandle<T>>& goal_handle)
@@ -219,6 +245,13 @@ private:
         feedback->moving = is_gripper_moving_;
         goal_handle->publish_feedback(feedback);
     }
+
+    /**
+     * @brief Publish the gripper command feedback in the action server.
+     * @param[in] goal_handle The goal handle of the action.
+     */
+    void PublishGripperCommandFeedback(
+        const std::shared_ptr<rclcpp_action::ServerGoalHandle<GripperCommand>>& goal_handle);
 };
 
 } // namespace flexiv_gripper

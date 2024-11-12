@@ -12,6 +12,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(control_msgs REQUIRED)
 find_package(flexiv_hardware REQUIRED)
 find_package(flexiv_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -29,6 +30,7 @@ target_include_directories(gripper_action_server PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../../flexiv_hardware/rdk/include)
 
 ament_target_dependencies(gripper_action_server
+  control_msgs
   flexiv_hardware
   flexiv_msgs
   rclcpp
