@@ -111,8 +111,8 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         this, "~/move",
         [this, kMoveAction](auto /*uuid*/, auto /*goal*/) { return HandleGoal(kMoveAction); },
         [this, kMoveAction](const auto& /*goal_handle*/) { return HandleCancel(kMoveAction); },
-        [this](const auto goal_handle) {
-            return std::thread {[goal_handle, this]() { ExecuteMove(goal_handle); }}.detach();
+        [this](const auto& goal_handle) {
+            return std::thread {[this, goal_handle]() { ExecuteMove(goal_handle); }}.detach();
         });
 
     const auto kGraspAction = GripperAction::kGrasp;
@@ -120,8 +120,21 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         this, "~/grasp",
         [this, kGraspAction](auto /*uuid*/, auto /*goal*/) { return HandleGoal(kGraspAction); },
         [this, kGraspAction](const auto& /*goal_handle*/) { return HandleCancel(kGraspAction); },
-        [this](const auto goal_handle) {
-            return std::thread {[goal_handle, this]() { ExecuteGrasp(goal_handle); }}.detach();
+        [this](const auto& goal_handle) {
+            return std::thread {[this, goal_handle]() { ExecuteGrasp(goal_handle); }}.detach();
+        });
+
+    const auto kGripperCommandAction = GripperAction::kGripperCommand;
+    this->gripper_command_action_server_ = rclcpp_action::create_server<GripperCommand>(
+        this, "~/gripper_action",
+        [this, kGripperCommandAction](
+            auto /*uuid*/, auto /*goal*/) { return HandleGoal(kGripperCommandAction); },
+        [this, kGripperCommandAction](
+            const auto& /*goal_handle*/) { return HandleCancel(kGripperCommandAction); },
+        [this](const auto& goal_handle) {
+            return std::thread {[this, goal_handle]() {
+                ExecuteGripperCommand(goal_handle);
+            }}.detach();
         });
 
     this->gripper_joint_states_publisher_
@@ -146,7 +159,7 @@ rclcpp_action::GoalResponse GripperActionServer::HandleGoal(GripperAction action
 
 void GripperActionServer::ExecuteMove(const std::shared_ptr<GoalHandleMove>& goal_handle)
 {
-    auto command = [goal_handle, this]() {
+    auto command = [this, goal_handle]() {
         const auto goal = goal_handle->get_goal();
         gripper_->Move(goal->width, goal->velocity, goal->max_force);
     };
@@ -155,7 +168,7 @@ void GripperActionServer::ExecuteMove(const std::shared_ptr<GoalHandleMove>& goa
 
 void GripperActionServer::ExecuteGrasp(const std::shared_ptr<GoalHandleGrasp>& goal_handle)
 {
-    auto command = [goal_handle, this]() {
+    auto command = [this, goal_handle]() {
         const auto goal = goal_handle->get_goal();
         gripper_->Grasp(goal->force);
     };
@@ -188,7 +201,7 @@ void GripperActionServer::ExecuteGripperCommand(
     }
     guard.unlock();
 
-    auto command = [target_width, this]() {
+    auto command = [this, target_width]() {
         gripper_->Move(target_width, kDefaultVelocity, kDefaultMaxForce);
     };
 
@@ -202,7 +215,7 @@ void GripperActionServer::ExecuteGripperCommandHelper(
     const auto action_name = GetGripperActionName(GripperAction::kGripperCommand);
     RCLCPP_INFO(this->get_logger(), "Gripper %s action has been received", action_name.c_str());
 
-    auto command_execution_result = [command, this]() {
+    auto command_execution_result = [this, command]() {
         auto result = std::make_shared<GripperCommand::Result>();
         try {
             command();
