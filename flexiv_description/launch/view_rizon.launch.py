@@ -1,6 +1,7 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition, UnlessCondition
+from launch_ros.parameter_descriptions import ParameterValue
 from launch.substitutions import (
     Command,
     FindExecutable,
@@ -14,23 +15,30 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     pkg_share = FindPackageShare("flexiv_description")
     rizon_type = LaunchConfiguration("rizon_type")
+    load_gripper = LaunchConfiguration("load_gripper")
     default_rviz_config_path = PathJoinSubstitution(
         [pkg_share, "rviz", "view_rizon.rviz"]
     )
-    robot_description_content = Command(
-        [
-            PathJoinSubstitution([FindExecutable(name="xacro")]),
-            " ",
-            PathJoinSubstitution(
-                [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
-            ),
-            " ",
-            "name:=",
-            "rizon",
-            " ",
-            "rizon_type:=",
-            rizon_type,
-        ]
+    robot_description_content = ParameterValue(
+        Command(
+            [
+                PathJoinSubstitution([FindExecutable(name="xacro")]),
+                " ",
+                PathJoinSubstitution(
+                    [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
+                ),
+                " ",
+                "name:=",
+                "rizon",
+                " ",
+                "rizon_type:=",
+                rizon_type,
+                " ",
+                "load_gripper:=",
+                load_gripper,
+            ]
+        ),
+        value_type=str,
     )
 
     # Robot state publisher
@@ -72,6 +80,11 @@ def generate_launch_description():
                 default_value="rizon4",
                 description="Type of the Flexiv Rizon robot.",
                 choices=["rizon4", "rizon4s", "rizon10", "rizon10s"],
+            ),
+            DeclareLaunchArgument(
+                name="load_gripper",
+                default_value="False",
+                description="Flag to load the Flexiv Grav gripper",
             ),
             DeclareLaunchArgument(
                 name="gui",
