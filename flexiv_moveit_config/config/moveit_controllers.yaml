@@ -20,4 +20,4 @@ grav_gripper_controller:
   type: GripperCommand
   default: true
   joints:
-    - left_outer_knuckle_joint
+    - finger_width_joint
