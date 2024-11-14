@@ -27,13 +27,7 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
 
     if (!this->get_parameter("gripper_joint_names", this->gripper_joint_names_)) {
         RCLCPP_WARN(this->get_logger(), "Parameter 'gripper_joint_names' is not set");
-        this->gripper_joint_names_ = {"gripper_finger_joint_1", "gripper_finger_joint_2"};
-    }
-    if (this->gripper_joint_names_.size() != 2) {
-        RCLCPP_FATAL(this->get_logger(),
-            "Parameter 'gripper_joint_names' must have 2 elements, got %ld instead",
-            this->gripper_joint_names_.size());
-        throw std::invalid_argument("Invalid 'gripper_joint_names' parameter");
+        this->gripper_joint_names_ = {""};
     }
 
     const double kStatePublishRate
@@ -278,16 +272,13 @@ void GripperActionServer::PublishGripperStates()
 {
     std::lock_guard<std::mutex> lock(gripper_states_mutex_);
     this->current_gripper_states_ = gripper_->states();
-    // Publish the gripper states
+    // Modify the gripper joint states based on the mounted gripper type
+    // The gripper joint states below is for the Flexiv Grav GN-01 gripper
     sensor_msgs::msg::JointState gripper_joint_states;
     gripper_joint_states.header.stamp = this->now();
     gripper_joint_states.name.push_back(this->gripper_joint_names_[0]);
-    gripper_joint_states.name.push_back(this->gripper_joint_names_[1]);
-    gripper_joint_states.position.push_back(this->current_gripper_states_.width / 2);
-    gripper_joint_states.position.push_back(this->current_gripper_states_.width / 2);
+    gripper_joint_states.position.push_back(this->current_gripper_states_.width);
     gripper_joint_states.velocity.push_back(0.0);
-    gripper_joint_states.velocity.push_back(0.0);
-    gripper_joint_states.effort.push_back(this->current_gripper_states_.force);
     gripper_joint_states.effort.push_back(this->current_gripper_states_.force);
     this->gripper_joint_states_publisher_->publish(gripper_joint_states);
 }

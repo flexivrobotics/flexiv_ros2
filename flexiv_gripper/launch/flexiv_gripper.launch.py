@@ -25,8 +25,8 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             gripper_joint_names_param_name,
-            description="Joint names of the gripper.",
-            default_value="[gripper_finger_joint_1, gripper_finger_joint_2]",
+            description="Control joint names of the mounted gripper.",
+            default_value="[left_outer_knuckle_joint]",
         )
     )
 
