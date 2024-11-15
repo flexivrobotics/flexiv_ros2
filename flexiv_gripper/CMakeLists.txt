@@ -27,7 +27,35 @@ add_library(gripper_action_server
 
 target_include_directories(gripper_action_server PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../flexiv_hardware/rdk/include)
+  ${CMAKE_CURRENT_SOURCE_DIR}/../flexiv_hardware/rdk/include)
+
+# Set static library
+message("OS: ${CMAKE_SYSTEM_NAME}")
+message("Processor: ${CMAKE_SYSTEM_PROCESSOR}")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "x86_64")
+    set(RDK_STATIC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/../flexiv_hardware/rdk/lib/libflexiv_rdk.x86_64-linux-gnu.a")
+  elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+    set(RDK_STATIC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/../flexiv_hardware/rdk/lib/libflexiv_rdk.aarch64-linux-gnu.a")
+  else()
+    message(FATAL_ERROR "Linux with ${CMAKE_SYSTEM_PROCESSOR} processor is currently not supported.")
+  endif()
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64")
+    set(RDK_STATIC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/../flexiv_hardware/rdk/lib/libflexiv_rdk.arm64-darwin.a")
+  else()
+    message(FATAL_ERROR "Mac with ${CMAKE_SYSTEM_PROCESSOR} processor is currently not supported.")
+  endif()
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "AMD64")
+    set(RDK_STATIC_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/../flexiv_hardware/rdk/lib/flexiv_rdk.win_amd64.lib")
+  else()
+    message(FATAL_ERROR "Windows with ${CMAKE_SYSTEM_PROCESSOR} processor is currently not supported.")
+  endif()
+endif()
+
+target_link_libraries(gripper_action_server
+  ${RDK_STATIC_LIBRARY})
 
 ament_target_dependencies(gripper_action_server
   control_msgs
