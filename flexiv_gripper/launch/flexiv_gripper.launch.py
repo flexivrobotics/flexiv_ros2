@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import (
     LaunchConfiguration,
     PathJoinSubstitution,
@@ -10,6 +11,7 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     robot_sn_param_name = "robot_sn"
+    use_fake_hardware_param_name = "use_fake_hardware"
     gripper_joint_names_param_name = "gripper_joint_names"
 
     # Declare arguments
@@ -24,6 +26,14 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            use_fake_hardware_param_name,
+            default_value="false",
+            description="Start gripper with fake gripper joint states.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             gripper_joint_names_param_name,
             description="Control joint names of the mounted gripper.",
             default_value="[finger_width_joint]",
@@ -32,6 +42,7 @@ def generate_launch_description():
 
     # Initialize arguments
     robot_sn = LaunchConfiguration(robot_sn_param_name)
+    use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     gripper_joint_names = LaunchConfiguration(gripper_joint_names_param_name)
 
     gripper_config_file = PathJoinSubstitution(
@@ -47,6 +58,7 @@ def generate_launch_description():
             {"robot_sn": robot_sn, "gripper_joint_names": gripper_joint_names},
             gripper_config_file,
         ],
+        condition=UnlessCondition(use_fake_hardware),
     )
 
     nodes = [flexiv_gripper_node]

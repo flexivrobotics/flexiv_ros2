@@ -12,6 +12,7 @@
 
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>flexiv_description</exec_depend>
+  <exec_depend>flexiv_gripper</exec_depend>
   <exec_depend>flexiv_hardware</exec_depend>
   <exec_depend>flexiv_robot_states_broadcaster</exec_depend>
   <exec_depend>flexiv_test_nodes</exec_depend>

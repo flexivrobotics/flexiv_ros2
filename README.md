@@ -113,6 +113,7 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
 - `rizon_type` (default: *rizon4*) - type of the Flexiv Rizon robot. (rizon4, rizon4s, rizon10 or rizon10s)
+- `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
 - `start_rviz` (deafult: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
@@ -211,6 +212,14 @@ Start the `flexiv_gripper_node` with the following launch file:
 ```bash
 ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn]
 ```
+
+Or, you can also start the gripper control with the robot driver:
+
+```bash
+ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] load_gripper:=true
+```
+
+#### Gripper Actions
 
 In a new terminal, send the gripper action `move` goal to open or close the gripper:
 
