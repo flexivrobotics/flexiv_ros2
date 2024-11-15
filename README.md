@@ -201,3 +201,34 @@ The digital output ports on the control box can be set by publishing to the topi
 ```bash
 ros2 topic pub /gpio_controller/gpio_outputs flexiv_msgs/msg/GPIOStates "{states: [{pin: 0, state: true}, {pin: 2, state: true}]}"
 ```
+
+### Gripper Control
+
+The gripper control is implemented in the `flexiv_gripper` package to interface with the gripper that is connected to the robot.
+
+Start the `flexiv_gripper_node` with the following launch file:
+
+```bash
+ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn]
+```
+
+In a new terminal, send the gripper action `move` goal to open or close the gripper:
+
+```bash
+# Closing the gripper
+ros2 action send_goal /flexiv_gripper_node/move flexiv_msgs/action/Move "{width: 0.01, velocity: 0.1, max_force: 20}"
+# Opening the gripper
+ros2 action send_goal /flexiv_gripper_node/move flexiv_msgs/action/Move "{width: 0.09, velocity: 0.1, max_force: 20}"
+```
+
+The `grasp` action enables the gripper to grasp with direct force control, but it requires the mounted gripper to support direct force control. Send a `grasp` command to the gripper:
+
+```bash
+ros2 action send_goal /flexiv_gripper_node/grasp flexiv_msgs/action/Grasp "{force: 0}"
+```
+
+To stop the gripper, send a `stop` service call:
+
+```bash
+ros2 service call /flexiv_gripper_node/stop std_srvs/srv/Trigger {}
+```
