@@ -39,13 +39,9 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
     try {
         RCLCPP_INFO(this->get_logger(), "Connecting to robot %s ...", robot_sn.c_str());
         robot_ = std::make_unique<flexiv::rdk::Robot>(robot_sn);
-    } catch (const std::exception& e) {
-        RCLCPP_FATAL(this->get_logger(), "Could not connect to robot");
-        throw e;
-    }
-    RCLCPP_INFO(this->get_logger(), "Successfully connected to robot");
 
-    try {
+        RCLCPP_INFO(this->get_logger(), "Successfully connected to robot");
+
         // Clear fault on robot server if any
         if (robot_->fault()) {
             RCLCPP_WARN(this->get_logger(), "Fault occurred on robot server, trying to clear ...");
@@ -61,36 +57,39 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         }
 
         // Enable the robot
-        RCLCPP_INFO(this->get_logger(), "Enabling robot ...");
-        robot_->Enable();
+        if (!robot_->operational(false)) {
+            RCLCPP_INFO(this->get_logger(), "Enabling robot ...");
+            robot_->Enable();
 
-        // Wait for the robot to become operational
-        while (!robot_->operational(false)) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            // Wait for the robot to become operational
+            while (!robot_->operational(false)) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+            RCLCPP_INFO(this->get_logger(), "Robot is now operational");
         }
-        RCLCPP_INFO(this->get_logger(), "Robot is now operational");
+
+        // Gripper control is not available if the robot is in IDLE mode, so switch to some mode
+        // other than IDLE, e.g. NRT_JOINT_POSITION
+        if (robot_->mode() == flexiv::rdk::Mode::IDLE) {
+            robot_->SwitchMode(flexiv::rdk::Mode::NRT_JOINT_POSITION);
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Initializing Flexiv gripper control interface");
+        this->gripper_ = std::make_unique<flexiv::rdk::Gripper>(*robot_);
+
+        // Manually initialize the gripper, not all grippers need this step
+        RCLCPP_INFO(
+            this->get_logger(), "Initializing gripper, this process takes about 10 seconds ..");
+        gripper_->Init();
+        RCLCPP_INFO(this->get_logger(), "Gripper initialization completed");
+
+        // Get the current gripper states
+        this->current_gripper_states_ = gripper_->states();
+        this->is_gripper_moving_ = gripper_->moving();
     } catch (const std::exception& e) {
-        RCLCPP_FATAL(this->get_logger(), "Could not enable robot.");
+        RCLCPP_FATAL(this->get_logger(), "%s", e.what());
         throw e;
     }
-
-    // Gripper control is not available if the robot is in IDLE mode, so switch to some mode other
-    // than IDLE, e.g. NRT_JOINT_POSITION
-    if (robot_->mode() == flexiv::rdk::Mode::IDLE) {
-        robot_->SwitchMode(flexiv::rdk::Mode::NRT_JOINT_POSITION);
-    }
-
-    RCLCPP_INFO(this->get_logger(), "Initializing Flexiv gripper control interface");
-    this->gripper_ = std::make_unique<flexiv::rdk::Gripper>(*robot_);
-
-    // Manually initialize the gripper, not all grippers need this step
-    RCLCPP_INFO(this->get_logger(), "Initializing gripper, this process takes about 10 seconds ..");
-    gripper_->Init();
-    RCLCPP_INFO(this->get_logger(), "Gripper initialization completed");
-
-    // Get the current gripper states
-    this->current_gripper_states_ = gripper_->states();
-    this->is_gripper_moving_ = gripper_->moving();
 
     // Create the stop service server
     this->stop_service_
