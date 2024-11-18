@@ -1,6 +1,6 @@
 controller_names:
   - rizon_arm_controller
-  - grav_gripper_controller
+  - flexiv_gripper_node
 
 rizon_arm_controller:
   action_ns: follow_joint_trajectory
@@ -15,7 +15,7 @@ rizon_arm_controller:
     - joint6
     - joint7
 
-grav_gripper_controller:
+flexiv_gripper_node:
   action_ns: gripper_action
   type: GripperCommand
   default: true
