@@ -296,7 +296,24 @@ def generate_launch_description():
         package="controller_manager",
         executable="ros2_control_node",
         parameters=[robot_description, robot_controllers, {"robot_sn": robot_sn}],
+        remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
+    )
+
+    # Joint state publisher
+    joint_state_publisher_node = Node(
+        package="joint_state_publisher",
+        executable="joint_state_publisher",
+        name="joint_state_publisher",
+        parameters=[
+            {
+                "source_list": [
+                    "flexiv_arm/joint_states",
+                    "flexiv_gripper_node/gripper_joint_states",
+                ],
+                "rate": 30,
+            }
+        ],
     )
 
     # Run robot controller
@@ -394,6 +411,7 @@ def generate_launch_description():
     nodes = [
         move_group_node,
         ros2_control_node,
+        joint_state_publisher_node,
         robot_state_publisher_node,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
