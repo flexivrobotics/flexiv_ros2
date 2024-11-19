@@ -172,7 +172,7 @@ void GripperActionServer::ExecuteGripperCommand(
     const std::shared_ptr<GoalHandleGripperCommand>& goal_handle)
 {
     const auto goal = goal_handle->get_goal();
-    const double target_width = 2 * goal->command.position;
+    const double target_width = goal->command.position;
 
     std::unique_lock<std::mutex> guard(gripper_states_mutex_);
     auto result = std::make_shared<control_msgs::action::GripperCommand::Result>();
