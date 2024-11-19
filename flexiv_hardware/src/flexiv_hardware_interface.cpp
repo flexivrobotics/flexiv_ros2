@@ -315,9 +315,18 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         ports_indices.push_back(i);
         ports_values.push_back(static_cast<bool>(hw_commands_gpio_out_[i]));
     }
+    // Check if there are changes in the digital output values
+    bool digital_outputs_changed = false;
+    if (current_ports_indices_ != ports_indices || current_ports_values_ != ports_values) {
+        digital_outputs_changed = true;
+    }
+    current_ports_indices_ = ports_indices;
+    current_ports_values_ = ports_values;
 
-    // TODO (munseng): Fix the failed to deliver the digital output writing request
-    // robot_->SetDigitalOutputs(ports_indices, ports_values);
+    // Set digital outputs
+    if (!ports_indices.empty() && !ports_values.empty() && digital_outputs_changed) {
+        robot_->SetDigitalOutputs(ports_indices, ports_values);
+    }
 
     return hardware_interface::return_type::OK;
 }
