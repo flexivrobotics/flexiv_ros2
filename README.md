@@ -213,7 +213,7 @@ Start the `flexiv_gripper_node` with the following launch file:
 ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn]
 ```
 
-Or, you can also start the gripper control with the robot driver:
+Or, you can also start the gripper control with the robot driver if the gripper is Flexiv Grav:
 
 ```bash
 ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] load_gripper:=true
