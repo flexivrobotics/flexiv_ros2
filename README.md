@@ -1,12 +1,12 @@
 # Flexiv ROS 2
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![docs](https://img.shields.io/badge/docs-sphinx-yellow)](https://rdk.flexiv.com/manual/ros2_packages.html)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![docs](https://img.shields.io/badge/docs-sphinx-yellow)](https://www.flexiv.com/software/rdk/manual/ros2_bridge.html)
 
 For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flexiv_rdk), the APIs of RDK are wrapped into ROS packages in `flexiv_ros2`. Key functionalities like real-time joint torque and position control are supported, and the integration with `ros2_control` framework and MoveIt! 2 is also implemented.
 
 ## References
 
-[Flexiv RDK main webpage](https://rdk.flexiv.com/) contains important information like RDK user manual and network setup.
+[Flexiv RDK main webpage](https://www.flexiv.com/software/rdk) contains important information like RDK user manual and network setup.
 
 ## Compatibility
 
@@ -105,9 +105,9 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
 ## Usage
 
 > [!NOTE]
-> The instruction below is only a quick reference, see the [Flexiv ROS 2 Documentation](https://rdk.flexiv.com/manual/ros2_bridge.html) for more information.
+> The instruction below is only a quick reference, see the [Flexiv ROS 2 Documentation](https://www.flexiv.com/software/rdk/manual/ros2_bridge.html) for more information.
 
-The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://rdk.flexiv.com/manual/activate_rdk_server.html) and [establish connection](https://rdk.flexiv.com/manual/establish_connection.html) between the workstation PC and the robot.
+The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://www.flexiv.com/software/rdk/manual/activate_rdk_server.html) and [establish connection](https://www.flexiv.com/software/rdk/manual/establish_connection.html) between the workstation PC and the robot.
 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
@@ -187,7 +187,7 @@ ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=dont-care use_fake_h
 
 The robot driver (`rizon.launch.py`) publishes the following feedback states to the respective ROS topics:
 
-- `/${robot_sn}/flexiv_robot_states`: [Flexiv robot states](https://rdk.flexiv.com/api/structflexiv_1_1rdk_1_1_robot_states.html#details) including the joint- and Cartesian-space robot states. [[`flexiv_msgs/msg/RobotStates.msg`](flexiv_msgs/msg/RobotStates.msg)]
+- `/${robot_sn}/flexiv_robot_states`: [Flexiv robot states](https://www.flexiv.com/software/rdk/api/structflexiv_1_1rdk_1_1_robot_states.html) including the joint- and Cartesian-space robot states. [[`flexiv_msgs/msg/RobotStates.msg`](flexiv_msgs/msg/RobotStates.msg)]
 - `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/JointState.msg`](https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/JointState.html)]
 - `/flexiv_robot_states_broadcaster/tcp_pose`: Measured TCP pose expressed in world frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
 - `/flexiv_robot_states_broadcaster/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
