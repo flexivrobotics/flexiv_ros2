@@ -334,7 +334,7 @@
     </link>
 
     <!-- Connect the gripper to the robot flange link -->
-    <joint name="${prefix}gripper_joint" type="fixed">
+    <joint name="${prefix}gripper_base_joint" type="fixed">
       <origin rpy="0 0 0" xyz="0 0 0" />
       <parent link="${prefix}flange" />
       <child link="${prefix}grav_base_link" />
