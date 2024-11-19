@@ -17,17 +17,22 @@ class SineSweepPosition(Node):
         super().__init__("sine_sweep_position_controller")
         # Declare all parameters
         self.declare_parameter("controller_name", "forward_position_controller")
+        self.declare_parameter("joints", [""])
         self.declare_parameter("wait_sec_between_publish", 0.001)
         self.declare_parameter("speed_scaling", 1.0)
 
         # Read parameters
         controller_name = self.get_parameter("controller_name").value
+        self.joints = self.get_parameter("joints").value
         wait_sec_between_publish = self.get_parameter("wait_sec_between_publish").value
         self.speed_scaling = self.get_parameter("speed_scaling").value
 
+        if self.joints is None or len(self.joints) == 0:
+            raise Exception('"joints" parameter is not set!')
+
         publish_topic = "/" + controller_name + "/" + "commands"
 
-        self.init_pos = [0.0] * 7
+        self.init_pos = [0.0] * len(self.joints)
 
         self.publisher_ = self.create_publisher(Float64MultiArray, publish_topic, 1)
         self.timer = self.create_timer(wait_sec_between_publish, self.timer_callback)
@@ -41,7 +46,7 @@ class SineSweepPosition(Node):
     def timer_callback(self):
         if self.joint_state_msg_received:
             target_pos = self.init_pos.copy()
-            for i in range(7):
+            for i in range(len(self.joints)):
                 target_pos[i] = self.init_pos[i] + SWING_AMP * math.sin(
                     2 * math.pi * SWING_FREQ * self.speed_scaling * self.loop_time
                 )
@@ -52,11 +57,14 @@ class SineSweepPosition(Node):
 
     def joint_state_callback(self, msg):
         if not self.joint_state_msg_received:
-            # retrieve joint states in correct order
-            joint_order = [2, 5, 6, 1, 4, 7, 3]
-            positions = msg.position
-            # set the init pos in correct order
-            self.init_pos = [i for _, i in sorted(zip(joint_order, positions))]
+            # retrieve joint states by the order of the joint names
+            for name in self.joints:
+                if name not in msg.name:
+                    raise Exception(f"Joint {name} not found in joint_states!")
+                joint_msg_index = msg.name.index(name)
+                joint_position = msg.position[joint_msg_index]
+                index = self.joints.index(name)
+                self.init_pos[index] = joint_position
             self.joint_state_msg_received = True
         else:
             return

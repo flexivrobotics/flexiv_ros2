@@ -2,5 +2,13 @@ sine_sweep_position_controller:
   ros__parameters:
 
     controller_name: "forward_position_controller"
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+      - joint7
     wait_sec_between_publish: 0.001
     speed_scaling: 1.0
