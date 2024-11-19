@@ -1,0 +1,6 @@
+flexiv_gripper:
+  ros__parameters:
+    state_publish_rate: 50 # Hz
+    feedback_publish_rate: 30 # Hz
+    default_velocity: 0.1 # m/s
+    default_max_force: 20.0 # N

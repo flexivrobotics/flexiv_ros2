@@ -10,7 +10,7 @@ default_acceleration_scaling_factor: 0.1
 joint_limits:
   joint1:
     has_velocity_limits: true
-    max_velocity: 2.0944 # Rizon 4 
+    max_velocity: 2.0944 # Rizon 4
     # max_velocity: 1.7453 # Rizon 10
     has_acceleration_limits: false
     max_acceleration: 0
@@ -48,5 +48,10 @@ joint_limits:
     has_velocity_limits: true
     max_velocity: 4.8869 # Rizon 4
     # max_velocity: 3.8397 # Rizon 10
+    has_acceleration_limits: false
+    max_acceleration: 0
+  finger_width_joint:
+    has_velocity_limits: true
+    max_velocity: 0.5
     has_acceleration_limits: false
     max_acceleration: 0

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="grav_srdf" params="name prefix">
+
+        <group name="${prefix}grav_gripper">
+            <joint name="${prefix}gripper_base_joint" />
+            <joint name="${prefix}open_fingers_tcp_joint" />
+            <joint name="${prefix}closed_fingers_tcp_joint" />
+            <joint name="${prefix}left_outer_knuckle_joint" />
+            <joint name="${prefix}left_inner_knuckle_joint" />
+            <joint name="${prefix}left_inner_finger_joint" />
+            <joint name="${prefix}left_inner_finger_pad_joint" />
+            <joint name="${prefix}left_finger_tcp_joint" />
+            <joint name="${prefix}right_outer_knuckle_joint" />
+            <joint name="${prefix}right_inner_knuckle_joint" />
+            <joint name="${prefix}right_inner_finger_joint" />
+            <joint name="${prefix}right_inner_finger_pad_joint" />
+            <joint name="${prefix}right_finger_tcp_joint" />
+            <joint name="${prefix}finger_width_joint" />
+        </group>
+
+        <passive_joint name="${prefix}left_outer_knuckle_joint" />
+        <passive_joint name="${prefix}left_inner_knuckle_joint" />
+        <passive_joint name="${prefix}left_inner_finger_joint" />
+        <passive_joint name="${prefix}right_outer_knuckle_joint" />
+        <passive_joint name="${prefix}right_inner_knuckle_joint" />
+        <passive_joint name="${prefix}right_inner_finger_joint" />
+
+        <group_state name="open" group="${prefix}grav_gripper">
+            <joint name="${prefix}finger_width_joint" value="0.1" />
+        </group_state>
+
+        <group_state name="closed" group="${prefix}grav_gripper">
+            <joint name="${prefix}finger_width_joint" value="0.0" />
+        </group_state>
+
+        <end_effector name="${prefix}grav_gripper" parent_link="${prefix}flange" group="${prefix}grav_gripper" parent_group="${prefix}${name}_arm"/>
+
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}grav_tcp" reason="Never" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}closed_fingers_tcp" reason="Never" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}right_finger_tcp" reason="Never" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}left_finger_tcp" reason="Never" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}left_outer_bar" reason="Adjacent" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}left_inner_bar" reason="Adjacent" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}right_outer_bar" reason="Adjacent" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}right_inner_bar" reason="Adjacent" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}left_finger_mount" reason="Never" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}left_finger_tip" reason="Never" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}right_finger_mount" reason="Never" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}right_finger_tip" reason="Never" />
+        <disable_collisions link1="${prefix}left_outer_bar" link2="${prefix}left_finger_mount" reason="Adjacent" />
+        <disable_collisions link1="${prefix}left_inner_bar" link2="${prefix}left_finger_mount" reason="Adjacent" />
+        <disable_collisions link1="${prefix}left_outer_bar" link2="${prefix}left_finger_tip" reason="Never" />
+        <disable_collisions link1="${prefix}left_inner_bar" link2="${prefix}left_finger_tip" reason="Never" />
+        <disable_collisions link1="${prefix}left_finger_mount" link2="${prefix}left_finger_tip" reason="Adjacent" />
+        <disable_collisions link1="${prefix}right_outer_bar" link2="${prefix}right_finger_mount" reason="Adjacent" />
+        <disable_collisions link1="${prefix}right_inner_bar" link2="${prefix}right_finger_mount" reason="Adjacent" />
+        <disable_collisions link1="${prefix}right_outer_bar" link2="${prefix}right_finger_tip" reason="Never" />
+        <disable_collisions link1="${prefix}right_inner_bar" link2="${prefix}right_finger_tip" reason="Never" />
+        <disable_collisions link1="${prefix}right_finger_mount" link2="${prefix}right_finger_tip" reason="Adjacent" />
+        <disable_collisions link1="${prefix}left_finger_tip" link2="${prefix}closed_fingers_tcp" reason="Adjacent" />
+        <disable_collisions link1="${prefix}right_finger_tip" link2="${prefix}closed_fingers_tcp" reason="Adjacent" />
+
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}link7" reason="Adjacent" />
+        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}flange" reason="Adjacent" />
+        <disable_collisions link1="${prefix}closed_fingers_tcp" link2="${prefix}link7" reason="Adjacent" />
+        <disable_collisions link1="${prefix}closed_fingers_tcp" link2="${prefix}flange" reason="Adjacent" />
+
+    </xacro:macro>
+</robot>

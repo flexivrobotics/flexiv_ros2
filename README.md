@@ -113,6 +113,7 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
 - `rizon_type` (default: *rizon4*) - type of the Flexiv Rizon robot. (rizon4, rizon4s, rizon10 or rizon10s)
+- `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
 - `start_rviz` (deafult: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
@@ -200,4 +201,43 @@ The digital output ports on the control box can be set by publishing to the topi
 
 ```bash
 ros2 topic pub /gpio_controller/gpio_outputs flexiv_msgs/msg/GPIOStates "{states: [{pin: 0, state: true}, {pin: 2, state: true}]}"
+```
+
+### Gripper Control
+
+The gripper control is implemented in the `flexiv_gripper` package to interface with the gripper that is connected to the robot.
+
+Start the `flexiv_gripper_node` with the following launch file:
+
+```bash
+ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn]
+```
+
+Or, you can also start the gripper control with the robot driver:
+
+```bash
+ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] load_gripper:=true
+```
+
+#### Gripper Actions
+
+In a new terminal, send the gripper action `move` goal to open or close the gripper:
+
+```bash
+# Closing the gripper
+ros2 action send_goal /flexiv_gripper_node/move flexiv_msgs/action/Move "{width: 0.01, velocity: 0.1, max_force: 20}"
+# Opening the gripper
+ros2 action send_goal /flexiv_gripper_node/move flexiv_msgs/action/Move "{width: 0.09, velocity: 0.1, max_force: 20}"
+```
+
+The `grasp` action enables the gripper to grasp with direct force control, but it requires the mounted gripper to support direct force control. Send a `grasp` command to the gripper:
+
+```bash
+ros2 action send_goal /flexiv_gripper_node/grasp flexiv_msgs/action/Grasp "{force: 0}"
+```
+
+To stop the gripper, send a `stop` service call:
+
+```bash
+ros2 service call /flexiv_gripper_node/stop std_srvs/srv/Trigger {}
 ```

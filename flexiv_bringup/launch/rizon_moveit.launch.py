@@ -3,17 +3,23 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, RegisterEventHandler
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    RegisterEventHandler,
+)
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
+from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
 )
-from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 
 
 def load_yaml(package_name, file_path):
@@ -33,6 +39,7 @@ def generate_launch_description():
     rizon_type_param_name = "rizon_type"
     robot_sn_param_name = "robot_sn"
     start_rviz_param_name = "start_rviz"
+    load_gripper_param_name = "load_gripper"
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
     warehouse_sqlite_path_param_name = "warehouse_sqlite_path"
@@ -62,6 +69,14 @@ def generate_launch_description():
             start_rviz_param_name,
             default_value="true",
             description="start RViz automatically with the launch file",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            load_gripper_param_name,
+            default_value="false",
+            description="Flag to load the Flexiv Grav gripper as the end-effector of the robot.",
         )
     )
 
@@ -101,6 +116,7 @@ def generate_launch_description():
     rizon_type = LaunchConfiguration(rizon_type_param_name)
     robot_sn = LaunchConfiguration(robot_sn_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
+    load_gripper = LaunchConfiguration(load_gripper_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
     warehouse_sqlite_path = LaunchConfiguration(warehouse_sqlite_path_param_name)
@@ -111,27 +127,34 @@ def generate_launch_description():
         [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
     )
 
-    robot_description_content = Command(
-        [
-            PathJoinSubstitution([FindExecutable(name="xacro")]),
-            " ",
-            flexiv_urdf_xacro,
-            " ",
-            "robot_sn:=",
-            robot_sn,
-            " ",
-            "name:=",
-            "rizon",
-            " ",
-            "rizon_type:=",
-            rizon_type,
-            " ",
-            "use_fake_hardware:=",
-            use_fake_hardware,
-            " ",
-            "fake_sensor_commands:=",
-            fake_sensor_commands,
-        ]
+    # Get URDF via xacro
+    robot_description_content = ParameterValue(
+        Command(
+            [
+                PathJoinSubstitution([FindExecutable(name="xacro")]),
+                " ",
+                flexiv_urdf_xacro,
+                " ",
+                "robot_sn:=",
+                robot_sn,
+                " ",
+                "name:=",
+                "rizon",
+                " ",
+                "rizon_type:=",
+                rizon_type,
+                " ",
+                "load_gripper:=",
+                load_gripper,
+                " ",
+                "use_fake_hardware:=",
+                use_fake_hardware,
+                " ",
+                "fake_sensor_commands:=",
+                fake_sensor_commands,
+            ]
+        ),
+        value_type=str,
     )
     robot_description = {"robot_description": robot_description_content}
 
@@ -140,17 +163,22 @@ def generate_launch_description():
         [FindPackageShare("flexiv_moveit_config"), "srdf", "rizon.srdf.xacro"]
     )
 
-    robot_description_semantic_content = Command(
-        [
-            PathJoinSubstitution([FindExecutable(name="xacro")]),
-            " ",
-            flexiv_srdf_xacro,
-            " ",
-            "name:=",
-            "rizon",
-        ]
+    robot_description_semantic_content = ParameterValue(
+        Command(
+            [
+                PathJoinSubstitution([FindExecutable(name="xacro")]),
+                " ",
+                flexiv_srdf_xacro,
+                " ",
+                "name:=",
+                "rizon",
+                " ",
+                "load_gripper:=",
+                load_gripper,
+            ]
+        ),
+        value_type=str,
     )
-
     robot_description_semantic = {
         "robot_description_semantic": robot_description_semantic_content
     }
@@ -268,7 +296,24 @@ def generate_launch_description():
         package="controller_manager",
         executable="ros2_control_node",
         parameters=[robot_description, robot_controllers, {"robot_sn": robot_sn}],
+        remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
+    )
+
+    # Joint state publisher
+    joint_state_publisher_node = Node(
+        package="joint_state_publisher",
+        executable="joint_state_publisher",
+        name="joint_state_publisher",
+        parameters=[
+            {
+                "source_list": [
+                    "flexiv_arm/joint_states",
+                    "flexiv_gripper_node/gripper_joint_states",
+                ],
+                "rate": 30,
+            }
+        ],
     )
 
     # Run robot controller
@@ -302,6 +347,24 @@ def generate_launch_description():
         condition=UnlessCondition(use_fake_hardware),
     )
 
+    # Include gripper launch file
+    load_gripper_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution(
+                [
+                    FindPackageShare("flexiv_gripper"),
+                    "launch",
+                    "flexiv_gripper.launch.py",
+                ]
+            )
+        ),
+        launch_arguments={
+            "robot_sn": robot_sn,
+            "use_fake_hardware": use_fake_hardware,
+        }.items(),
+        condition=IfCondition(load_gripper),
+    )
+
     # Servo node for realtime control
     servo_yaml = load_yaml(
         "flexiv_moveit_config", "config/rizon_moveit_servo_config.yaml"
@@ -318,6 +381,13 @@ def generate_launch_description():
             robot_description_kinematics,
         ],
         output="screen",
+    )
+
+    # Run gpio controller
+    gpio_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["gpio_controller", "--controller-manager", "/controller_manager"],
     )
 
     # Delay rviz start after `joint_state_broadcaster`
@@ -340,10 +410,13 @@ def generate_launch_description():
 
     nodes = [
         move_group_node,
-        robot_state_publisher_node,
         ros2_control_node,
+        joint_state_publisher_node,
+        robot_state_publisher_node,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
+        load_gripper_launch,
+        gpio_controller_spawner,
         servo_node,
         delay_rviz_after_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,

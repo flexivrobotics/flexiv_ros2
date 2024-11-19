@@ -5,10 +5,17 @@
     rizon_type
     prefix
     robot_sn
+    load_gripper:=false
     use_fake_hardware:=false
     fake_sensor_commands:=false
     initial_positions:=${dict(joint1=0.0,joint2=-0.69813,joint3=0.0,joint4=1.570796,joint5=0.0,joint6=0.69813,joint7=0.0)}
     ">
+
+    <!-- Load gripper -->
+    <xacro:if value="${load_gripper}">
+      <xacro:include filename="$(find flexiv_description)/urdf/grav_macro.xacro" />
+      <xacro:flexiv_GN01 prefix="${prefix}" mesh_prefix_path="package://flexiv_description/" />
+    </xacro:if>
 
     <!-- Import Rviz colors -->
     <xacro:include filename="$(find flexiv_description)/urdf/flexiv_arm.materials.xacro" />

@@ -316,7 +316,8 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         ports_values.push_back(static_cast<bool>(hw_commands_gpio_out_[i]));
     }
 
-    robot_->SetDigitalOutputs(ports_indices, ports_values);
+    // TODO (munseng): Fix the failed to deliver the digital output writing request
+    // robot_->SetDigitalOutputs(ports_indices, ports_values);
 
     return hardware_interface::return_type::OK;
 }
