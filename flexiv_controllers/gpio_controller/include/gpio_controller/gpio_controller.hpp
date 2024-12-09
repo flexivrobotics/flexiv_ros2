@@ -17,6 +17,10 @@
 #include "flexiv_msgs/msg/gpio_states.hpp"
 
 namespace gpio_controller {
+
+/** Number of digital IO ports (16 on control box + 2 inside the wrist connector) */
+constexpr size_t kIOPorts = 18;
+
 using CmdType = flexiv_msgs::msg::GPIOStates;
 
 class GPIOController : public controller_interface::ControllerInterface
@@ -43,7 +47,7 @@ protected:
     void initMsgs();
 
     // internal commands
-    std::array<double, 16> digital_outputs_cmd_;
+    std::array<double, kIOPorts> digital_outputs_cmd_;
 
     // publisher
     std::shared_ptr<rclcpp::Publisher<CmdType>> gpio_inputs_publisher_;

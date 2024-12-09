@@ -33,7 +33,7 @@ controller_interface::InterfaceConfiguration GPIOController::command_interface_c
     controller_interface::InterfaceConfiguration config;
     config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
 
-    for (size_t i = 0; i < 16; ++i) {
+    for (size_t i = 0; i < kIOPorts; ++i) {
         config.names.emplace_back("gpio/digital_output_" + std::to_string(i));
     }
 
@@ -45,7 +45,7 @@ controller_interface::InterfaceConfiguration GPIOController::state_interface_con
     controller_interface::InterfaceConfiguration config;
     config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
 
-    for (size_t i = 0; i < 16; ++i) {
+    for (size_t i = 0; i < kIOPorts; ++i) {
         config.names.emplace_back("gpio/digital_input_" + std::to_string(i));
     }
 
@@ -56,7 +56,7 @@ controller_interface::return_type GPIOController::update(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
     // get inputs
-    for (size_t i = 0; i < 16; ++i) {
+    for (size_t i = 0; i < kIOPorts; ++i) {
         gpio_inputs_msg_.states[i].pin = i;
         gpio_inputs_msg_.states[i].state = static_cast<bool>(state_interfaces_[i].get_value());
     }
@@ -82,7 +82,7 @@ controller_interface::CallbackReturn GPIOController::on_configure(
         gpio_outputs_command_ = get_node()->create_subscription<CmdType>(
             "~/gpio_outputs", rclcpp::SystemDefaultsQoS(), [this](const CmdType::SharedPtr msg) {
                 for (size_t i = 0; i < msg->states.size(); ++i) {
-                    if (msg->states[i].pin >= 16) {
+                    if (msg->states[i].pin >= kIOPorts) {
                         RCLCPP_WARN(get_node()->get_logger(),
                             "Received command for pin %d, but only pins 0-15 are supported.",
                             msg->states[i].pin);

@@ -195,7 +195,7 @@ The robot driver (`rizon.launch.py`) publishes the following feedback states to 
 
 ### GPIO
 
-All digital inputs on the robot control box can be accessed via the ROS topic `/gpio_controller/gpio_inputs`, which publishes the current state of all the 16 digital input ports *(True: port high, false: port low)*.
+All digital inputs on the robot control box can be accessed via the ROS topic `/gpio_controller/gpio_inputs`, which publishes the current state of all the 18 *(16 on control box + 2 inside the wrist connector)* digital input ports *(True: port high, false: port low)*.
 
 The digital output ports on the control box can be set by publishing to the topic `/gpio_controller/gpio_outputs`. For example:
 

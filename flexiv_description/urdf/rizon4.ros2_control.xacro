@@ -143,6 +143,7 @@
         <state_interface name="effort"/>
       </joint>
 
+      <!-- 18 digital IO ports (16 on control box + 2 inside the wrist connector) -->
       <gpio name="${prefix}gpio">
         <command_interface name="digital_output_0"/>
         <command_interface name="digital_output_1"/>
@@ -160,6 +161,8 @@
         <command_interface name="digital_output_13"/>
         <command_interface name="digital_output_14"/>
         <command_interface name="digital_output_15"/>
+        <command_interface name="digital_output_16"/>
+        <command_interface name="digital_output_17"/>
 
         <state_interface name="digital_input_0"/>
         <state_interface name="digital_input_1"/>
@@ -177,6 +180,8 @@
         <state_interface name="digital_input_13"/>
         <state_interface name="digital_input_14"/>
         <state_interface name="digital_input_15"/>
+        <state_interface name="digital_input_16"/>
+        <state_interface name="digital_input_17"/>
       </gpio>
 
     </ros2_control>
