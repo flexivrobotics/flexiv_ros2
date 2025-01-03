@@ -68,8 +68,6 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
     // Create the publishers for the robot states
     tcp_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
         kTcpPoseTopic, rclcpp::SystemDefaultsQoS());
-    tcp_pose_desired_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
-        kTcpPoseDesiredTopic, rclcpp::SystemDefaultsQoS());
     tcp_velocity_publisher_ = get_node()->create_publisher<geometry_msgs::msg::AccelStamped>(
         kTcpVelocityTopic, rclcpp::SystemDefaultsQoS());
     flange_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -120,7 +118,6 @@ controller_interface::return_type FlexivRobotStatesBroadcaster::update(
 
         const auto& flexiv_robot_states_msg = realtime_flexiv_robot_states_publisher_->msg_;
         tcp_pose_publisher_->publish(flexiv_robot_states_msg.tcp_pose);
-        tcp_pose_desired_publisher_->publish(flexiv_robot_states_msg.tcp_pose_des);
         tcp_velocity_publisher_->publish(flexiv_robot_states_msg.tcp_vel);
         flange_pose_publisher_->publish(flexiv_robot_states_msg.flange_pose);
         ft_sensor_publisher_->publish(flexiv_robot_states_msg.ft_sensor_raw);

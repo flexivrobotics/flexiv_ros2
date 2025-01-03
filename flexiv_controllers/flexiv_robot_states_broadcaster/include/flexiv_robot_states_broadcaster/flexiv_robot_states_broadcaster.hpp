@@ -63,7 +63,6 @@ protected:
 
     using PoseStampedPublisher = rclcpp::Publisher<geometry_msgs::msg::PoseStamped>;
     std::shared_ptr<PoseStampedPublisher> tcp_pose_publisher_;
-    std::shared_ptr<PoseStampedPublisher> tcp_pose_desired_publisher_;
     std::shared_ptr<PoseStampedPublisher> flange_pose_publisher_;
 
     using AccelStampedPublisher = rclcpp::Publisher<geometry_msgs::msg::AccelStamped>;

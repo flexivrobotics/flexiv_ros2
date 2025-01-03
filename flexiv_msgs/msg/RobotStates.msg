@@ -28,9 +28,6 @@ float64[7] tau_ext
 # Measured TCP pose expressed in world frame
 geometry_msgs/PoseStamped tcp_pose
 
-# Desired TCP pose expressed in world frame
-geometry_msgs/PoseStamped tcp_pose_des
-
 # Measured TCP velocity expressed in world frame
 geometry_msgs/AccelStamped tcp_vel
 

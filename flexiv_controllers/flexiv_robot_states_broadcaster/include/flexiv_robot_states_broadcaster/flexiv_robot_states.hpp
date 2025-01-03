@@ -65,7 +65,6 @@ public:
     void init_robot_states_message(flexiv_msgs::msg::RobotStates& message)
     {
         message.tcp_pose.header.frame_id = kWorldFrameId;
-        message.tcp_pose_des.header.frame_id = kWorldFrameId;
         message.tcp_vel.header.frame_id = kWorldFrameId;
         message.flange_pose.header.frame_id = kWorldFrameId;
         message.ft_sensor_raw.header.frame_id = kFlangeFrameId;
@@ -96,7 +95,6 @@ public:
 
         // Update timestamps
         message.tcp_pose.header.stamp = message.header.stamp;
-        message.tcp_pose_des.header.stamp = message.header.stamp;
         message.tcp_vel.header.stamp = message.header.stamp;
         message.flange_pose.header.stamp = message.header.stamp;
         message.ft_sensor_raw.header.stamp = message.header.stamp;
@@ -114,7 +112,6 @@ public:
         message.tau_ext = toJointStateMsg(flexiv_robot_states_ptr->tau_ext);
 
         message.tcp_pose.pose = toPoseMsg(flexiv_robot_states_ptr->tcp_pose);
-        message.tcp_pose_des.pose = toPoseMsg(flexiv_robot_states_ptr->tcp_pose_des);
         message.tcp_vel.accel = toAccelMsg(flexiv_robot_states_ptr->tcp_vel);
         message.flange_pose.pose = toPoseMsg(flexiv_robot_states_ptr->flange_pose);
         message.ft_sensor_raw.wrench = toWrenchMsg(flexiv_robot_states_ptr->ft_sensor_raw);
