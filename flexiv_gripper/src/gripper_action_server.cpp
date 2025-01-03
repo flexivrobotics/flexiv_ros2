@@ -10,6 +10,7 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
 : Node("flexiv_gripper_node", options)
 {
     this->declare_parameter("robot_sn", std::string());
+    this->declare_parameter("gripper_name", std::string());
     this->declare_parameter("state_publish_rate", kDefaultStatePublishRate);
     this->declare_parameter("feedback_publish_rate", kDefaultFeedbackPublishRate);
     this->declare_parameter("default_velocity", kDefaultVelocity);
@@ -20,6 +21,12 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
     if (!this->get_parameter("robot_sn", robot_sn)) {
         RCLCPP_FATAL(this->get_logger(), "Parameter 'robot_sn' is not set");
         throw std::invalid_argument("Parameter 'robot_sn' is not set");
+    }
+
+    std::string gripper_name;
+    if (!this->get_parameter("gripper_name", gripper_name)) {
+        RCLCPP_FATAL(this->get_logger(), "Parameter 'gripper_name' is not set");
+        throw std::invalid_argument("Parameter 'gripper_name' is not set");
     }
 
     this->default_velocity_ = this->get_parameter("default_velocity").as_double();
@@ -68,14 +75,17 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
             RCLCPP_INFO(this->get_logger(), "Robot is now operational");
         }
 
-        // Gripper control is not available if the robot is in IDLE mode, so switch to some mode
-        // other than IDLE, e.g. NRT_JOINT_POSITION
-        if (robot_->mode() == flexiv::rdk::Mode::IDLE) {
-            robot_->SwitchMode(flexiv::rdk::Mode::NRT_JOINT_POSITION);
-        }
-
         RCLCPP_INFO(this->get_logger(), "Initializing Flexiv gripper control interface");
         this->gripper_ = std::make_unique<flexiv::rdk::Gripper>(*robot_);
+        this->tool_ = std::make_unique<flexiv::rdk::Tool>(*robot_);
+
+        // Enable the specified gripper as a device
+        RCLCPP_INFO(this->get_logger(), "Enabling gripper %s ...", gripper_name.c_str());
+        gripper_->Enable(gripper_name);
+
+        // Switch robot tool to gripper so the gravity compensation and TCP location is updated
+        RCLCPP_INFO(this->get_logger(), "Switching robot tool to %s ...", gripper_name.c_str());
+        tool_->Switch(gripper_name);
 
         // Manually initialize the gripper, not all grippers need this step
         RCLCPP_INFO(
@@ -85,7 +95,6 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
 
         // Get the current gripper states
         this->current_gripper_states_ = gripper_->states();
-        this->is_gripper_moving_ = gripper_->moving();
     } catch (const std::exception& e) {
         RCLCPP_FATAL(this->get_logger(), "%s", e.what());
         throw e;
@@ -177,9 +186,9 @@ void GripperActionServer::ExecuteGripperCommand(
     std::unique_lock<std::mutex> guard(gripper_states_mutex_);
     auto result = std::make_shared<control_msgs::action::GripperCommand::Result>();
     const double current_width = current_gripper_states_.width;
-    if (target_width > current_gripper_states_.max_width || target_width < 0) {
+    if (target_width > gripper_->params().max_width || target_width < 0) {
         RCLCPP_ERROR(this->get_logger(), "Invalid gripper target width: %f. Max width = %f",
-            target_width, current_gripper_states_.max_width);
+            target_width, gripper_->params().max_width);
         goal_handle->abort(result);
         return;
     }

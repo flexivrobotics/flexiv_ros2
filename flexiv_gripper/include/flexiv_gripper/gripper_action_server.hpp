@@ -27,6 +27,7 @@
 #include "flexiv/rdk/data.hpp"
 #include "flexiv/rdk/gripper.hpp"
 #include "flexiv/rdk/robot.hpp"
+#include "flexiv/rdk/tool.hpp"
 
 namespace {
 
@@ -95,6 +96,7 @@ private:
     // Flexiv RDK
     std::unique_ptr<flexiv::rdk::Robot> robot_;
     std::unique_ptr<flexiv::rdk::Gripper> gripper_;
+    std::unique_ptr<flexiv::rdk::Tool> tool_;
 
     rclcpp_action::Server<Grasp>::SharedPtr grasp_action_server_;
     rclcpp_action::Server<Move>::SharedPtr move_action_server_;
@@ -104,7 +106,6 @@ private:
 
     std::mutex gripper_states_mutex_;
     flexiv::rdk::GripperStates current_gripper_states_;
-    std::atomic<bool> is_gripper_moving_ = {false};
 
     double default_velocity_;
     double default_max_force_;
@@ -242,7 +243,7 @@ private:
         std::lock_guard<std::mutex> lock(gripper_states_mutex_);
         feedback->current_width = current_gripper_states_.width;
         feedback->current_force = current_gripper_states_.force;
-        feedback->moving = is_gripper_moving_;
+        feedback->moving = current_gripper_states_.is_moving;
         goal_handle->publish_feedback(feedback);
     }
 
