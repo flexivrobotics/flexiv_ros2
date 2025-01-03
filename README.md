@@ -210,7 +210,7 @@ The gripper control is implemented in the `flexiv_gripper` package to interface 
 Start the `flexiv_gripper_node` with the following launch file:
 
 ```bash
-ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn]
+ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01
 ```
 
 Or, you can also start the gripper control with the robot driver if the gripper is Flexiv Grav:

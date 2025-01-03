@@ -11,6 +11,7 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     robot_sn_param_name = "robot_sn"
+    gripper_name_param_name = "gripper_name"
     use_fake_hardware_param_name = "use_fake_hardware"
     gripper_joint_names_param_name = "gripper_joint_names"
 
@@ -21,6 +22,14 @@ def generate_launch_description():
         DeclareLaunchArgument(
             robot_sn_param_name,
             description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            gripper_name_param_name,
+            description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
+            default_value="Flexiv-GN01",
         )
     )
 
@@ -42,6 +51,7 @@ def generate_launch_description():
 
     # Initialize arguments
     robot_sn = LaunchConfiguration(robot_sn_param_name)
+    gripper_name = LaunchConfiguration(gripper_name_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     gripper_joint_names = LaunchConfiguration(gripper_joint_names_param_name)
 
@@ -55,7 +65,11 @@ def generate_launch_description():
         executable="flexiv_gripper_node",
         name="flexiv_gripper_node",
         parameters=[
-            {"robot_sn": robot_sn, "gripper_joint_names": gripper_joint_names},
+            {
+                "robot_sn": robot_sn,
+                "gripper_name": gripper_name,
+                "gripper_joint_names": gripper_joint_names,
+            },
             gripper_config_file,
         ],
         condition=UnlessCondition(use_fake_hardware),

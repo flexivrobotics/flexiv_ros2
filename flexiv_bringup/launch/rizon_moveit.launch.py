@@ -40,6 +40,7 @@ def generate_launch_description():
     robot_sn_param_name = "robot_sn"
     start_rviz_param_name = "start_rviz"
     load_gripper_param_name = "load_gripper"
+    gripper_name_param_name = "gripper_name"
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
     warehouse_sqlite_path_param_name = "warehouse_sqlite_path"
@@ -68,7 +69,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             start_rviz_param_name,
             default_value="true",
-            description="start RViz automatically with the launch file",
+            description="Start RViz automatically with the launch file",
         )
     )
 
@@ -77,6 +78,14 @@ def generate_launch_description():
             load_gripper_param_name,
             default_value="false",
             description="Flag to load the Flexiv Grav gripper as the end-effector of the robot.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            gripper_name_param_name,
+            default_value="Flexiv-GN01",
+            description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
         )
     )
 
@@ -117,6 +126,7 @@ def generate_launch_description():
     robot_sn = LaunchConfiguration(robot_sn_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     load_gripper = LaunchConfiguration(load_gripper_param_name)
+    gripper_name = LaunchConfiguration(gripper_name_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
     warehouse_sqlite_path = LaunchConfiguration(warehouse_sqlite_path_param_name)
@@ -146,6 +156,9 @@ def generate_launch_description():
                 " ",
                 "load_gripper:=",
                 load_gripper,
+                " ",
+                "gripper_name:=",
+                gripper_name,
                 " ",
                 "use_fake_hardware:=",
                 use_fake_hardware,
@@ -360,6 +373,7 @@ def generate_launch_description():
         ),
         launch_arguments={
             "robot_sn": robot_sn,
+            "gripper_name": gripper_name,
             "use_fake_hardware": use_fake_hardware,
         }.items(),
         condition=IfCondition(load_gripper),

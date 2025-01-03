@@ -16,6 +16,7 @@ def generate_launch_description():
     pkg_share = FindPackageShare("flexiv_description")
     rizon_type = LaunchConfiguration("rizon_type")
     load_gripper = LaunchConfiguration("load_gripper")
+    gripper_name = LaunchConfiguration("gripper_name")
     default_rviz_config_path = PathJoinSubstitution(
         [pkg_share, "rviz", "view_rizon.rviz"]
     )
@@ -36,6 +37,9 @@ def generate_launch_description():
                 " ",
                 "load_gripper:=",
                 load_gripper,
+                " ",
+                "gripper_name:=",
+                gripper_name,
             ]
         ),
         value_type=str,
@@ -85,6 +89,11 @@ def generate_launch_description():
                 name="load_gripper",
                 default_value="False",
                 description="Flag to load the Flexiv Grav gripper",
+            ),
+            DeclareLaunchArgument(
+                name="gripper_name",
+                default_value="Flexiv-GN01",
+                description="Full name of the gripper to be controlled",
             ),
             DeclareLaunchArgument(
                 name="gui",

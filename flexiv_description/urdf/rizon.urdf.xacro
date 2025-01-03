@@ -14,6 +14,7 @@
   <xacro:arg name="prefix" default="" />
   <xacro:arg name="robot_sn" default="" />
   <xacro:arg name="load_gripper" default="false" />
+  <xacro:arg name="gripper_name" default="Flexiv-GN01" />
   <xacro:arg name="use_fake_hardware" default="false" />
   <xacro:arg name="fake_sensor_commands" default="false" />
   <xacro:arg name="initial_positions_file" default="$(find flexiv_description)/config/initial_positions.yaml"/>
@@ -26,6 +27,7 @@
     prefix="$(arg prefix)"
     robot_sn="$(arg robot_sn)"
     load_gripper="$(arg load_gripper)"
+    gripper_name="$(arg gripper_name)"
     use_fake_hardware="$(arg use_fake_hardware)"
     fake_sensor_commands="$(arg fake_sensor_commands)"
     initial_positions="${xacro.load_yaml(initial_positions_file)}">
