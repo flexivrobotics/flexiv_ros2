@@ -207,7 +207,7 @@ ros2 topic pub /gpio_controller/gpio_outputs flexiv_msgs/msg/GPIOStates "{states
 
 The gripper control is implemented in the `flexiv_gripper` package to interface with the gripper that is connected to the robot.
 
-Start the `flexiv_gripper_node` with the following launch file:
+Start the `flexiv_gripper_node` with the following launch file, the default gripper is Flexiv Grav (Flexiv-GN01):
 
 ```bash
 ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01
