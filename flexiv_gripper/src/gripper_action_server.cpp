@@ -91,6 +91,7 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         RCLCPP_INFO(
             this->get_logger(), "Initializing gripper, this process takes about 10 seconds ..");
         gripper_->Init();
+        std::this_thread::sleep_for(std::chrono::seconds(10));
         RCLCPP_INFO(this->get_logger(), "Gripper initialization completed");
 
         // Get the current gripper states
