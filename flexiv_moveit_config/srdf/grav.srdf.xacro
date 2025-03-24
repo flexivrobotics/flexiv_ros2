@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-    <xacro:macro name="grav_srdf" params="name prefix">
+    <xacro:macro name="grav_srdf" params="arm_prefix robot_sn">
+        <!-- Prefix defaults to 'arm_prefix_robot_sn' -->
+        <xacro:property name="prefix" value="${arm_prefix + robot_sn + '_'}" />
 
         <group name="${prefix}grav_gripper">
             <joint name="${prefix}gripper_base_joint" />
@@ -34,7 +36,8 @@
             <joint name="${prefix}finger_width_joint" value="0.0" />
         </group_state>
 
-        <end_effector name="${prefix}grav_gripper" parent_link="${prefix}flange" group="${prefix}grav_gripper" parent_group="${prefix}${name}_arm"/>
+        <end_effector name="${prefix}grav_gripper" parent_link="${prefix}flange"
+            group="${prefix}grav_gripper" parent_group="${prefix}arm" />
 
         <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}grav_tcp" reason="Never" />
         <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}closed_fingers_tcp" reason="Never" />

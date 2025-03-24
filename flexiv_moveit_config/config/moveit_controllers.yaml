@@ -7,17 +7,17 @@ rizon_arm_controller:
   type: FollowJointTrajectory
   default: true
   joints:
-    - joint1
-    - joint2
-    - joint3
-    - joint4
-    - joint5
-    - joint6
-    - joint7
+    - $(var robot_sn)_joint1
+    - $(var robot_sn)_joint2
+    - $(var robot_sn)_joint3
+    - $(var robot_sn)_joint4
+    - $(var robot_sn)_joint5
+    - $(var robot_sn)_joint6
+    - $(var robot_sn)_joint7
 
 flexiv_gripper_node:
   action_ns: gripper_action
   type: GripperCommand
   default: true
   joints:
-    - finger_width_joint
+    - $(var robot_sn)_finger_width_joint

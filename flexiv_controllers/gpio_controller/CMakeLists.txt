@@ -65,6 +65,7 @@ install(
   TARGETS
     ${PROJECT_NAME}
     gpio_controller_parameters
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin

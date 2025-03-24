@@ -6,13 +6,14 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    OpaqueFunction,
     RegisterEventHandler,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-from launch_ros.parameter_descriptions import ParameterValue
+from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
@@ -22,115 +23,37 @@ from launch.substitutions import (
 )
 
 
-def load_yaml(package_name, file_path):
+def load_yaml(package_name, file_path, robot_sn=""):
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
 
     try:
         with open(absolute_file_path, "r") as file:
-            return yaml.safe_load(file)
+            yaml_content = file.read()
+
+        if robot_sn:
+            # Replace variable placeholder with actual robot_sn
+            yaml_content = yaml_content.replace("$(var robot_sn)", robot_sn)
+
+        return yaml.safe_load(yaml_content)
     except (
         EnvironmentError
     ):  # parent of IOError, OSError *and* WindowsError where available
         return None
 
 
-def generate_launch_description():
-    rizon_type_param_name = "rizon_type"
-    robot_sn_param_name = "robot_sn"
-    start_rviz_param_name = "start_rviz"
-    load_gripper_param_name = "load_gripper"
-    gripper_name_param_name = "gripper_name"
-    use_fake_hardware_param_name = "use_fake_hardware"
-    fake_sensor_commands_param_name = "fake_sensor_commands"
-    warehouse_sqlite_path_param_name = "warehouse_sqlite_path"
-    start_servo_param_name = "start_servo"
-
-    # Declare command-line arguments
-    declared_arguments = []
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            rizon_type_param_name,
-            description="Type of the Flexiv Rizon robot.",
-            default_value="rizon4",
-            choices=["rizon4", "rizon4s", "rizon10", "rizon10s"],
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            robot_sn_param_name,
-            description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            start_rviz_param_name,
-            default_value="true",
-            description="Start RViz automatically with the launch file",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            load_gripper_param_name,
-            default_value="false",
-            description="Flag to load the Flexiv Grav gripper as the end-effector of the robot.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            gripper_name_param_name,
-            default_value="Flexiv-GN01",
-            description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            use_fake_hardware_param_name,
-            default_value="false",
-            description="Start robot with fake hardware mirroring command to its states.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            fake_sensor_commands_param_name,
-            default_value="false",
-            description="Enable fake command interfaces for sensors used for simple simulations. \
-            Used only if 'use_fake_hardware' parameter is true.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            warehouse_sqlite_path_param_name,
-            default_value=os.path.expanduser("~/.ros/warehouse_ros.sqlite"),
-            description="Path to the sqlite database used by the warehouse_ros package.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            start_servo_param_name,
-            default_value="false",
-            description="Start the MoveIt servo node?",
-        )
-    )
-
-    rizon_type = LaunchConfiguration(rizon_type_param_name)
-    robot_sn = LaunchConfiguration(robot_sn_param_name)
-    start_rviz = LaunchConfiguration(start_rviz_param_name)
-    load_gripper = LaunchConfiguration(load_gripper_param_name)
-    gripper_name = LaunchConfiguration(gripper_name_param_name)
-    use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
-    fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
-    warehouse_sqlite_path = LaunchConfiguration(warehouse_sqlite_path_param_name)
-    start_servo = LaunchConfiguration(start_servo_param_name)
+def launch_setup(context):
+    # Initialize Arguments
+    rizon_type = LaunchConfiguration("rizon_type")
+    robot_sn = LaunchConfiguration("robot_sn")
+    robot_sn_str = robot_sn.perform(context)
+    start_rviz = LaunchConfiguration("start_rviz")
+    load_gripper = LaunchConfiguration("load_gripper")
+    gripper_name = LaunchConfiguration("gripper_name")
+    use_fake_hardware = LaunchConfiguration("use_fake_hardware")
+    fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
+    warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
+    start_servo = LaunchConfiguration("start_servo")
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
@@ -215,8 +138,9 @@ def generate_launch_description():
 
     # Trajectory Execution Configuration
     moveit_simple_controllers_yaml = load_yaml(
-        "flexiv_moveit_config", "config/moveit_controllers.yaml"
+        "flexiv_moveit_config", "config/moveit_controllers.yaml", robot_sn_str
     )
+
     moveit_controllers = {
         "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
         "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
@@ -238,7 +162,7 @@ def generate_launch_description():
 
     joint_limits_yaml = {
         "robot_description_planning": load_yaml(
-            "flexiv_moveit_config", "config/joint_limits.yaml"
+            "flexiv_moveit_config", "config/joint_limits.yaml", robot_sn_str
         )
     }
 
@@ -305,7 +229,11 @@ def generate_launch_description():
     ros2_control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
-        parameters=[robot_description, robot_controllers, {"robot_sn": robot_sn}],
+        parameters=[
+            robot_description,
+            ParameterFile(robot_controllers, allow_substs=True),
+            {"robot_sn": robot_sn},
+        ],
         remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
     )
@@ -378,7 +306,7 @@ def generate_launch_description():
 
     # Servo node for realtime control
     servo_yaml = load_yaml(
-        "flexiv_moveit_config", "config/rizon_moveit_servo_config.yaml"
+        "flexiv_moveit_config", "config/rizon_moveit_servo_config.yaml", robot_sn_str
     )
     servo_params = {"moveit_servo": servo_yaml}
     servo_node = Node(
@@ -399,6 +327,8 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["gpio_controller", "--controller-manager", "/controller_manager"],
+        parameters=[{"robot_sn": robot_sn}],
+        condition=UnlessCondition(use_fake_hardware),
     )
 
     # Delay rviz start after `joint_state_broadcaster`
@@ -433,4 +363,86 @@ def generate_launch_description():
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
     ]
 
-    return LaunchDescription(declared_arguments + nodes)
+    return nodes
+
+
+def generate_launch_description():
+    # Declare command-line arguments
+    declared_arguments = []
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rizon_type",
+            description="Type of the Flexiv Rizon robot.",
+            default_value="rizon4",
+            choices=["rizon4", "rizon4s", "rizon10", "rizon10s"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "robot_sn",
+            description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "start_rviz",
+            default_value="true",
+            description="Start RViz automatically with the launch file",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "load_gripper",
+            default_value="false",
+            description="Flag to load the Flexiv Grav gripper as the end-effector of the robot.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "gripper_name",
+            default_value="Flexiv-GN01",
+            description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "use_fake_hardware",
+            default_value="false",
+            description="Start robot with fake hardware mirroring command to its states.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "fake_sensor_commands",
+            default_value="false",
+            description="Enable fake command interfaces for sensors used for simple simulations. \
+            Used only if 'use_fake_hardware' parameter is true.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "warehouse_sqlite_path",
+            default_value=os.path.expanduser("~/.ros/warehouse_ros.sqlite"),
+            description="Path to the sqlite database used by the warehouse_ros package.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "start_servo",
+            default_value="false",
+            description="Start the MoveIt servo node?",
+        )
+    )
+
+    return LaunchDescription(
+        declared_arguments + [OpaqueFunction(function=launch_setup)]
+    )

@@ -252,6 +252,7 @@ def generate_launch_description():
         executable="spawner",
         arguments=["gpio_controller", "--controller-manager", "/controller_manager"],
         parameters=[{"robot_sn": robot_sn}],
+        condition=UnlessCondition(use_fake_hardware),
     )
 
     # Delay rviz start after `joint_state_broadcaster`

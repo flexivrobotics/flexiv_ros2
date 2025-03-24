@@ -1,21 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot xmlns:xacro="http://wiki.ros.org/xacro" name="(arg name)">
-
-    <!-- robot name parameter -->
-    <xacro:arg name="name" default="rizon" />
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="rizon">
     <!-- parameters -->
-    <xacro:arg name="prefix" default="" />
+    <xacro:arg name="arm_prefix" default="" />
+    <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper" default="false" />
 
-    <xacro:property name="name" value="$(arg name)"/>
-
     <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
-    <xacro:rizon_srdf name="${name}" prefix="$(arg prefix)" />
+    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)" />
 
     <!-- Load gripper -->
     <xacro:if value="$(arg load_gripper)">
         <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf name="${name}" prefix="$(arg prefix)" />
+        <xacro:grav_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)" />
     </xacro:if>
 
 </robot>
