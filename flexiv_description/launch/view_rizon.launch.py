@@ -14,6 +14,7 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     pkg_share = FindPackageShare("flexiv_description")
+    robot_sn = LaunchConfiguration("robot_sn")
     rizon_type = LaunchConfiguration("rizon_type")
     load_gripper = LaunchConfiguration("load_gripper")
     gripper_name = LaunchConfiguration("gripper_name")
@@ -29,8 +30,8 @@ def generate_launch_description():
                     [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
                 ),
                 " ",
-                "name:=",
-                "rizon",
+                "robot_sn:=",
+                robot_sn,
                 " ",
                 "rizon_type:=",
                 rizon_type,
@@ -79,6 +80,10 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                name="robot_sn",
+                description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+            ),
             DeclareLaunchArgument(
                 name="rizon_type",
                 default_value="rizon4",

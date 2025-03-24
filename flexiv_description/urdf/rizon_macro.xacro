@@ -1,15 +1,19 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro">
 
-  <xacro:macro name="rizon_robot" params="
+  <xacro:macro name="rizon_robot"
+    params="
     rizon_type
-    prefix
+    arm_prefix
     robot_sn
     load_gripper:=false
     gripper_name:='Flexiv-GN01'
     use_fake_hardware:=false
     fake_sensor_commands:=false
     ">
+
+    <!-- Prefix defaults to 'arm_prefix_robot_sn' -->
+    <xacro:property name="prefix" value="${arm_prefix + robot_sn + '_'}" />
 
     <!-- Load gripper -->
     <xacro:if value="${load_gripper and gripper_name=='Flexiv-GN01'}">
@@ -24,7 +28,7 @@
     <xacro:if value="${rizon_type=='rizon4' or rizon_type=='rizon4s'}">
       <xacro:include filename="$(find flexiv_description)/urdf/rizon4_joints_links.xacro" />
       <xacro:rizon4_joints_links rizon_type="${rizon_type}" prefix="${prefix}"
-        robot_sn="${robot_sn}" mesh_prefix_path="package://flexiv_description/" />
+        mesh_prefix_path="package://flexiv_description/" />
 
       <!-- ros2 control include -->
       <xacro:include filename="$(find flexiv_description)/urdf/rizon4.ros2_control.xacro" />
@@ -38,7 +42,7 @@
     <xacro:if value="${rizon_type=='rizon10' or rizon_type=='rizon10s'}">
       <xacro:include filename="$(find flexiv_description)/urdf/rizon10_joints_links.xacro" />
       <xacro:rizon10_joints_links rizon_type="${rizon_type}" prefix="${prefix}"
-        robot_sn="${robot_sn}" mesh_prefix_path="package://flexiv_description/" />
+        mesh_prefix_path="package://flexiv_description/" />
 
       <!-- ros2 control include -->
       <xacro:include filename="$(find flexiv_description)/urdf/rizon10.ros2_control.xacro" />

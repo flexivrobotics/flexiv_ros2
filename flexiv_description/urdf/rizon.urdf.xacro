@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg name)">
-  <!-- Enable setting arguments from the launch file -->
-  <xacro:arg name="name" default="rizon"/>
-
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rizon">
   <!-- 'rizon_type' values: rizon4, rizon4s, rizon10, rizon10s -->
   <xacro:arg name="rizon_type" default="rizon4"/>
 
@@ -11,7 +8,7 @@
   <xacro:include filename="$(find flexiv_description)/urdf/rizon_macro.xacro"/>
 
   <!-- parameters -->
-  <xacro:arg name="prefix" default="" />
+  <xacro:arg name="arm_prefix" default="" />
   <xacro:arg name="robot_sn" default="" />
   <xacro:arg name="load_gripper" default="false" />
   <xacro:arg name="gripper_name" default="Flexiv-GN01" />
@@ -20,7 +17,7 @@
 
   <xacro:rizon_robot
     rizon_type="$(arg rizon_type)"
-    prefix="$(arg prefix)"
+    arm_prefix="$(arg arm_prefix)"
     robot_sn="$(arg robot_sn)"
     load_gripper="$(arg load_gripper)"
     gripper_name="$(arg gripper_name)"

@@ -134,7 +134,7 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
    - Test with fake hardware (`ros2_control` capability):
 
      ```bash
-     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=dont-care use_fake_hardware:=true
+     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
      ```
 
 > [!TIP]
@@ -180,7 +180,7 @@ ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=[robot_sn]
 Test with fake hardware:
 
 ```bash
-ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=dont-care use_fake_hardware:=true
+ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
 ```
 
 ### Robot States
