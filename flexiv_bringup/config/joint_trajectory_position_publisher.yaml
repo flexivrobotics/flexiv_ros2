@@ -11,12 +11,12 @@ publisher_joint_trajectory_controller:
     pos4: [-0.698, -0.698, 0.698, 1.57, 0.698, 0.698, 0.698]
 
     joints:
-      - joint1
-      - joint2
-      - joint3
-      - joint4
-      - joint5
-      - joint6
-      - joint7
+      - $(var robot_sn)_joint1
+      - $(var robot_sn)_joint2
+      - $(var robot_sn)_joint3
+      - $(var robot_sn)_joint4
+      - $(var robot_sn)_joint5
+      - $(var robot_sn)_joint6
+      - $(var robot_sn)_joint7
 
     check_starting_point: true

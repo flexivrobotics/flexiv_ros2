@@ -23,37 +23,37 @@ controller_manager:
 forward_position_controller:
   ros__parameters:
     joints:
-      - joint1
-      - joint2
-      - joint3
-      - joint4
-      - joint5
-      - joint6
-      - joint7
+      - $(var robot_sn)_joint1
+      - $(var robot_sn)_joint2
+      - $(var robot_sn)_joint3
+      - $(var robot_sn)_joint4
+      - $(var robot_sn)_joint5
+      - $(var robot_sn)_joint6
+      - $(var robot_sn)_joint7
 
 joint_impedance_controller:
   ros__parameters:
     joints:
-      - joint1
-      - joint2
-      - joint3
-      - joint4
-      - joint5
-      - joint6
-      - joint7
+      - $(var robot_sn)_joint1
+      - $(var robot_sn)_joint2
+      - $(var robot_sn)_joint3
+      - $(var robot_sn)_joint4
+      - $(var robot_sn)_joint5
+      - $(var robot_sn)_joint6
+      - $(var robot_sn)_joint7
     k_p: [3000.0, 3000.0, 800.0, 800.0, 200.0, 200.0, 200.0]
     k_d: [80.0, 80.0, 40.0, 40.0, 8.0, 8.0, 8.0]
 
 rizon_arm_controller:
   ros__parameters:
     joints:
-      - joint1
-      - joint2
-      - joint3
-      - joint4
-      - joint5
-      - joint6
-      - joint7
+      - $(var robot_sn)_joint1
+      - $(var robot_sn)_joint2
+      - $(var robot_sn)_joint3
+      - $(var robot_sn)_joint4
+      - $(var robot_sn)_joint5
+      - $(var robot_sn)_joint6
+      - $(var robot_sn)_joint7
     command_interfaces:
       - position
     state_interfaces:

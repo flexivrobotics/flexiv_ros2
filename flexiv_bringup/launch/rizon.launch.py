@@ -8,7 +8,7 @@ from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-from launch_ros.parameter_descriptions import ParameterValue
+from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
@@ -166,7 +166,11 @@ def generate_launch_description():
     ros2_control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
-        parameters=[robot_description, robot_controllers, {"robot_sn": robot_sn}],
+        parameters=[
+            robot_description,
+            ParameterFile(robot_controllers, allow_substs=True),
+            {"robot_sn": robot_sn},
+        ],
         remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
     )
