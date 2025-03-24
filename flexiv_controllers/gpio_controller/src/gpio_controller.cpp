@@ -20,6 +20,8 @@ GPIOController::GPIOController()
 controller_interface::CallbackReturn GPIOController::on_init()
 {
     try {
+        param_listener_ = std::make_shared<ParamListener>(get_node());
+        params_ = param_listener_->get_params();
         initMsgs();
     } catch (const std::exception& e) {
         fprintf(stderr, "Exception thrown during init stage with message: %s \n", e.what());
@@ -33,8 +35,9 @@ controller_interface::InterfaceConfiguration GPIOController::command_interface_c
     controller_interface::InterfaceConfiguration config;
     config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
 
+    std::string robot_sn = params_.robot_sn;
     for (size_t i = 0; i < kIOPorts; ++i) {
-        config.names.emplace_back("gpio/digital_output_" + std::to_string(i));
+        config.names.emplace_back(robot_sn + "_gpio/digital_output_" + std::to_string(i));
     }
 
     return config;
@@ -45,8 +48,9 @@ controller_interface::InterfaceConfiguration GPIOController::state_interface_con
     controller_interface::InterfaceConfiguration config;
     config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
 
+    std::string robot_sn = params_.robot_sn;
     for (size_t i = 0; i < kIOPorts; ++i) {
-        config.names.emplace_back("gpio/digital_input_" + std::to_string(i));
+        config.names.emplace_back(robot_sn + "_gpio/digital_input_" + std::to_string(i));
     }
 
     return config;
@@ -73,26 +77,38 @@ controller_interface::return_type GPIOController::update(
 controller_interface::CallbackReturn GPIOController::on_configure(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
+    params_ = param_listener_->get_params();
+
+    std::string robot_sn = params_.robot_sn;
+    if (robot_sn.empty()) {
+        RCLCPP_ERROR(get_node()->get_logger(), "'robot_sn' parameter has to be specified.");
+        return CallbackReturn::ERROR;
+    } else {
+        // Replace "-" with "_" in robot_sn to match the topic name
+        std::replace(robot_sn.begin(), robot_sn.end(), '-', '_');
+    }
+
     try {
         // register publisher
-        gpio_inputs_publisher_
-            = get_node()->create_publisher<CmdType>("~/gpio_inputs", rclcpp::SystemDefaultsQoS());
+        gpio_inputs_publisher_ = get_node()->create_publisher<CmdType>(
+            "/" + robot_sn + kGPIOInputsTopic, rclcpp::SystemDefaultsQoS());
 
         // register subscriber
-        gpio_outputs_command_ = get_node()->create_subscription<CmdType>(
-            "~/gpio_outputs", rclcpp::SystemDefaultsQoS(), [this](const CmdType::SharedPtr msg) {
-                for (size_t i = 0; i < msg->states.size(); ++i) {
-                    if (msg->states[i].pin >= kIOPorts) {
-                        RCLCPP_WARN(get_node()->get_logger(),
-                            "Received command for pin %d, but only pins 0-15 are supported.",
-                            msg->states[i].pin);
-                        continue;
-                    } else {
-                        digital_outputs_cmd_[msg->states[i].pin]
-                            = static_cast<double>(msg->states[i].state);
+        gpio_outputs_command_
+            = get_node()->create_subscription<CmdType>("/" + robot_sn + kGPIOOutputsTopic,
+                rclcpp::SystemDefaultsQoS(), [this](const CmdType::SharedPtr msg) {
+                    for (size_t i = 0; i < msg->states.size(); ++i) {
+                        if (msg->states[i].pin >= kIOPorts) {
+                            RCLCPP_WARN(get_node()->get_logger(),
+                                "Received command for pin %d, but only pins 0-15 are supported.",
+                                msg->states[i].pin);
+                            continue;
+                        } else {
+                            digital_outputs_cmd_[msg->states[i].pin]
+                                = static_cast<double>(msg->states[i].state);
+                        }
                     }
-                }
-            });
+                });
     } catch (...) {
         return LifecycleNodeInterface::CallbackReturn::ERROR;
     }

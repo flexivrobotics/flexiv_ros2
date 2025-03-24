@@ -1,0 +1,6 @@
+gpio_controller:
+  robot_sn: {
+    type: string,
+    default_value: "",
+    description: "Robot arm serial number",
+  }

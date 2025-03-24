@@ -13,6 +13,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(controller_interface REQUIRED)
+find_package(generate_parameter_library REQUIRED)
 find_package(flexiv_msgs REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
@@ -24,11 +25,16 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   builtin_interfaces
   controller_interface
   flexiv_msgs
+  generate_parameter_library
   hardware_interface
   pluginlib
   rclcpp_lifecycle
   rcutils
   realtime_tools
+)
+
+generate_parameter_library(gpio_controller_parameters
+  src/gpio_controller_parameters.yaml
 )
 
 add_library(${PROJECT_NAME}
@@ -38,7 +44,11 @@ add_library(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 
-ament_target_dependencies(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  gpio_controller_parameters
+)
+
+ament_target_dependencies(${PROJECT_NAME} PUBLIC
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 
@@ -51,7 +61,10 @@ install(
   DESTINATION include/${PROJECT_NAME}
 )
 
-install(TARGETS ${PROJECT_NAME}
+install(
+  TARGETS
+    ${PROJECT_NAME}
+    gpio_controller_parameters
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin

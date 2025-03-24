@@ -12,6 +12,7 @@
 
   <depend>controller_interface</depend>
   <depend>flexiv_msgs</depend>
+  <depend>generate_parameter_library</depend>
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>

@@ -251,6 +251,7 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["gpio_controller", "--controller-manager", "/controller_manager"],
+        parameters=[{"robot_sn": robot_sn}],
     )
 
     # Delay rviz start after `joint_state_broadcaster`

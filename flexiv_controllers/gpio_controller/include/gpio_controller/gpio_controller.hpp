@@ -14,12 +14,16 @@
 #include <vector>
 
 #include "controller_interface/controller_interface.hpp"
+#include "gpio_controller_parameters.hpp"
 #include "flexiv_msgs/msg/gpio_states.hpp"
 
 namespace gpio_controller {
 
 /** Number of digital IO ports (16 on control box + 2 inside the wrist connector) */
 constexpr size_t kIOPorts = 18;
+
+const std::string kGPIOInputsTopic = "/gpio_inputs";
+const std::string kGPIOOutputsTopic = "/gpio_outputs";
 
 using CmdType = flexiv_msgs::msg::GPIOStates;
 
@@ -44,6 +48,9 @@ public:
     CallbackReturn on_deactivate(const rclcpp_lifecycle::State& previous_state) override;
 
 protected:
+    std::shared_ptr<ParamListener> param_listener_;
+    Params params_;
+
     void initMsgs();
 
     // internal commands
