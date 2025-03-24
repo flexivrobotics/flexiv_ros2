@@ -17,10 +17,6 @@
   <xacro:arg name="gripper_name" default="Flexiv-GN01" />
   <xacro:arg name="use_fake_hardware" default="false" />
   <xacro:arg name="fake_sensor_commands" default="false" />
-  <xacro:arg name="initial_positions_file" default="$(find flexiv_description)/config/initial_positions.yaml"/>
-
-  <!-- convert to property to use substitution in function -->
-  <xacro:property name="initial_positions_file" default="$(arg initial_positions_file)"/>
 
   <xacro:rizon_robot
     rizon_type="$(arg rizon_type)"
@@ -29,8 +25,7 @@
     load_gripper="$(arg load_gripper)"
     gripper_name="$(arg gripper_name)"
     use_fake_hardware="$(arg use_fake_hardware)"
-    fake_sensor_commands="$(arg fake_sensor_commands)"
-    initial_positions="${xacro.load_yaml(initial_positions_file)}">
+    fake_sensor_commands="$(arg fake_sensor_commands)">
   </xacro:rizon_robot>
 
 </robot>

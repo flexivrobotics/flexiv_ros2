@@ -6,7 +6,6 @@
     robot_sn
     use_fake_hardware:=false
     fake_sensor_commands:=false
-    initial_positions:=${dict(joint1=0.0,joint2=-0.69813,joint3=0.0,joint4=1.570796,joint5=0.0,joint6=0.69813,joint7=0.0)}
     ">
 
     <ros2_control name="FlexivHardwareInterface" type="system">
@@ -35,7 +34,7 @@
         <command_interface name="effort"/>
         <state_interface name="position">
           <!-- initial position for the FakeSystem -->
-          <param name="initial_value">${initial_positions['joint1']}</param>
+          <param name="initial_value">0.0</param>
         </state_interface>
         <state_interface name="velocity"/>
         <state_interface name="effort"/>
@@ -52,7 +51,7 @@
         <command_interface name="effort"/>
         <state_interface name="position">
           <!-- initial position for the FakeSystem -->
-          <param name="initial_value">${initial_positions['joint2']}</param>
+          <param name="initial_value">-0.69813</param>
         </state_interface>
         <state_interface name="velocity"/>
         <state_interface name="effort"/>
@@ -69,7 +68,7 @@
         <command_interface name="effort"/>
         <state_interface name="position">
           <!-- initial position for the FakeSystem -->
-          <param name="initial_value">${initial_positions['joint3']}</param>
+          <param name="initial_value">0.0</param>
         </state_interface>
         <state_interface name="velocity"/>
         <state_interface name="effort"/>
@@ -86,7 +85,7 @@
         <command_interface name="effort"/>
         <state_interface name="position">
           <!-- initial position for the FakeSystem -->
-          <param name="initial_value">${initial_positions['joint4']}</param>
+          <param name="initial_value">1.570796</param>
         </state_interface>
         <state_interface name="velocity"/>
         <state_interface name="effort"/>
@@ -103,7 +102,7 @@
         <command_interface name="effort"/>
         <state_interface name="position">
           <!-- initial position for the FakeSystem -->
-          <param name="initial_value">${initial_positions['joint5']}</param>
+          <param name="initial_value">0.0</param>
         </state_interface>
         <state_interface name="velocity"/>
         <state_interface name="effort"/>
@@ -120,7 +119,7 @@
         <command_interface name="effort"/>
         <state_interface name="position">
           <!-- initial position for the FakeSystem -->
-          <param name="initial_value">${initial_positions['joint6']}</param>
+          <param name="initial_value">0.69813</param>
         </state_interface>
         <state_interface name="velocity"/>
         <state_interface name="effort"/>
@@ -137,7 +136,7 @@
         <command_interface name="effort"/>
         <state_interface name="position">
           <!-- initial position for the FakeSystem -->
-          <param name="initial_value">${initial_positions['joint7']}</param>
+          <param name="initial_value">0.0</param>
         </state_interface>
         <state_interface name="velocity"/>
         <state_interface name="effort"/>
