@@ -158,8 +158,6 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
     }
 
     std::string robot_sn = info_.hardware_parameters.at("robot_sn");
-    // Replace "-" with "_" in robot_sn to match the state interface name
-    std::replace(robot_sn.begin(), robot_sn.end(), '-', '_');
     state_interfaces.emplace_back(hardware_interface::StateInterface(
         robot_sn, "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_)));
 

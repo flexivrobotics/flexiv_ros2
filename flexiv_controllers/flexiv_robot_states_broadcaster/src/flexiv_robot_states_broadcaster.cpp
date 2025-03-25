@@ -55,9 +55,6 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
     if (robot_sn.empty()) {
         RCLCPP_ERROR(get_node()->get_logger(), "'robot_sn' parameter has to be specified.");
         return CallbackReturn::ERROR;
-    } else {
-        // Replace "-" with "_" in robot_sn to match the topic name
-        std::replace(robot_sn.begin(), robot_sn.end(), '-', '_');
     }
 
     if (!flexiv_robot_states_) {
@@ -65,21 +62,24 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
             semantic_components::FlexivRobotStates(robot_sn));
     }
 
+    // Replace "-" with "_" in robot_sn to match the topic name
+    std::replace(robot_sn.begin(), robot_sn.end(), '-', '_');
+
     // Create the publishers for the robot states
     tcp_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
-        kTcpPoseTopic, rclcpp::SystemDefaultsQoS());
+        "/" + robot_sn + kTcpPoseTopic, rclcpp::SystemDefaultsQoS());
     tcp_velocity_publisher_ = get_node()->create_publisher<geometry_msgs::msg::AccelStamped>(
-        kTcpVelocityTopic, rclcpp::SystemDefaultsQoS());
+        "/" + robot_sn + kTcpVelocityTopic, rclcpp::SystemDefaultsQoS());
     flange_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
-        kFlangePoseTopic, rclcpp::SystemDefaultsQoS());
+        "/" + robot_sn + kFlangePoseTopic, rclcpp::SystemDefaultsQoS());
     ft_sensor_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
-        kFTSensorTopic, rclcpp::SystemDefaultsQoS());
+        "/" + robot_sn + kFTSensorTopic, rclcpp::SystemDefaultsQoS());
     external_wrench_in_tcp_publisher_
         = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
-            kExternalWrenchInTcpFrameTopic, rclcpp::SystemDefaultsQoS());
+            "/" + robot_sn + kExternalWrenchInTcpFrameTopic, rclcpp::SystemDefaultsQoS());
     external_wrench_in_world_publisher_
         = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
-            kExternalWrenchInWorldFrameTopic, rclcpp::SystemDefaultsQoS());
+            "/" + robot_sn + kExternalWrenchInWorldFrameTopic, rclcpp::SystemDefaultsQoS());
 
     try {
         flexiv_robot_states_publisher_
@@ -123,11 +123,14 @@ controller_interface::return_type FlexivRobotStatesBroadcaster::update(
         ft_sensor_publisher_->publish(flexiv_robot_states_msg.ft_sensor_raw);
         external_wrench_in_tcp_publisher_->publish(flexiv_robot_states_msg.ext_wrench_in_tcp);
         external_wrench_in_world_publisher_->publish(flexiv_robot_states_msg.ext_wrench_in_world);
-
-        return controller_interface::return_type::OK;
-    } else {
-        return controller_interface::return_type::ERROR;
     }
+    // TODO: Enable the error message when the realtime_publisher is updated in ROS 2
+    // else {
+    //     RCLCPP_ERROR(get_node()->get_logger(), "Failed to lock the realtime publisher.");
+    //     return controller_interface::return_type::ERROR;
+    // }
+
+    return controller_interface::return_type::OK;
 }
 
 CallbackReturn FlexivRobotStatesBroadcaster::on_activate(

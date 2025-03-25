@@ -23,13 +23,12 @@ namespace flexiv_robot_states_broadcaster {
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 const std::string kRobotStatesTopic = "/flexiv_robot_states";
-const std::string kTcpPoseTopic = "~/tcp_pose";
-const std::string kTcpPoseDesiredTopic = "~/tcp_pose_desired";
-const std::string kTcpVelocityTopic = "~/tcp_velocity";
-const std::string kFlangePoseTopic = "~/flange_pose";
-const std::string kFTSensorTopic = "~/ft_sensor_wrench";
-const std::string kExternalWrenchInTcpFrameTopic = "~/external_wrench_in_tcp";
-const std::string kExternalWrenchInWorldFrameTopic = "~/external_wrench_in_world";
+const std::string kTcpPoseTopic = "/tcp_pose";
+const std::string kTcpVelocityTopic = "/tcp_velocity";
+const std::string kFlangePoseTopic = "/flange_pose";
+const std::string kFTSensorTopic = "/ft_sensor_wrench";
+const std::string kExternalWrenchInTcpFrameTopic = "/external_wrench_in_tcp";
+const std::string kExternalWrenchInWorldFrameTopic = "/external_wrench_in_world";
 
 class FlexivRobotStatesBroadcaster : public controller_interface::ControllerInterface
 {
@@ -57,9 +56,10 @@ protected:
 
     std::unique_ptr<semantic_components::FlexivRobotStates> flexiv_robot_states_;
 
+    std::shared_ptr<rclcpp::Publisher<flexiv_msgs::msg::RobotStates>>
+        flexiv_robot_states_publisher_;
     using StatePublisher = realtime_tools::RealtimePublisher<flexiv_msgs::msg::RobotStates>;
-    rclcpp::Publisher<flexiv_msgs::msg::RobotStates>::SharedPtr flexiv_robot_states_publisher_;
-    std::unique_ptr<StatePublisher> realtime_flexiv_robot_states_publisher_;
+    std::shared_ptr<StatePublisher> realtime_flexiv_robot_states_publisher_;
 
     using PoseStampedPublisher = rclcpp::Publisher<geometry_msgs::msg::PoseStamped>;
     std::shared_ptr<PoseStampedPublisher> tcp_pose_publisher_;
