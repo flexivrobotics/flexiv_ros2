@@ -21,14 +21,22 @@
       <xacro:flexiv_GN01 prefix="${prefix}" mesh_prefix_path="package://flexiv_description/" />
     </xacro:if>
 
-    <!-- Import Rviz colors -->
-    <xacro:include filename="$(find flexiv_description)/urdf/flexiv_arm.materials.xacro" />
+    <!-- Rizon4, Rizon4M, Rizon4R or Rizon4s -->
+    <xacro:if
+      value="${rizon_type=='Rizon4' or rizon_type=='Rizon4M' or rizon_type=='Rizon4R' or rizon_type=='Rizon4s'}">
+      <!-- Rizon4R -->
+      <xacro:if value="${rizon_type=='Rizon4R'}">
+        <xacro:include filename="$(find flexiv_description)/urdf/rizon4r_joints_links.xacro" />
+        <xacro:rizon4r_joints_links rizon_type="${rizon_type}" prefix="${prefix}"
+          mesh_prefix_path="package://flexiv_description/" />
+      </xacro:if>
 
-    <!-- Rizon 4 or 4s-->
-    <xacro:if value="${rizon_type=='rizon4' or rizon_type=='rizon4s'}">
-      <xacro:include filename="$(find flexiv_description)/urdf/rizon4_joints_links.xacro" />
-      <xacro:rizon4_joints_links rizon_type="${rizon_type}" prefix="${prefix}"
-        mesh_prefix_path="package://flexiv_description/" />
+      <!-- Rizon4, Rizon4M or Rizon4s -->
+      <xacro:unless value="${rizon_type=='Rizon4R'}">
+        <xacro:include filename="$(find flexiv_description)/urdf/rizon4_joints_links.xacro" />
+        <xacro:rizon4_joints_links rizon_type="${rizon_type}" prefix="${prefix}"
+          mesh_prefix_path="package://flexiv_description/" />
+      </xacro:unless>
 
       <!-- ros2 control include -->
       <xacro:include filename="$(find flexiv_description)/urdf/rizon4.ros2_control.xacro" />
@@ -38,8 +46,8 @@
       />
     </xacro:if>
 
-    <!-- Rizon 10 or 10s-->
-    <xacro:if value="${rizon_type=='rizon10' or rizon_type=='rizon10s'}">
+    <!-- Rizon10 or 10s-->
+    <xacro:if value="${rizon_type=='Rizon10' or rizon_type=='Rizon10s'}">
       <xacro:include filename="$(find flexiv_description)/urdf/rizon10_joints_links.xacro" />
       <xacro:rizon10_joints_links rizon_type="${rizon_type}" prefix="${prefix}"
         mesh_prefix_path="package://flexiv_description/" />
