@@ -3,7 +3,7 @@
 
   <!--
     rizon_type = "Rizon4R"
-    prefix = "Rizon4-123456_"
+    prefix = "Rizon4R-123456_"
     mesh_prefix_path = "", "package://flexiv_description/"
     NOTE: accurate kinematic but approximated dynamics parameters
   -->
