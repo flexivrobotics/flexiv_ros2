@@ -221,7 +221,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
         robot_->Enable();
 
         // Wait for the robot to become operational
-        while (!robot_->operational(false)) {
+        while (!robot_->operational()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         RCLCPP_INFO(getLogger(), "Robot is now operational");
@@ -253,7 +253,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_deactivate(
 hardware_interface::return_type FlexivHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    if (robot_->operational(false) && robot_->mode() != flexiv::rdk::Mode::IDLE) {
+    if (robot_->operational() && robot_->mode() != flexiv::rdk::Mode::IDLE) {
 
         hw_flexiv_robot_states_ = robot_->states();
 
@@ -314,26 +314,29 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     }
 
     // Write digital output
-    std::vector<unsigned int> ports_indices;
-    std::vector<bool> ports_values;
+    std::map<unsigned int, bool> digital_outputs;
     for (size_t i = 0; i < hw_commands_gpio_out_.size(); i++) {
         if (hw_commands_gpio_out_[i] != hw_commands_gpio_out_[i]) {
             continue;
         }
-        ports_indices.push_back(i);
-        ports_values.push_back(static_cast<bool>(hw_commands_gpio_out_[i]));
+        digital_outputs[i] = static_cast<bool>(hw_commands_gpio_out_[i]);
     }
     // Check if there are changes in the digital output values
     bool digital_outputs_changed = false;
-    if (current_ports_indices_ != ports_indices || current_ports_values_ != ports_values) {
-        digital_outputs_changed = true;
+    for (const auto& [index, value] : digital_outputs) {
+        if (current_digital_outputs_[index] != value) {
+            current_digital_outputs_[index] = value;
+            digital_outputs_changed = true;
+        }
     }
-    current_ports_indices_ = ports_indices;
-    current_ports_values_ = ports_values;
+    current_digital_outputs_.clear();
+    for (const auto& [index, value] : digital_outputs) {
+        current_digital_outputs_[index] = value;
+    }
 
     // Set digital outputs
-    if (!ports_indices.empty() && !ports_values.empty() && digital_outputs_changed) {
-        robot_->SetDigitalOutputs(ports_indices, ports_values);
+    if (digital_outputs_changed && !digital_outputs.empty()) {
+        robot_->SetDigitalOutputs(digital_outputs);
     }
 
     return hardware_interface::return_type::OK;

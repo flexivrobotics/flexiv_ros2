@@ -107,9 +107,8 @@ private:
     std::vector<double> hw_commands_gpio_out_;
     std::vector<double> hw_states_gpio_in_;
 
-    // Current digital output ports
-    std::vector<unsigned int> current_ports_indices_;
-    std::vector<bool> current_ports_values_;
+    // Current digital output map
+    std::map<unsigned int, bool> current_digital_outputs_;
 
     static rclcpp::Logger getLogger();
 

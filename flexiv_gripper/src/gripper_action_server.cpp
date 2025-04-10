@@ -64,12 +64,12 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         }
 
         // Enable the robot
-        if (!robot_->operational(false)) {
+        if (!robot_->operational()) {
             RCLCPP_INFO(this->get_logger(), "Enabling robot ...");
             robot_->Enable();
 
             // Wait for the robot to become operational
-            while (!robot_->operational(false)) {
+            while (!robot_->operational()) {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
             RCLCPP_INFO(this->get_logger(), "Robot is now operational");
