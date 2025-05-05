@@ -206,14 +206,20 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
         if (robot_->fault()) {
             RCLCPP_WARN(getLogger(), "Fault occurred on robot server, trying to clear ...");
             // Try to clear the fault
-            robot_->ClearFault();
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-            // Check again
-            if (robot_->fault()) {
+            if (!robot_->ClearFault()) {
                 RCLCPP_FATAL(getLogger(), "Fault cannot be cleared, exiting ...");
                 return hardware_interface::CallbackReturn::ERROR;
             }
             RCLCPP_INFO(getLogger(), "Fault on robot server is cleared");
+        }
+
+        // Check the DoF of the robot
+        if (robot_->info().DoF != kJointDoF) {
+            RCLCPP_FATAL(getLogger(),
+                "Robot has %ld DoF. Expected %ld. External axes control is not supported in ROS 2 "
+                "yet.",
+                robot_->info().DoF, kJointDoF);
+            return hardware_interface::CallbackReturn::ERROR;
         }
 
         // Enable the robot
