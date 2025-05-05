@@ -14,7 +14,7 @@
 #include "controller_interface/controller_interface.hpp"
 #include "flexiv_msgs/msg/robot_states.hpp"
 #include "flexiv_robot_states_broadcaster/flexiv_robot_states.hpp"
-#include "flexiv_robot_states_broadcaster_parameters.hpp"
+#include "flexiv_robot_states_broadcaster/flexiv_robot_states_broadcaster_parameters.hpp"
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 #include "realtime_tools/realtime_publisher.hpp"

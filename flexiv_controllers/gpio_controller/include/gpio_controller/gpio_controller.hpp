@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "controller_interface/controller_interface.hpp"
-#include "gpio_controller_parameters.hpp"
+#include "gpio_controller/gpio_controller_parameters.hpp"
 #include "flexiv_msgs/msg/gpio_states.hpp"
 
 namespace gpio_controller {
