@@ -53,10 +53,7 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         if (robot_->fault()) {
             RCLCPP_WARN(this->get_logger(), "Fault occurred on robot server, trying to clear ...");
             // Try to clear the fault
-            robot_->ClearFault();
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-            // Check again
-            if (robot_->fault()) {
+            if (!robot_->ClearFault()) {
                 RCLCPP_FATAL(get_logger(), "Fault cannot be cleared, exiting ...");
                 throw std::runtime_error("Fault cannot be cleared");
             }
