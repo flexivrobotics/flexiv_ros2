@@ -134,6 +134,9 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    // Set the joint position to current joint positions
+    hw_states_joint_positions_ = robot_->states().q;
+
     RCLCPP_INFO(getLogger(), "Successfully connected to robot");
     return hardware_interface::CallbackReturn::SUCCESS;
 }
