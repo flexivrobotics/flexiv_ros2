@@ -134,9 +134,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
-    // Set the joint position to current joint positions
-    hw_states_joint_positions_ = robot_->states().q;
-
     RCLCPP_INFO(getLogger(), "Successfully connected to robot");
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -266,9 +263,12 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 
         hw_flexiv_robot_states_ = robot_->states();
 
-        hw_states_joint_positions_ = robot_->states().q;
-        hw_states_joint_velocities_ = robot_->states().dtheta;
-        hw_states_joint_efforts_ = robot_->states().tau;
+        // Read joint states
+        for (size_t i = 0; i < info_.joints.size(); i++) {
+            hw_states_joint_positions_[i] = robot_->states().q[i];
+            hw_states_joint_velocities_[i] = robot_->states().dtheta[i];
+            hw_states_joint_efforts_[i] = robot_->states().tau[i];
+        }
 
         // Read GPIO input states
         auto gpio_in = robot_->digital_inputs();
