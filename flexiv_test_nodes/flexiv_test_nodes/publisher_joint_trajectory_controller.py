@@ -64,7 +64,9 @@ class PublisherJointTrajectory(Node):
         # Read all positions from parameters
         self.goals = []
         for name in goal_names:
-            self.declare_parameter(name, descriptor=ParameterDescriptor(dynamic_typing=True))
+            self.declare_parameter(
+                name, descriptor=ParameterDescriptor(dynamic_typing=True)
+            )
             goal = self.get_parameter(name).value
             if goal is None or len(goal) == 0:
                 raise Exception(f'Values for goal "{name}" not set!')
@@ -87,9 +89,7 @@ class PublisherJointTrajectory(Node):
         self.i = 0
 
     def timer_callback(self):
-
         if self.starting_point_ok:
-
             traj = JointTrajectory()
             traj.joint_names = self.joints
             point = JointTrajectoryPoint()
@@ -112,9 +112,7 @@ class PublisherJointTrajectory(Node):
             )
 
     def joint_state_callback(self, msg):
-
         if not self.joint_state_msg_received:
-
             # check start state
             limit_exceeded = [False] * len(msg.name)
             for idx, enum in enumerate(msg.name):
