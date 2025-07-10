@@ -116,6 +116,8 @@ def launch_setup(context):
         "robot_description_semantic": robot_description_semantic_content
     }
 
+    publish_robot_description_semantic = {"publish_robot_description_semantic": True}
+
     robot_description_kinematics = PathJoinSubstitution(
         [FindPackageShare("flexiv_moveit_config"), "config", "kinematics.yaml"]
     )
@@ -179,12 +181,13 @@ def launch_setup(context):
         parameters=[
             robot_description,
             robot_description_semantic,
+            publish_robot_description_semantic,
             robot_description_kinematics,
+            joint_limits_yaml,
             ompl_planning_pipeline_config,
             trajectory_execution,
             moveit_controllers,
             planning_scene_monitor_parameters,
-            joint_limits_yaml,
             warehouse_ros_config,
         ],
     )
@@ -331,14 +334,6 @@ def launch_setup(context):
         condition=UnlessCondition(use_fake_hardware),
     )
 
-    # Delay rviz start after `joint_state_broadcaster`
-    delay_rviz_after_joint_state_broadcaster_spawner = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=joint_state_broadcaster_spawner,
-            on_exit=[rviz_node],
-        )
-    )
-
     # Delay start of robot_controller after `joint_state_broadcaster`
     delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = (
         RegisterEventHandler(
@@ -349,8 +344,23 @@ def launch_setup(context):
         )
     )
 
+    # Delay move_group start after `robot_controller_spawner`
+    delay_move_group_after_robot_controller_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=robot_controller_spawner,
+            on_exit=[move_group_node],
+        )
+    )
+
+    # Delay rviz start after `robot_controller_spawner`
+    delay_rviz_after_robot_controller_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=robot_controller_spawner,
+            on_exit=[rviz_node],
+        )
+    )
+
     nodes = [
-        move_group_node,
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
@@ -359,8 +369,9 @@ def launch_setup(context):
         load_gripper_launch,
         gpio_controller_spawner,
         servo_node,
-        delay_rviz_after_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
+        delay_move_group_after_robot_controller_spawner,
+        delay_rviz_after_robot_controller_spawner,
     ]
 
     return nodes
