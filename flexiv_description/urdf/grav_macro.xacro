@@ -13,14 +13,14 @@
       <visual>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/visual/base.stl" scale="0.001 0.001 0.001" />
+          <mesh filename="${mesh_prefix_path}meshes/Grav/visual/base.stl" scale="0.001 0.001 0.001" />
         </geometry>
         <material name="flexiv_black" />
       </visual>
       <collision>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/collision/base.stl" scale="0.001 0.001 0.001" />
+          <mesh filename="${mesh_prefix_path}meshes/Grav/collision/base.stl" scale="0.001 0.001 0.001" />
         </geometry>
       </collision>
     </link>
@@ -35,7 +35,7 @@
       <visual>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/visual/outer_bar.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/visual/outer_bar.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
         <material name="flexiv_black" />
@@ -43,7 +43,7 @@
       <collision>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/collision/outer_bar.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/collision/outer_bar.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
       </collision>
@@ -57,7 +57,7 @@
       <visual>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/visual/inner_bar.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/visual/inner_bar.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
         <material name="flexiv_black" />
@@ -65,7 +65,7 @@
       <collision>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/collision/inner_bar.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/collision/inner_bar.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
       </collision>
@@ -79,7 +79,7 @@
       <visual>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/visual/finger_mount.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/visual/finger_mount.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
         <material name="flexiv_black" />
@@ -94,14 +94,14 @@
       <visual>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/visual/finger_tip.obj"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/visual/finger_tip.obj"
             scale="0.001 0.001 0.001" />
         </geometry>
       </visual>
       <collision>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/collision/finger_tip.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/collision/finger_tip.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
       </collision>
@@ -117,7 +117,7 @@
       <visual>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/visual/outer_bar.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/visual/outer_bar.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
         <material name="flexiv_black" />
@@ -125,7 +125,7 @@
       <collision>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/collision/outer_bar.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/collision/outer_bar.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
       </collision>
@@ -139,7 +139,7 @@
       <visual>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/visual/inner_bar.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/visual/inner_bar.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
         <material name="flexiv_black" />
@@ -147,7 +147,7 @@
       <collision>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/collision/inner_bar.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/collision/inner_bar.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
       </collision>
@@ -161,7 +161,7 @@
       <visual>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/visual/finger_mount.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/visual/finger_mount.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
         <material name="flexiv_black" />
@@ -176,14 +176,14 @@
       <visual>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/visual/finger_tip.obj"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/visual/finger_tip.obj"
             scale="0.001 0.001 0.001" />
         </geometry>
       </visual>
       <collision>
         <origin rpy="0 0 1.5707963267948966" xyz="0 0 0" />
         <geometry>
-          <mesh filename="${mesh_prefix_path}meshes/grav/collision/finger_tip.stl"
+          <mesh filename="${mesh_prefix_path}meshes/Grav/collision/finger_tip.stl"
             scale="0.001 0.001 0.001" />
         </geometry>
       </collision>
