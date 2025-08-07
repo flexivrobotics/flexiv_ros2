@@ -4,14 +4,17 @@
     <xacro:arg name="arm_prefix" default="" />
     <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper" default="false" />
+    <xacro:arg name="load_mounted_ft_sensor" default="false" />
 
     <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
-    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)" />
+    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
+        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
 
     <!-- Load gripper -->
     <xacro:if value="$(arg load_gripper)">
         <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)" />
+        <xacro:grav_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
     </xacro:if>
 
 </robot>

@@ -24,6 +24,7 @@ def generate_launch_description():
     start_rviz_param_name = "start_rviz"
     load_gripper_param_name = "load_gripper"
     gripper_name_param_name = "gripper_name"
+    load_mounted_ft_sensor_param_name = "load_mounted_ft_sensor"
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
     robot_controller_param_name = "robot_controller"
@@ -73,6 +74,14 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            load_mounted_ft_sensor_param_name,
+            default_value="false",
+            description="Flag to load the mounted force torque sensor. Only available for Rizon4, Rizon4R and Rizon10.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             use_fake_hardware_param_name,
             default_value="false",
             description="Start robot with fake hardware mirroring command to its states.",
@@ -102,6 +111,7 @@ def generate_launch_description():
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     load_gripper = LaunchConfiguration(load_gripper_param_name)
     gripper_name = LaunchConfiguration(gripper_name_param_name)
+    load_mounted_ft_sensor = LaunchConfiguration(load_mounted_ft_sensor_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
     robot_controller = LaunchConfiguration(robot_controller_param_name)
@@ -130,6 +140,9 @@ def generate_launch_description():
                 " ",
                 "gripper_name:=",
                 gripper_name,
+                " ",
+                "load_mounted_ft_sensor:=",
+                load_mounted_ft_sensor,
                 " ",
                 "use_fake_hardware:=",
                 use_fake_hardware,

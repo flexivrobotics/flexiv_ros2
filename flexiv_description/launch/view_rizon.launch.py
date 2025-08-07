@@ -114,7 +114,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 name="load_mounted_ft_sensor",
                 default_value="False",
-                description="Flag to load the mounted force torque sensor. Only available for Rizon4 and Rizon10.",
+                description="Flag to load the mounted force torque sensor. Only available for Rizon4, Rizon4R and Rizon10",
             ),
             DeclareLaunchArgument(
                 name="gui",
