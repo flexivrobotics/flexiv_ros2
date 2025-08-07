@@ -18,6 +18,7 @@ def generate_launch_description():
     rizon_type = LaunchConfiguration("rizon_type")
     load_gripper = LaunchConfiguration("load_gripper")
     gripper_name = LaunchConfiguration("gripper_name")
+    load_mounted_ft_sensor = LaunchConfiguration("load_mounted_ft_sensor")
     default_rviz_config_path = PathJoinSubstitution(
         [pkg_share, "rviz", "view_rizon.rviz"]
     )
@@ -41,6 +42,9 @@ def generate_launch_description():
                 " ",
                 "gripper_name:=",
                 gripper_name,
+                " ",
+                "load_mounted_ft_sensor:=",
+                load_mounted_ft_sensor,
             ]
         ),
         value_type=str,
@@ -106,6 +110,11 @@ def generate_launch_description():
                 name="gripper_name",
                 default_value="Flexiv-GN01",
                 description="Full name of the gripper to be controlled",
+            ),
+            DeclareLaunchArgument(
+                name="load_mounted_ft_sensor",
+                default_value="False",
+                description="Flag to load the mounted force torque sensor. Only available for Rizon4 and Rizon10.",
             ),
             DeclareLaunchArgument(
                 name="gui",

@@ -8,12 +8,18 @@
     robot_sn
     load_gripper:=false
     gripper_name:='Flexiv-GN01'
+    load_mounted_ft_sensor:=false
     use_fake_hardware:=false
     fake_sensor_commands:=false
     ">
 
     <!-- Prefix defaults to 'arm_prefix_robot_sn' -->
     <xacro:property name="prefix" value="${arm_prefix + robot_sn + '_'}" />
+
+    <!-- FT sensor mounting only supported for Rizon4, Rizon4R and Rizon10 -->
+    <xacro:unless value="${rizon_type=='Rizon4' or rizon_type=='Rizon4R' or rizon_type=='Rizon10'}">
+      <xacro:property name="load_mounted_ft_sensor" value="false" />
+    </xacro:unless>
 
     <!-- Load gripper -->
     <xacro:if value="${load_gripper and gripper_name=='Flexiv-GN01'}">
@@ -28,6 +34,7 @@
       <xacro:if value="${rizon_type=='Rizon4R'}">
         <xacro:include filename="$(find flexiv_description)/urdf/rizon4r_joints_links.xacro" />
         <xacro:rizon4r_joints_links rizon_type="${rizon_type}" prefix="${prefix}"
+          load_mounted_ft_sensor="${load_mounted_ft_sensor}"
           mesh_prefix_path="package://flexiv_description/" />
       </xacro:if>
 
@@ -35,6 +42,7 @@
       <xacro:unless value="${rizon_type=='Rizon4R'}">
         <xacro:include filename="$(find flexiv_description)/urdf/rizon4_joints_links.xacro" />
         <xacro:rizon4_joints_links rizon_type="${rizon_type}" prefix="${prefix}"
+          load_mounted_ft_sensor="${load_mounted_ft_sensor}"
           mesh_prefix_path="package://flexiv_description/" />
       </xacro:unless>
 
@@ -50,6 +58,7 @@
     <xacro:if value="${rizon_type=='Rizon10' or rizon_type=='Rizon10s'}">
       <xacro:include filename="$(find flexiv_description)/urdf/rizon10_joints_links.xacro" />
       <xacro:rizon10_joints_links rizon_type="${rizon_type}" prefix="${prefix}"
+        load_mounted_ft_sensor="${load_mounted_ft_sensor}"
         mesh_prefix_path="package://flexiv_description/" />
 
       <!-- ros2 control include -->

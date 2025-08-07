@@ -4,10 +4,12 @@
   <!--
     rizon_type = "Rizon10", "Rizon10s"
     prefix = "Rizon10-123456_"
+    load_mounted_ft_sensor = false
     mesh_prefix_path = "", "package://flexiv_description/"
     NOTE: accurate kinematic but approximated dynamics parameters
   -->
-  <xacro:macro name="rizon10_joints_links" params="rizon_type prefix mesh_prefix_path">
+  <xacro:macro name="rizon10_joints_links"
+    params="rizon_type prefix load_mounted_ft_sensor mesh_prefix_path">
 
     <!-- JOINTS-->
     <joint name="${prefix}base_joint" type="fixed">
@@ -88,7 +90,12 @@
 
     <joint name="${prefix}link7_to_flange" type="fixed">
       <parent link="${prefix}link7" />
-      <child link="${prefix}flange" />
+      <xacro:if value="${load_mounted_ft_sensor}">
+        <child link="${prefix}wrist-sensor.base_link" />
+      </xacro:if>
+      <xacro:unless value="${load_mounted_ft_sensor}">
+        <child link="${prefix}flange" />
+      </xacro:unless>
       <xacro:if value="${rizon_type=='Rizon10'}">
         <origin xyz="0.0 0.0 0.081" rpy="0 0 ${-pi}" />
       </xacro:if>
@@ -343,6 +350,85 @@
         </collision>
       </xacro:if>
     </link>
+
+    <!-- FT03-D1 wrist sensor -->
+    <xacro:if value="${load_mounted_ft_sensor}">
+      <joint name="${prefix}wrist-sensor.remove_rizon_flange_body" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 -0.016" />
+        <parent link="${prefix}wrist-sensor.base_link" />
+        <child link="${prefix}wrist-sensor.proximal_link" />
+        <axis xyz="0 0 1" />
+      </joint>
+
+      <joint name="${prefix}wrist-sensor.proximal_link_to_sensing_frame" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.0235" />
+        <parent link="${prefix}wrist-sensor.proximal_link" />
+        <child link="${prefix}wrist-sensor.distal_link" />
+        <axis xyz="0 0 1" />
+      </joint>
+
+      <joint name="${prefix}wrist-sensor.sensing_frame_to_flange" type="fixed">
+        <parent link="${prefix}wrist-sensor.distal_link" />
+        <child link="${prefix}flange" />
+        <origin rpy="0 0 0" xyz="0.0 0.0 0.0285" />
+      </joint>
+
+      <link name="${prefix}wrist-sensor.base_link">
+        <inertial>
+          <mass value="0.0" />
+          <origin rpy="0 0 0" xyz="0.0 0.0 0.0" />
+          <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+        </inertial>
+      </link>
+
+      <link name="${prefix}wrist-sensor.proximal_link">
+        <inertial>
+          <origin rpy="0 0 0" xyz="0 0 0.01955" />
+          <mass value="0.149" />
+          <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0" />
+        </inertial>
+        <visual name="shell">
+          <origin rpy="0 0 0" xyz="0 0 0" />
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/FT03-D1/visual/proximal.obj"
+              scale="1 1 1" />
+          </geometry>
+        </visual>
+        <collision name="convex_mesh">
+          <origin xyz="0 0 0" rpy="0 0 0" />
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/FT03-D1/collision/proximal.stl" />
+          </geometry>
+        </collision>
+      </link>
+
+      <link name="${prefix}wrist-sensor.distal_link">
+        <inertial>
+          <mass value="0.249" />
+          <origin rpy="0 0 0" xyz="0 0 0.0085" />
+          <inertia ixx="1.05E-4" ixy="0" ixz="0" iyy="1.05E-4" iyz="-0" izz="1.81E-4" />
+        </inertial>
+        <visual name="shell">
+          <origin rpy="0 0 0" xyz="0 0 0" />
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/FT03-D1/visual/distal.obj" />
+          </geometry>
+        </visual>
+        <visual name="ring">
+          <origin rpy="0 0 0" xyz="0 0 0" />
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/FT03-D1/visual/ring.obj"
+              scale="0.039 0.039 0.002" />
+          </geometry>
+        </visual>
+        <collision name="convex_mesh">
+          <origin xyz="0 0 0" rpy="0 0 0" />
+          <geometry>
+            <mesh filename="${mesh_prefix_path}meshes/FT03-D1/collision/distal.stl" />
+          </geometry>
+        </collision>
+      </link>
+    </xacro:if>
 
     <link name="${prefix}flange">
       <inertial>

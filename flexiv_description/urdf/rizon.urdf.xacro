@@ -2,16 +2,17 @@
 
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rizon">
   <!-- 'rizon_type' values: Rizon4, Rizon4s, Rizon10, Rizon10s -->
-  <xacro:arg name="rizon_type" default="Rizon4"/>
+  <xacro:arg name="rizon_type" default="Rizon4" />
 
   <!-- import main macro -->
-  <xacro:include filename="$(find flexiv_description)/urdf/rizon_macro.xacro"/>
+  <xacro:include filename="$(find flexiv_description)/urdf/rizon_macro.xacro" />
 
   <!-- parameters -->
   <xacro:arg name="arm_prefix" default="" />
   <xacro:arg name="robot_sn" default="" />
   <xacro:arg name="load_gripper" default="false" />
   <xacro:arg name="gripper_name" default="Flexiv-GN01" />
+  <xacro:arg name="load_mounted_ft_sensor" default="false" />
   <xacro:arg name="use_fake_hardware" default="false" />
   <xacro:arg name="fake_sensor_commands" default="false" />
 
@@ -22,6 +23,7 @@
     load_gripper="$(arg load_gripper)"
     gripper_name="$(arg gripper_name)"
     use_fake_hardware="$(arg use_fake_hardware)"
+    load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)"
     fake_sensor_commands="$(arg fake_sensor_commands)">
   </xacro:rizon_robot>
 
