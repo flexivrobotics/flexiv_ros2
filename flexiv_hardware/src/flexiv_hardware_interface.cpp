@@ -199,8 +199,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
 {
     RCLCPP_INFO(getLogger(), "Starting... please wait...");
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
     try {
         // Clear fault on robot server if any
         if (robot_->fault()) {
@@ -246,8 +244,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
     RCLCPP_INFO(getLogger(), "Stopping... please wait...");
-
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 
     robot_->Stop();
 
