@@ -1,0 +1,57 @@
+name: Jazzy Binary Build
+
+on:
+  push:
+    branches:
+      - jazzy
+      - jazzy-develop
+  pull_request:
+    branches:
+      - jazzy
+      - jazzy-develop
+
+jobs:
+  jazzy_binary:
+    name: Jazzy binary job
+    runs-on: ubuntu-24.04
+    container:
+      image: osrf/ros:jazzy-desktop
+    strategy:
+      fail-fast: false
+    env:
+      ROS_DISTRO: jazzy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+          libeigen3-dev \
+          ros-jazzy-xacro \
+          ros-jazzy-tinyxml2-vendor \
+          ros-jazzy-ros2-control \
+          ros-jazzy-realtime-tools \
+          ros-jazzy-control-toolbox \
+          ros-jazzy-moveit \
+          ros-jazzy-ros2-controllers \
+          ros-jazzy-test-msgs \
+          ros-jazzy-joint-state-publisher \
+          ros-jazzy-joint-state-publisher-gui \
+          ros-jazzy-robot-state-publisher
+      - name: Build and run tests
+        id: action-ros-ci
+        uses: ros-tooling/action-ros-ci@v0.4
+        with:
+          target-ros2-distro: ${{ env.ROS_DISTRO }}
+          package-name: |
+            flexiv_bringup
+            flexiv_description
+            flexiv_gripper
+            flexiv_hardware
+            flexiv_moveit_config
+            flexiv_msgs
+            flexiv_robot_states_broadcaster
+            flexiv_test_nodes
+            gpio_controller
+            joint_impedance_controller
+          skip-tests: true

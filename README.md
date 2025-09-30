@@ -12,41 +12,40 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 
 | **Supported OS** | **Supported ROS 2 distribution**                              |
 | ---------------- | ------------------------------------------------------------- |
-| Ubuntu 20.04     | [Foxy Fitzroy](https://docs.ros.org/en/foxy/index.html)       |
 | Ubuntu 22.04     | [Humble Hawksbill](https://docs.ros.org/en/humble/index.html) |
+| Ubuntu 24.04     | [Jazzy Jalisco](https://docs.ros.org/en/jazzy/index.html)     |
 
 ### Release Status
 
-| **ROS 2 Distro**   | Foxy                                                            | Humble                                                |
+| **ROS 2 Distro**   | Humble                                                          | Jazzy                                                 |
 | ------------------ | --------------------------------------------------------------- | ----------------------------------------------------- |
-| **Branch**         | [foxy](https://github.com/flexivrobotics/flexiv_ros2/tree/foxy) | [humble](https://github.com/flexivrobotics/flexiv_ros2) |
-| **Release Status** | [![Foxy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml/badge.svg?branch=foxy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml) | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) |
+| **Branch**         | [humble](https://github.com/flexivrobotics/flexiv_ros2) | [jazzy](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy) |
+| **Release Status** | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) | [![Jazzy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml/badge.svg?branch=jazzy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml) |
 
 ## Getting Started
 
-This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
+This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
 
-1. Install [ROS 2 Humble via Debian Packages](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html)
+1. Install [ROS 2 Jazzy via Debian Packages](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debians.html)
 
 2. Install `colcon` and additional ROS packages:
 
    ```bash
    sudo apt install -y \
    python3-colcon-common-extensions \
-   python3-rosdep2 \
    libeigen3-dev \
-   ros-humble-xacro \
-   ros-humble-tinyxml2-vendor \
-   ros-humble-ros2-control \
-   ros-humble-realtime-tools \
-   ros-humble-control-toolbox \
-   ros-humble-moveit \
-   ros-humble-ros2-controllers \
-   ros-humble-test-msgs \
-   ros-humble-joint-state-publisher \
-   ros-humble-joint-state-publisher-gui \
-   ros-humble-robot-state-publisher \
-   ros-humble-rviz2
+   ros-jazzy-xacro \
+   ros-jazzy-tinyxml2-vendor \
+   ros-jazzy-ros2-control \
+   ros-jazzy-realtime-tools \
+   ros-jazzy-control-toolbox \
+   ros-jazzy-moveit \
+   ros-jazzy-ros2-controllers \
+   ros-jazzy-test-msgs \
+   ros-jazzy-joint-state-publisher \
+   ros-jazzy-joint-state-publisher-gui \
+   ros-jazzy-robot-state-publisher \
+   ros-jazzy-rviz2
    ```
 
 3. Setup workspace:
@@ -64,7 +63,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
    ```bash
    cd ~/flexiv_ros2_ws
    rosdep update
-   rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
+   rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
    ```
 
 > [!NOTE]
@@ -90,7 +89,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
 
    ```bash
    cd ~/flexiv_ros2_ws
-   source /opt/ros/humble/setup.bash
+   source /opt/ros/jazzy/setup.bash
    colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/rdk_install
    source install/setup.bash
    ```
@@ -98,7 +97,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04) and Humble (Ubuntu 22.0
 > [!NOTE]
 > Remember to source the setup file and the workspace whenever a new terminal is opened:
 > ```bash
-> source /opt/ros/humble/setup.bash
+> source /opt/ros/jazzy/setup.bash
 > source ~/flexiv_ros2_ws/install/setup.bash
 > ```
 
