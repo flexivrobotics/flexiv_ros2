@@ -86,7 +86,7 @@ public:
         if (flexiv_robot_states_interface != state_interfaces_.end()) {
             // Get the robot states pointer via bit_cast
             flexiv_robot_states_ptr = bit_cast<flexiv::rdk::RobotStates*>(
-                (*flexiv_robot_states_interface).get().get_value());
+                (*flexiv_robot_states_interface).get().get_optional().value());
         } else {
             RCLCPP_ERROR(
                 rclcpp::get_logger("FlexivRobotStates"), "Robot states interface not found.");

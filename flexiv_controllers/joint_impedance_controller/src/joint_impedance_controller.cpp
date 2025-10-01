@@ -158,8 +158,8 @@ controller_interface::return_type JointImpedanceController::update(
 
     // receive desired joint commands
     for (auto index = 0ul; index < joint_names_.size(); ++index) {
-        double q = state_interfaces_[2 * index].get_value();
-        double dq = state_interfaces_[2 * index + 1].get_value();
+        double q = state_interfaces_[2 * index].get_optional().value();
+        double dq = state_interfaces_[2 * index + 1].get_optional().value();
         double q_des = (*joint_commands)->positions[index];
 
         double dq_des = 0;
@@ -169,7 +169,12 @@ controller_interface::return_type JointImpedanceController::update(
 
         // compute torque
         double tau = k_p_[index] * (q_des - q) + k_d_[index] * (dq_des - dq);
-        command_interfaces_[index].set_value(tau);
+        if (!command_interfaces_[index].set_value(tau)) {
+            RCLCPP_ERROR(get_node()->get_logger(),
+                "Failed to set torque command for joint %s to %f", joint_names_[index].c_str(),
+                tau);
+            return controller_interface::return_type::ERROR;
+        }
     }
 
     return controller_interface::return_type::OK;
