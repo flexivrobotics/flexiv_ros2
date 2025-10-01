@@ -19,6 +19,7 @@
 #include <rclcpp/macros.hpp>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/time.hpp>
+#include <rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp>
 #include <rclcpp_lifecycle/state.hpp>
 
 // ros2_control hardware_interface
@@ -27,8 +28,6 @@
 #include <hardware_interface/system_interface.hpp>
 #include <hardware_interface/types/hardware_interface_return_values.hpp>
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
-
-#include "flexiv_hardware/visibility_control.h"
 
 // Flexiv
 #include "flexiv/rdk/robot.hpp"
@@ -51,39 +50,32 @@ class FlexivHardwareInterface : public hardware_interface::SystemInterface
 public:
     RCLCPP_SHARED_PTR_DEFINITIONS(FlexivHardwareInterface)
 
-    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::CallbackReturn on_init(
         const hardware_interface::HardwareComponentInterfaceParams& params) override;
 
-    FLEXIV_HARDWARE_PUBLIC
-    std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
+    hardware_interface::CallbackReturn on_configure(
+        const rclcpp_lifecycle::State& previous_state) override;
 
-    FLEXIV_HARDWARE_PUBLIC
-    std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
+    std::vector<hardware_interface::InterfaceDescription>
+    export_unlisted_state_interface_descriptions() override;
 
-    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::return_type prepare_command_mode_switch(
         const std::vector<std::string>& start_interfaces,
         const std::vector<std::string>& stop_interfaces) override;
 
-    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::return_type perform_command_mode_switch(
         const std::vector<std::string>& start_interfaces,
         const std::vector<std::string>& stop_interfaces) override;
 
-    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::CallbackReturn on_activate(
         const rclcpp_lifecycle::State& previous_state) override;
 
-    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::CallbackReturn on_deactivate(
         const rclcpp_lifecycle::State& previous_state) override;
 
-    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::return_type read(
         const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
-    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::return_type write(
         const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
@@ -91,23 +83,10 @@ private:
     // Flexiv RDK
     std::unique_ptr<flexiv::rdk::Robot> robot_;
 
-    // Joint commands
-    std::vector<double> hw_commands_joint_positions_;
-    std::vector<double> hw_commands_joint_velocities_;
-    std::vector<double> hw_commands_joint_efforts_;
-
-    // Joint states
-    std::vector<double> hw_states_joint_positions_;
-    std::vector<double> hw_states_joint_velocities_;
-    std::vector<double> hw_states_joint_efforts_;
-
     // Robot States
     flexiv::rdk::RobotStates hw_flexiv_robot_states_;
     flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_ = &hw_flexiv_robot_states_;
-
-    // GPIO commands and states
-    std::vector<double> hw_commands_gpio_out_;
-    std::vector<double> hw_states_gpio_in_;
+    double hw_flexiv_robot_states_storage_ {0.0};
 
     // Current digital output map
     std::map<unsigned int, bool> current_digital_outputs_;

@@ -34,19 +34,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
-    hw_states_joint_positions_.resize(
-        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_states_joint_velocities_.resize(
-        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_states_joint_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_commands_joint_positions_.resize(
-        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_commands_joint_velocities_.resize(
-        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_commands_joint_efforts_.resize(
-        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    hw_states_gpio_in_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
-    hw_commands_gpio_out_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
     stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
         StoppingInterface::NONE};
@@ -143,55 +130,44 @@ rclcpp::Logger FlexivHardwareInterface::getLogger()
     return rclcpp::get_logger("FlexivHardwareInterface");
 }
 
-std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_state_interfaces()
+hardware_interface::CallbackReturn FlexivHardwareInterface::on_configure(
+    const rclcpp_lifecycle::State& /*previous_state*/)
 {
-    RCLCPP_INFO(getLogger(), "export_state_interfaces");
-
-    std::vector<hardware_interface::StateInterface> state_interfaces;
-    for (std::size_t i = 0; i < info_.joints.size(); i++) {
-        state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name,
-            hardware_interface::HW_IF_POSITION, &hw_states_joint_positions_[i]));
-        state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name,
-            hardware_interface::HW_IF_VELOCITY, &hw_states_joint_velocities_[i]));
-        state_interfaces.emplace_back(hardware_interface::StateInterface(
-            info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_states_joint_efforts_[i]));
+    RCLCPP_INFO(getLogger(), "Configuring ... please wait ...");
+    for (const auto& [name, descr] : joint_state_interfaces_) {
+        set_state(name, std::numeric_limits<double>::quiet_NaN());
     }
-
-    std::string robot_sn = info_.hardware_parameters.at("robot_sn");
-    state_interfaces.emplace_back(hardware_interface::StateInterface(
-        robot_sn, "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_)));
-
-    const std::string prefix = info_.hardware_parameters.at("prefix");
-    for (std::size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
-        state_interfaces.emplace_back(hardware_interface::StateInterface(
-            prefix + "gpio", "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i]));
+    for (const auto& [name, descr] : joint_command_interfaces_) {
+        set_command(name, std::numeric_limits<double>::quiet_NaN());
     }
+    for (const auto& [name, descr] : gpio_state_interfaces_) {
+        set_state(name, 0.0);
+    }
+    for (const auto& [name, descr] : gpio_command_interfaces_) {
+        set_command(name, 0.0);
+    }
+    RCLCPP_INFO(getLogger(), "System successfully configured!");
 
-    return state_interfaces;
+    return hardware_interface::CallbackReturn::SUCCESS;
 }
 
-std::vector<hardware_interface::CommandInterface>
-FlexivHardwareInterface::export_command_interfaces()
+std::vector<hardware_interface::InterfaceDescription>
+FlexivHardwareInterface::export_unlisted_state_interface_descriptions()
 {
-    RCLCPP_INFO(getLogger(), "export_command_interfaces");
+    std::vector<hardware_interface::InterfaceDescription> unlisted_state_interfaces;
 
-    std::vector<hardware_interface::CommandInterface> command_interfaces;
-    for (size_t i = 0; i < info_.joints.size(); i++) {
-        command_interfaces.emplace_back(hardware_interface::CommandInterface(info_.joints[i].name,
-            hardware_interface::HW_IF_POSITION, &hw_commands_joint_positions_[i]));
-        command_interfaces.emplace_back(hardware_interface::CommandInterface(info_.joints[i].name,
-            hardware_interface::HW_IF_VELOCITY, &hw_commands_joint_velocities_[i]));
-        command_interfaces.emplace_back(hardware_interface::CommandInterface(info_.joints[i].name,
-            hardware_interface::HW_IF_EFFORT, &hw_commands_joint_efforts_[i]));
-    }
+    std::string robot_sn = info_.hardware_parameters.at("robot_sn");
 
-    const std::string prefix = info_.hardware_parameters.at("prefix");
-    for (size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
-        command_interfaces.emplace_back(hardware_interface::CommandInterface(
-            prefix + "gpio", "digital_output_" + std::to_string(i), &hw_commands_gpio_out_[i]));
-    }
+    hardware_interface::InterfaceInfo unlisted_interface;
+    unlisted_interface.name = "flexiv_robot_states";
+    unlisted_interface.data_type = "double";
+    unlisted_interface.min = std::to_string(std::numeric_limits<double>::lowest());
+    unlisted_interface.max = std::to_string(std::numeric_limits<double>::max());
 
-    return command_interfaces;
+    unlisted_state_interfaces.emplace_back(
+        hardware_interface::InterfaceDescription(robot_sn, unlisted_interface));
+
+    return unlisted_state_interfaces;
 }
 
 hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
@@ -258,18 +234,25 @@ hardware_interface::return_type FlexivHardwareInterface::read(
     if (robot_->operational() && robot_->mode() != flexiv::rdk::Mode::IDLE) {
 
         hw_flexiv_robot_states_ = robot_->states();
+        hw_flexiv_robot_states_storage_
+            = reinterpret_cast<std::uintptr_t>(hw_flexiv_robot_states_addr_);
 
         // Read joint states
         for (size_t i = 0; i < info_.joints.size(); i++) {
-            hw_states_joint_positions_[i] = robot_->states().q[i];
-            hw_states_joint_velocities_[i] = robot_->states().dtheta[i];
-            hw_states_joint_efforts_[i] = robot_->states().tau[i];
+            const auto name_pos = info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION;
+            const auto name_vel = info_.joints[i].name + "/" + hardware_interface::HW_IF_VELOCITY;
+            const auto name_eff = info_.joints[i].name + "/" + hardware_interface::HW_IF_EFFORT;
+            set_state(name_pos, robot_->states().q[i]);
+            set_state(name_vel, robot_->states().dtheta[i]);
+            set_state(name_eff, robot_->states().tau[i]);
         }
 
         // Read GPIO input states
         auto gpio_in = robot_->digital_inputs();
-        for (size_t i = 0; i < hw_states_gpio_in_.size(); i++) {
-            hw_states_gpio_in_[i] = static_cast<double>(gpio_in[i]);
+        const std::string prefix = info_.hardware_parameters.at("prefix");
+        for (size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
+            const auto name_gpio_in = prefix + "gpio" + "/digital_input_" + std::to_string(i);
+            set_state(name_gpio_in, static_cast<double>(gpio_in[i]));
         }
     }
 
@@ -291,40 +274,55 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     bool isNanVel = false;
     bool isNanEff = false;
     for (std::size_t i = 0; i < robot_->info().DoF; i++) {
-        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
+        const auto name_pos = info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION;
+        const auto name_vel = info_.joints[i].name + "/" + hardware_interface::HW_IF_VELOCITY;
+        const auto name_eff = info_.joints[i].name + "/" + hardware_interface::HW_IF_EFFORT;
+        if (get_command(name_pos) != get_command(name_pos)) {
             isNanPos = true;
         }
-        if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i]) {
+        if (get_command(name_vel) != get_command(name_vel)) {
             isNanVel = true;
         }
-        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i]) {
+        if (get_command(name_eff) != get_command(name_eff)) {
             isNanEff = true;
         }
     }
 
     if (position_controller_running_ && robot_->mode() == flexiv::rdk::Mode::NRT_JOINT_POSITION
         && !isNanPos) {
-        target_pos = hw_commands_joint_positions_;
+        for (std::size_t i = 0; i < robot_->info().DoF; i++) {
+            const auto name_pos = info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION;
+            target_pos[i] = get_command(name_pos);
+        }
         robot_->SendJointPosition(target_pos, target_vel, target_acc, max_vel, max_acc);
     } else if (velocity_controller_running_
                && robot_->mode() == flexiv::rdk::Mode::NRT_JOINT_POSITION && !isNanVel) {
-        target_pos = hw_commands_joint_positions_;
-        target_vel = hw_commands_joint_velocities_;
+        for (std::size_t i = 0; i < robot_->info().DoF; i++) {
+            const auto name_pos = info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION;
+            const auto name_vel = info_.joints[i].name + "/" + hardware_interface::HW_IF_VELOCITY;
+            target_pos[i] = get_command(name_pos);
+            target_vel[i] = get_command(name_vel);
+        }
         robot_->SendJointPosition(target_pos, target_vel, target_acc, max_vel, max_acc);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
                && !isNanEff) {
         std::vector<double> target_torque(robot_->info().DoF);
-        target_torque = hw_commands_joint_efforts_;
+        for (std::size_t i = 0; i < robot_->info().DoF; i++) {
+            const auto name_eff = info_.joints[i].name + "/" + hardware_interface::HW_IF_EFFORT;
+            target_torque[i] = get_command(name_eff);
+        }
         robot_->StreamJointTorque(target_torque, true, true);
     }
 
     // Write digital output
     std::map<unsigned int, bool> digital_outputs;
-    for (size_t i = 0; i < hw_commands_gpio_out_.size(); i++) {
-        if (hw_commands_gpio_out_[i] != hw_commands_gpio_out_[i]) {
+    for (size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
+        const auto name_gpio_out = info_.hardware_parameters.at("prefix") + "gpio"
+                                   + "/digital_output_" + std::to_string(i);
+        if (get_command(name_gpio_out) != get_command(name_gpio_out)) {
             continue;
         }
-        digital_outputs[i] = static_cast<bool>(hw_commands_gpio_out_[i]);
+        digital_outputs[i] = static_cast<bool>(get_command(name_gpio_out));
     }
     // Check if there are changes in the digital output values
     bool digital_outputs_changed = false;
@@ -432,8 +430,10 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
-        std::fill(hw_commands_joint_positions_.begin(), hw_commands_joint_positions_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        for (size_t i = 0; i < info_.joints.size(); i++) {
+            const auto name_pos = info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION;
+            set_command(name_pos, std::numeric_limits<double>::quiet_NaN());
+        }
 
         // Set to joint position mode
         robot_->SwitchMode(flexiv::rdk::Mode::NRT_JOINT_POSITION);
@@ -447,8 +447,10 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
-        std::fill(hw_commands_joint_velocities_.begin(), hw_commands_joint_velocities_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        for (size_t i = 0; i < info_.joints.size(); i++) {
+            const auto name_vel = info_.joints[i].name + "/" + hardware_interface::HW_IF_VELOCITY;
+            set_command(name_vel, std::numeric_limits<double>::quiet_NaN());
+        }
 
         // Set to joint position mode
         robot_->SwitchMode(flexiv::rdk::Mode::NRT_JOINT_POSITION);
@@ -463,8 +465,10 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
 
         // Hold joints when starting joint torque controller before user
         // commands arrives
-        std::fill(hw_commands_joint_efforts_.begin(), hw_commands_joint_efforts_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        for (size_t i = 0; i < info_.joints.size(); i++) {
+            const auto name_eff = info_.joints[i].name + "/" + hardware_interface::HW_IF_EFFORT;
+            set_command(name_eff, std::numeric_limits<double>::quiet_NaN());
+        }
 
         // Set to joint torque mode
         robot_->SwitchMode(flexiv::rdk::Mode::RT_JOINT_TORQUE);
