@@ -22,9 +22,11 @@
 #include <rclcpp_lifecycle/state.hpp>
 
 // ros2_control hardware_interface
+#include <hardware_interface/handle.hpp>
 #include <hardware_interface/hardware_info.hpp>
 #include <hardware_interface/system_interface.hpp>
 #include <hardware_interface/types/hardware_interface_return_values.hpp>
+#include <hardware_interface/types/hardware_interface_type_values.hpp>
 
 #include "flexiv_hardware/visibility_control.h"
 
@@ -51,7 +53,7 @@ public:
 
     FLEXIV_HARDWARE_PUBLIC
     hardware_interface::CallbackReturn on_init(
-        const hardware_interface::HardwareInfo& info) override;
+        const hardware_interface::HardwareComponentInterfaceParams& params) override;
 
     FLEXIV_HARDWARE_PUBLIC
     std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
@@ -122,4 +124,5 @@ private:
 };
 
 } /* namespace flexiv_hardware */
+
 #endif /* FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_ */

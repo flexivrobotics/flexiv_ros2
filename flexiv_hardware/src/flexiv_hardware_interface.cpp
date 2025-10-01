@@ -27,9 +27,9 @@ constexpr double kMaxJointAcceleration = 3.0;
 namespace flexiv_hardware {
 
 hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
-    const hardware_interface::HardwareInfo& info)
+    const hardware_interface::HardwareComponentInterfaceParams& params)
 {
-    if (hardware_interface::SystemInterface::on_init(info)
+    if (hardware_interface::SystemInterface::on_init(params)
         != hardware_interface::CallbackReturn::SUCCESS) {
         return hardware_interface::CallbackReturn::ERROR;
     }
