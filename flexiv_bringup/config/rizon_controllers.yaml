@@ -2,47 +2,17 @@ controller_manager:
   ros__parameters:
     update_rate: 1000  # Hz
 
-    forward_position_controller:
-      type: position_controllers/JointGroupPositionController
-
     rizon_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    joint_impedance_controller:
-      type: joint_impedance_controller/JointImpedanceController
-
     gpio_controller:
       type: gpio_controller/GPIOController
 
     flexiv_robot_states_broadcaster:
       type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
-
-forward_position_controller:
-  ros__parameters:
-    joints:
-      - $(var robot_sn)_joint1
-      - $(var robot_sn)_joint2
-      - $(var robot_sn)_joint3
-      - $(var robot_sn)_joint4
-      - $(var robot_sn)_joint5
-      - $(var robot_sn)_joint6
-      - $(var robot_sn)_joint7
-
-joint_impedance_controller:
-  ros__parameters:
-    joints:
-      - $(var robot_sn)_joint1
-      - $(var robot_sn)_joint2
-      - $(var robot_sn)_joint3
-      - $(var robot_sn)_joint4
-      - $(var robot_sn)_joint5
-      - $(var robot_sn)_joint6
-      - $(var robot_sn)_joint7
-    k_p: [3000.0, 3000.0, 800.0, 800.0, 200.0, 200.0, 200.0]
-    k_d: [80.0, 80.0, 40.0, 40.0, 8.0, 8.0, 8.0]
 
 rizon_arm_controller:
   ros__parameters:
