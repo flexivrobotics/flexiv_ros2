@@ -6,6 +6,7 @@
     rizon_type
     arm_prefix
     robot_sn
+    rdk_control_mode:='joint_position'
     load_gripper:=false
     gripper_name:='Flexiv-GN01'
     load_mounted_ft_sensor:=false
@@ -49,6 +50,7 @@
       <!-- ros2 control include -->
       <xacro:include filename="$(find flexiv_description)/urdf/rizon4.ros2_control.xacro" />
       <xacro:rizon4_ros2_control prefix="${prefix}" robot_sn="${robot_sn}"
+        rdk_control_mode="${rdk_control_mode}"
         use_fake_hardware="${use_fake_hardware}"
         fake_sensor_commands="${fake_sensor_commands}"
       />
@@ -64,6 +66,7 @@
       <!-- ros2 control include -->
       <xacro:include filename="$(find flexiv_description)/urdf/rizon10.ros2_control.xacro" />
       <xacro:rizon10_ros2_control prefix="${prefix}" robot_sn="${robot_sn}"
+        rdk_control_mode="${rdk_control_mode}"
         use_fake_hardware="${use_fake_hardware}"
         fake_sensor_commands="${fake_sensor_commands}"
       />

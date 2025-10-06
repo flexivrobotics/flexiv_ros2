@@ -89,6 +89,9 @@ private:
     // Flexiv RDK
     std::unique_ptr<flexiv::rdk::Robot> robot_;
 
+    // RDK control mode for joint position and velocity interfaces
+    flexiv::rdk::Mode rdk_control_mode_;
+
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
     std::vector<double> hw_commands_joint_velocities_;
