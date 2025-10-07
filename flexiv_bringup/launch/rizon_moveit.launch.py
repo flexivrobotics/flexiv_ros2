@@ -47,6 +47,7 @@ def launch_setup(context):
     rizon_type = LaunchConfiguration("rizon_type")
     robot_sn = LaunchConfiguration("robot_sn")
     robot_sn_str = robot_sn.perform(context)
+    rdk_control_mode = LaunchConfiguration("rdk_control_mode")
     start_rviz = LaunchConfiguration("start_rviz")
     load_gripper = LaunchConfiguration("load_gripper")
     gripper_name = LaunchConfiguration("gripper_name")
@@ -74,6 +75,9 @@ def launch_setup(context):
                 " ",
                 "rizon_type:=",
                 rizon_type,
+                " ",
+                "rdk_control_mode:=",
+                rdk_control_mode,
                 " ",
                 "load_gripper:=",
                 load_gripper,
@@ -243,6 +247,7 @@ def launch_setup(context):
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
             {"robot_sn": robot_sn},
+            {"rdk_control_mode": rdk_control_mode},
         ],
         remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
@@ -401,6 +406,15 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "robot_sn",
             description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rdk_control_mode",
+            default_value="joint_position",
+            description="RDK control mode for the ROS 2 control joint position and velocity interfaces. Options: joint_position, joint_impedance",
+            choices=["joint_position", "joint_impedance"],
         )
     )
 

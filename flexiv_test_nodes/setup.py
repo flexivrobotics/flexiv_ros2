@@ -36,10 +36,6 @@ Demo nodes for for testing flexiv_ros2.""",
         "console_scripts": [
             "publisher_joint_trajectory_controller = \
                 flexiv_test_nodes.publisher_joint_trajectory_controller:main",
-            "sine_sweep_position_controller = \
-                flexiv_test_nodes.sine_sweep_position_controller:main",
-            "sine_sweep_impedance_controller = \
-                flexiv_test_nodes.sine_sweep_impedance_controller:main",
         ],
     },
 )

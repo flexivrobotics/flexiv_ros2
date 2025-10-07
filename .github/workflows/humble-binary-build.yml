@@ -51,5 +51,4 @@ jobs:
             flexiv_robot_states_broadcaster
             flexiv_test_nodes
             gpio_controller
-            joint_impedance_controller
           skip-tests: true

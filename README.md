@@ -113,11 +113,12 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
 - `rizon_type` (default: *Rizon4*) - type of the Flexiv Rizon robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10 or Rizon10s)
+- `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
 - `start_rviz` (deafult: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
-- `robot_controller` (default: *rizon_arm_controller*) - robot controller to start. Available controllers: *forward_position_controller*, *rizon_arm_controller*, *joint_impedance_controller*.
+- `robot_controller` (default: *rizon_arm_controller*) - robot controller to start. Available controllers: *rizon_arm_controller*
 
 *(Details about other launch files can be found in [`flexiv_bringup`](/flexiv_bringup))*
 
@@ -149,25 +150,6 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
      ```
 
      The joint position goals can be changed in `flexiv_bringup/config/joint_trajectory_position_publisher.yaml`
-   - To test another controller, define it using the `robot_controller` launch argument, for example the `joint_impedance_controller`:
-
-     ```bash
-     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_controller:=joint_impedance_controller
-     ```
-
-     Open a new terminal and run the launch file:
-
-     ```bash
-     ros2 launch flexiv_bringup sine_sweep_impedance.launch.py robot_sn:=[robot_sn]
-     ```
-
-     The robot should run a sine-sweep motion with joint impedance control.
-
-> [!NOTE]
-> The command starts the robot in the joint torque mode. In this mode, gravity and friction are compensated **only** for the robot **without** any attached objects (e.g. the gripper, camera).
-
-> [!NOTE]
-> Joint impedance control is not supported in fake/simulated hardware.
 
 ### Using MoveIt
 

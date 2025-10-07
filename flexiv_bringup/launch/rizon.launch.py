@@ -21,6 +21,7 @@ from launch.substitutions import (
 def generate_launch_description():
     rizon_type_param_name = "rizon_type"
     robot_sn_param_name = "robot_sn"
+    rdk_control_mode_param_name = "rdk_control_mode"
     start_rviz_param_name = "start_rviz"
     load_gripper_param_name = "load_gripper"
     gripper_name_param_name = "gripper_name"
@@ -45,6 +46,15 @@ def generate_launch_description():
         DeclareLaunchArgument(
             robot_sn_param_name,
             description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            rdk_control_mode_param_name,
+            default_value="joint_position",
+            description="RDK control mode for the ROS 2 control joint position and velocity interfaces. Options: joint_position, joint_impedance",
+            choices=["joint_position", "joint_impedance"],
         )
     )
 
@@ -101,13 +111,14 @@ def generate_launch_description():
         DeclareLaunchArgument(
             robot_controller_param_name,
             default_value="rizon_arm_controller",
-            description="Robot controller to start. Available: forward_position_controller, rizon_arm_controller, joint_impedance_controller.",
+            description="Robot controller to start. Available: rizon_arm_controller",
         )
     )
 
     # Initialize Arguments
     rizon_type = LaunchConfiguration(rizon_type_param_name)
     robot_sn = LaunchConfiguration(robot_sn_param_name)
+    rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     load_gripper = LaunchConfiguration(load_gripper_param_name)
     gripper_name = LaunchConfiguration(gripper_name_param_name)
@@ -134,6 +145,9 @@ def generate_launch_description():
                 " ",
                 "rizon_type:=",
                 rizon_type,
+                " ",
+                "rdk_control_mode:=",
+                rdk_control_mode,
                 " ",
                 "load_gripper:=",
                 load_gripper,
@@ -183,6 +197,7 @@ def generate_launch_description():
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
             {"robot_sn": robot_sn},
+            {"rdk_control_mode": rdk_control_mode},
         ],
         remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
