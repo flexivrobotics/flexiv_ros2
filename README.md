@@ -69,27 +69,22 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
 > [!NOTE]
 > Skip step 5 and 6 if you have compile and install [flexiv_rdk](https://github.com/flexivrobotics/flexiv_rdk).
 
-5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`. Compile and install to the installation directory:
-
-   ```bash
-   cd ~/flexiv_ros2_ws/src/flexiv_ros2/flexiv_hardware/rdk/thirdparty
-   bash build_and_install_dependencies.sh ~/rdk_install
-   ```
+5. Choose a directory for installing `flexiv_rdk` library. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`.
 
 6. Configure and install `flexiv_rdk`:
 
    ```bash
+   source /opt/ros/jazzy/setup.bash
    cd ~/flexiv_ros2_ws/src/flexiv_ros2/flexiv_hardware/rdk
    mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
-   cmake --build . --target install --config Release
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install -DRDK_SUPPORT_ROS2_JAZZY=ON
+   make install
    ```
 
 7. Build and source the workspace:
 
    ```bash
    cd ~/flexiv_ros2_ws
-   source /opt/ros/jazzy/setup.bash
    colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/rdk_install
    source install/setup.bash
    ```
