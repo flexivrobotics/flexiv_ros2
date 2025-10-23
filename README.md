@@ -66,9 +66,6 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
    ```
 
-> [!NOTE]
-> Skip step 5 and 6 if you have compile and install [flexiv_rdk](https://github.com/flexivrobotics/flexiv_rdk).
-
 5. Choose a directory for installing `flexiv_rdk` library. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`.
 
 6. Configure and install `flexiv_rdk`:
