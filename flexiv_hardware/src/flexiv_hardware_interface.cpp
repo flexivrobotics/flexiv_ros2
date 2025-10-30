@@ -300,7 +300,6 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     // Initialize target vectors to hold position
     std::vector<double> target_pos(robot_->info().DoF);
     std::vector<double> target_vel(robot_->info().DoF);
-    std::vector<double> target_acc(robot_->info().DoF);
 
     std::vector<double> max_vel(robot_->info().DoF, kMaxJointVelocity);
     std::vector<double> max_acc(robot_->info().DoF, kMaxJointAcceleration);
@@ -322,11 +321,11 @@ hardware_interface::return_type FlexivHardwareInterface::write(
 
     if (position_controller_running_ && robot_->mode() == rdk_control_mode_ && !isNanPos) {
         target_pos = hw_commands_joint_positions_;
-        robot_->SendJointPosition(target_pos, target_vel, target_acc, max_vel, max_acc);
+        robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
     } else if (velocity_controller_running_ && robot_->mode() == rdk_control_mode_ && !isNanVel) {
         target_pos = hw_commands_joint_positions_;
         target_vel = hw_commands_joint_velocities_;
-        robot_->SendJointPosition(target_pos, target_vel, target_acc, max_vel, max_acc);
+        robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
                && !isNanEff) {
         std::vector<double> target_torque(robot_->info().DoF);
