@@ -18,6 +18,7 @@ jobs:
       fail-fast: false
     env:
       ROS_DISTRO: humble
+      RDK_INSTALL_DIR: /root/rdk_install
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -36,6 +37,15 @@ jobs:
           ros-humble-joint-state-publisher \
           ros-humble-joint-state-publisher-gui \
           ros-humble-robot-state-publisher
+      - name: Build and install flexiv_rdk
+        run: |
+          cd src/flexiv_ros2/flexiv_hardware/rdk/thirdparty
+          bash build_and_install_dependencies.sh $RDK_INSTALL_DIR
+
+          cd ../
+          mkdir build && cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=$RDK_INSTALL_DIR
+          cmake --build . --target install --config Release
       - name: Build and run tests
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.3
