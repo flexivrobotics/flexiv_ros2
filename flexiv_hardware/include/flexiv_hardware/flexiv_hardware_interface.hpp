@@ -19,7 +19,6 @@
 #include <rclcpp/macros.hpp>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/time.hpp>
-#include <rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp>
 #include <rclcpp_lifecycle/state.hpp>
 
 // ros2_control hardware_interface
@@ -53,11 +52,9 @@ public:
     hardware_interface::CallbackReturn on_init(
         const hardware_interface::HardwareComponentInterfaceParams& params) override;
 
-    hardware_interface::CallbackReturn on_configure(
-        const rclcpp_lifecycle::State& previous_state) override;
+    std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
-    std::vector<hardware_interface::InterfaceDescription>
-    export_unlisted_state_interface_descriptions() override;
+    std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
     hardware_interface::return_type prepare_command_mode_switch(
         const std::vector<std::string>& start_interfaces,
@@ -83,10 +80,26 @@ private:
     // Flexiv RDK
     std::unique_ptr<flexiv::rdk::Robot> robot_;
 
+    // RDK control mode for joint position and velocity interfaces
+    flexiv::rdk::Mode rdk_control_mode_;
+
+    // Joint commands
+    std::vector<double> hw_commands_joint_positions_;
+    std::vector<double> hw_commands_joint_velocities_;
+    std::vector<double> hw_commands_joint_efforts_;
+
+    // Joint states
+    std::vector<double> hw_states_joint_positions_;
+    std::vector<double> hw_states_joint_velocities_;
+    std::vector<double> hw_states_joint_efforts_;
+
     // Robot States
     flexiv::rdk::RobotStates hw_flexiv_robot_states_;
     flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_ = &hw_flexiv_robot_states_;
-    double hw_flexiv_robot_states_storage_ {0.0};
+
+    // GPIO commands and states
+    std::vector<double> hw_commands_gpio_out_;
+    std::vector<double> hw_states_gpio_in_;
 
     // Current digital output map
     std::map<unsigned int, bool> current_digital_outputs_;
