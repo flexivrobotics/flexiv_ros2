@@ -4,6 +4,7 @@
   <xacro:macro name="rizon4_ros2_control" params="
     prefix
     robot_sn
+    rdk_control_mode
     use_fake_hardware:=false
     fake_sensor_commands:=false
     ">
@@ -19,6 +20,7 @@
           <plugin>flexiv_hardware/FlexivHardwareInterface</plugin>
           <param name="robot_sn">${robot_sn}</param>
           <param name="prefix">${prefix}</param>
+          <param name="rdk_control_mode">${rdk_control_mode}</param>
         </xacro:unless>
       </hardware>
 
