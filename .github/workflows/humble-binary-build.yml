@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y \
@@ -36,9 +38,18 @@ jobs:
           ros-humble-joint-state-publisher \
           ros-humble-joint-state-publisher-gui \
           ros-humble-robot-state-publisher
+      - name: Build and install flexiv_rdk
+        shell: bash
+        run: |
+          cd flexiv_hardware/rdk/thirdparty
+          bash build_and_install_dependencies.sh ~/rdk_install
+          cd ..
+          mkdir -p build && cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
+          cmake --build . --target install --config Release
       - name: Build and run tests
         id: action-ros-ci
-        uses: ros-tooling/action-ros-ci@v0.3
+        uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           package-name: |
@@ -51,5 +62,12 @@ jobs:
             flexiv_robot_states_broadcaster
             flexiv_test_nodes
             gpio_controller
-            joint_impedance_controller
+          colcon-defaults: |
+            {
+              "build": {
+                "cmake-args": [
+                    "-DCMAKE_PREFIX_PATH=~/rdk_install"
+                ]
+              }
+            }
           skip-tests: true
