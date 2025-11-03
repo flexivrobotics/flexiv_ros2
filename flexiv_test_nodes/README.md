@@ -34,7 +34,7 @@ ros2 launch flexiv_test_nodes robot_states_publisher.launch.py robot_sn:=[robot_
 - Monitors robot status (busy, operational, fault, reduced)
 - Compatible with ROS2 Humble and Jazzy
 
-### 2. State Monitor Example
+### 2. Robot States Monitor
 
 Example subscriber node demonstrating how to receive and process robot states.
 
