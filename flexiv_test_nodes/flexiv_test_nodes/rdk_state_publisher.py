@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-This node reads robot states from the Flexiv RDK and publishes them
+This node reads robot states from Flexiv RDK and publishes them
 as ROS2 messages (flexiv_msgs/msg/RobotStates).
 
 Author: Flexiv Robotics
@@ -22,7 +22,7 @@ from geometry_msgs.msg import Pose, Accel, Wrench
 from geometry_msgs.msg import Point, Quaternion, Vector3
 
 
-class RobotStatePublisher(Node):
+class RobotStatesPublisher(Node):
     """
     ROS2 node that publishes Flexiv robot states from RDK to ROS2 topics.
     """
@@ -40,7 +40,7 @@ class RobotStatePublisher(Node):
         self.network_interface = self.get_parameter('network_interface').value
         self.publish_rate = self.get_parameter('publish_rate').value
         
-        self.get_logger().info(f'Initializing Robot State Publisher for robot {self.robot_sn}')
+        self.get_logger().info(f'Initializing Robot States Publisher for robot {self.robot_sn}')
         if self.network_interface:
             self.get_logger().info(f'Network interface whitelist: [{self.network_interface}]')
         else:
@@ -80,7 +80,7 @@ class RobotStatePublisher(Node):
         timer_period = 1.0 / self.publish_rate
         self.timer = self.create_timer(timer_period, self.publish_robot_states)
         
-        self.get_logger().info('Robot State Publisher initialized successfully')
+        self.get_logger().info('Robot States Publisher initialized successfully')
         self.get_logger().info(f'Publishing to: {topic_name}')
         
         # Log robot operational status
@@ -228,7 +228,7 @@ class RobotStatePublisher(Node):
 
     def destroy_node(self):
         """Clean shutdown of the node"""
-        self.get_logger().info('Shutting down Robot State Publisher...')
+        self.get_logger().info('Shutting down Robot States Publisher...')
         try:
             # Stop the robot safely if needed
             if hasattr(self, 'robot'):
@@ -241,10 +241,10 @@ class RobotStatePublisher(Node):
 
 def main(args=None):
     """
-    Main entry point for the Robot State Publisher node.
+    Main entry point for the Robot States Publisher node.
     """
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Flexiv Robot State Publisher Node')
+    parser = argparse.ArgumentParser(description='Flexiv Robot States Publisher Node')
     parser.add_argument('--robot-sn', type=str, required=True,
                        help='Robot serial number (e.g., Rizon4s-123456)')
     parser.add_argument('--network-interface', type=str, default="",
@@ -258,7 +258,7 @@ def main(args=None):
     
     try:
         # Create and spin the node
-        node = RobotStatePublisher(
+        node = RobotStatesPublisher(
             robot_sn=parsed_args.robot_sn,
             network_interface=parsed_args.network_interface
         )
