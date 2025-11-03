@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Example subscriber node demonstrating how to receive and process robot states
-published by the rdk_state_publisher node.
+published by the robot_states_publisher node.
 
 Author: Flexiv Robotics
 License: Apache-2.0

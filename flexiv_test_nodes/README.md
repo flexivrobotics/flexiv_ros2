@@ -4,11 +4,11 @@ Demo nodes for the Flexiv ROS2 driver.
 
 ## Nodes
 
-### 1. RDK State Publisher
+### 1. Robot States Publisher
 
 Publishes robot states directly from Flexiv RDK to ROS2 topics, bypassing the main ROS2 driver.
 
-**Use case:** When you need direct RDK state monitoring alongside or instead of the main flexiv_ros2 driver.
+**Use case:** When you need direct robot state monitoring alongside or instead of the main flexiv_ros2 driver.
 
 **Installation:**
 ```bash
@@ -17,7 +17,7 @@ pip install flexivrdk
 
 **Launch:**
 ```bash
-ros2 launch flexiv_test_nodes rdk_state_publisher.launch.py robot_sn:=[robot_sn]
+ros2 launch flexiv_test_nodes robot_states_publisher.launch.py robot_sn:=[robot_sn]
 ```
 
 **Published topic:**

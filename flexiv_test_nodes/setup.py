@@ -36,8 +36,8 @@ Demo nodes for for testing flexiv_ros2.""",
         "console_scripts": [
             "publisher_joint_trajectory_controller = \
                 flexiv_test_nodes.publisher_joint_trajectory_controller:main",
-            "rdk_state_publisher = \
-                flexiv_test_nodes.rdk_state_publisher:main",
+            "robot_states_publisher = \
+                flexiv_test_nodes.robot_states_publisher:main",
             "state_monitor_example = \
                 flexiv_test_nodes.state_monitor_example:main",
         ],

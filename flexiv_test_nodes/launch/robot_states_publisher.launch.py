@@ -3,16 +3,16 @@ Launch file for Robot States Publisher Node
 
 Example usage:
     # Auto-detect network interface:
-    ros2 launch flexiv_test_nodes rdk_state_publisher.launch.py \
+    ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
         robot_sn:=Rizon4s-123456
     
     # With specific network interface:
-    ros2 launch flexiv_test_nodes rdk_state_publisher.launch.py \
+    ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
         robot_sn:=Rizon4s-123456 \
         network_interface:=eth0
     
     # Custom publish rate:
-    ros2 launch flexiv_test_nodes rdk_state_publisher.launch.py \
+    ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
         robot_sn:=Rizon4s-123456 \
         publish_rate:=200
 
@@ -50,8 +50,8 @@ def generate_launch_description():
     # Create the Robot States Publisher node
     robot_states_publisher_node = Node(
         package='flexiv_test_nodes',
-        executable='rdk_state_publisher',
-        name='rdk_state_publisher',
+        executable='robot_states_publisher',
+        name='robot_states_publisher',
         output='screen',
         parameters=[{
             'robot_sn': LaunchConfiguration('robot_sn'),
