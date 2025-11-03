@@ -38,8 +38,8 @@ Demo nodes for for testing flexiv_ros2.""",
                 flexiv_test_nodes.publisher_joint_trajectory_controller:main",
             "robot_states_publisher = \
                 flexiv_test_nodes.robot_states_publisher:main",
-            "state_monitor_example = \
-                flexiv_test_nodes.state_monitor_example:main",
+            "robot_states_monitor = \
+                flexiv_test_nodes.robot_states_monitor:main",
         ],
     },
 )

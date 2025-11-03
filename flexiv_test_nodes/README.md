@@ -40,7 +40,7 @@ Example subscriber node demonstrating how to receive and process robot states.
 
 **Run:**
 ```bash
-ros2 run flexiv_test_nodes state_monitor_example --ros-args -p robot_sn:=[robot_sn]
+ros2 run flexiv_test_nodes robot_states_monitor --ros-args -p robot_sn:=[robot_sn]
 ```
 
 ### 3. Publisher Joint Trajectory Controller
