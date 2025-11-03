@@ -1,17 +1,15 @@
 """
 Launch file for Robot States Publisher Node
 
-This node publishes robot states from Flexiv RDK to ROS2 topics.
-
 Example usage:
+    # Auto-detect network interface:
+    ros2 launch flexiv_test_nodes rdk_state_publisher.launch.py \
+        robot_sn:=Rizon4s-123456
+    
     # With specific network interface:
     ros2 launch flexiv_test_nodes rdk_state_publisher.launch.py \
         robot_sn:=Rizon4s-123456 \
         network_interface:=eth0
-    
-    # Auto-detect network interface:
-    ros2 launch flexiv_test_nodes rdk_state_publisher.launch.py \
-        robot_sn:=Rizon4s-123456
     
     # Custom publish rate:
     ros2 launch flexiv_test_nodes rdk_state_publisher.launch.py \
