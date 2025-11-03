@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-RDK State Publisher Node for Flexiv Robots
-
 This node reads robot states from the Flexiv RDK and publishes them
 as ROS2 messages (flexiv_msgs/msg/RobotStates).
 
@@ -24,7 +22,7 @@ from geometry_msgs.msg import Pose, Accel, Wrench
 from geometry_msgs.msg import Point, Quaternion, Vector3
 
 
-class RDKStatePublisher(Node):
+class RobotStatePublisher(Node):
     """
     ROS2 node that publishes Flexiv robot states from RDK to ROS2 topics.
     """
@@ -42,7 +40,7 @@ class RDKStatePublisher(Node):
         self.network_interface = self.get_parameter('network_interface').value
         self.publish_rate = self.get_parameter('publish_rate').value
         
-        self.get_logger().info(f'Initializing RDK State Publisher for robot {self.robot_sn}')
+        self.get_logger().info(f'Initializing Robot State Publisher for robot {self.robot_sn}')
         if self.network_interface:
             self.get_logger().info(f'Network interface whitelist: [{self.network_interface}]')
         else:
@@ -82,10 +80,10 @@ class RDKStatePublisher(Node):
         timer_period = 1.0 / self.publish_rate
         self.timer = self.create_timer(timer_period, self.publish_robot_states)
         
-        self.get_logger().info('RDK State Publisher initialized successfully')
-        self.get_logger().info(f'Publishing to: /{self.robot_sn}/flexiv_robot_states')
+        self.get_logger().info('Robot State Publisher initialized successfully')
+        self.get_logger().info(f'Publishing to: {topic_name}')
         
-        # Log RDK mode and operational status
+        # Log robot operational status
         self.log_robot_status()
 
     def log_robot_status(self):
@@ -173,11 +171,11 @@ class RDKStatePublisher(Node):
 
     def publish_robot_states(self):
         """
-        Main callback function to read RDK states and publish as ROS2 message.
+        Main callback function to read robot states and publish as ROS2 message.
         """
         try:
             # Get robot states from RDK
-            rdk_states = self.robot.states()
+            robot_states = self.robot.states()
             
             # Create ROS2 RobotStates message
             msg = RobotStates()
@@ -187,38 +185,38 @@ class RDKStatePublisher(Node):
             msg.header.frame_id = 'world'
             
             # Joint-space states (all arrays are size 7 for Flexiv robots)
-            msg.q = list(rdk_states.q)  # Joint positions (link-side)
-            msg.theta = list(rdk_states.theta)  # Joint positions (motor-side)
-            msg.dq = list(rdk_states.dq)  # Joint velocities (link-side)
-            msg.dtheta = list(rdk_states.dtheta)  # Joint velocities (motor-side)
-            msg.tau = list(rdk_states.tau)  # Joint torques
-            msg.tau_des = list(rdk_states.tau_des)  # Desired joint torques
-            msg.tau_dot = list(rdk_states.tau_dot)  # Joint torque derivatives
-            msg.tau_ext = list(rdk_states.tau_ext)  # External joint torques
+            msg.q = list(robot_states.q)  # Joint positions (link-side)
+            msg.theta = list(robot_states.theta)  # Joint positions (motor-side)
+            msg.dq = list(robot_states.dq)  # Joint velocities (link-side)
+            msg.dtheta = list(robot_states.dtheta)  # Joint velocities (motor-side)
+            msg.tau = list(robot_states.tau)  # Joint torques
+            msg.tau_des = list(robot_states.tau_des)  # Desired joint torques
+            msg.tau_dot = list(robot_states.tau_dot)  # Joint torque derivatives
+            msg.tau_ext = list(robot_states.tau_ext)  # External joint torques
             
             # Cartesian-space states using geometry_msgs
             # TCP pose: [x, y, z, q_w, q_x, q_y, q_z]
-            msg.tcp_pose = self.create_pose_stamped(rdk_states.tcp_pose, 'world')
+            msg.tcp_pose = self.create_pose_stamped(robot_states.tcp_pose, 'world')
             
             # TCP velocity: [v_x, v_y, v_z, w_x, w_y, w_z]
-            msg.tcp_vel = self.create_accel_stamped(rdk_states.tcp_vel, 'world')
+            msg.tcp_vel = self.create_accel_stamped(robot_states.tcp_vel, 'world')
             
             # Flange pose: [x, y, z, q_w, q_x, q_y, q_z]
-            msg.flange_pose = self.create_pose_stamped(rdk_states.flange_pose, 'world')
+            msg.flange_pose = self.create_pose_stamped(robot_states.flange_pose, 'world')
             
             # Force-torque sensor reading: [f_x, f_y, f_z, m_x, m_y, m_z]
             msg.ft_sensor_raw = self.create_wrench_stamped(
-                rdk_states.ft_sensor_raw, 'flange'
+                robot_states.ft_sensor_raw, 'flange'
             )
             
             # External wrench in TCP frame: [f_x, f_y, f_z, m_x, m_y, m_z]
             msg.ext_wrench_in_tcp = self.create_wrench_stamped(
-                rdk_states.ext_wrench_in_tcp, 'tcp'
+                robot_states.ext_wrench_in_tcp, 'tcp'
             )
             
             # External wrench in world frame: [f_x, f_y, f_z, m_x, m_y, m_z]
             msg.ext_wrench_in_world = self.create_wrench_stamped(
-                rdk_states.ext_wrench_in_world, 'world'
+                robot_states.ext_wrench_in_world, 'world'
             )
             
             # Publish the message
@@ -230,7 +228,7 @@ class RDKStatePublisher(Node):
 
     def destroy_node(self):
         """Clean shutdown of the node"""
-        self.get_logger().info('Shutting down RDK State Publisher...')
+        self.get_logger().info('Shutting down Robot State Publisher...')
         try:
             # Stop the robot safely if needed
             if hasattr(self, 'robot'):
@@ -243,10 +241,10 @@ class RDKStatePublisher(Node):
 
 def main(args=None):
     """
-    Main entry point for the RDK State Publisher node.
+    Main entry point for the Robot State Publisher node.
     """
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Flexiv RDK State Publisher Node')
+    parser = argparse.ArgumentParser(description='Flexiv Robot State Publisher Node')
     parser.add_argument('--robot-sn', type=str, required=True,
                        help='Robot serial number (e.g., Rizon4s-123456)')
     parser.add_argument('--network-interface', type=str, default="",
@@ -260,7 +258,7 @@ def main(args=None):
     
     try:
         # Create and spin the node
-        node = RDKStatePublisher(
+        node = RobotStatePublisher(
             robot_sn=parsed_args.robot_sn,
             network_interface=parsed_args.network_interface
         )
