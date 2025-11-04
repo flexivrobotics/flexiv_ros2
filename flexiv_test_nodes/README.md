@@ -33,7 +33,7 @@ ros2 launch flexiv_test_nodes robot_states_publisher.launch.py robot_sn:=[robot_
 
 **Published topic:**
 
-- `/${robot_sn}/flexiv_robot_states` ([`flexiv_msgs/msg/RobotStates.msg`](flexiv_msgs/msg/RobotStates.msg))
+- `/${robot_sn}/flexiv_robot_states` ([`flexiv_msgs/msg/RobotStates.msg`](../flexiv_msgs/msg/RobotStates.msg))
 
 **Parameters:**
 
