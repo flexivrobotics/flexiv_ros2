@@ -64,6 +64,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
 
    ```bash
    cd ~/flexiv_ros2_ws
+   vcs import src < src/flexiv_ros2/flexiv.humble.repos --recursive --skip-existing
    rosdep update
    rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
    ```
