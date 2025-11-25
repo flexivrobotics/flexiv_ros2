@@ -54,7 +54,6 @@ jobs:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           package-name: |
             flexiv_bringup
-            flexiv_description
             flexiv_gripper
             flexiv_hardware
             flexiv_moveit_config
