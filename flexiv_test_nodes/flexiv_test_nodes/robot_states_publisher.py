@@ -178,8 +178,8 @@ class RobotStatesPublisher(Node):
             msg.header.frame_id = "world"
 
             # Robot timestamp
-            msg.robot_timestamp.sec = robot_states.robot_timestamp[0]
-            msg.robot_timestamp.nanosec = robot_states.robot_timestamp[1]
+            msg.robot_timestamp.sec = robot_states.timestamp[0]
+            msg.robot_timestamp.nanosec = robot_states.timestamp[1]
 
             # Joint-space states (all arrays are size 7 for Flexiv robots)
             msg.q = list(robot_states.q)  # Joint positions (link-side)
