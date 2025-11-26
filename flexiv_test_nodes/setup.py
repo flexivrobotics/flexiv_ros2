@@ -11,7 +11,7 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
-        ("share/" + package_name, glob("launch/*.launch.py")),
+        ("share/" + package_name + "/launch", glob("launch/*.launch.py")),
         ("share/" + package_name + "/configs", glob("configs/*.*")),
     ],
     install_requires=["setuptools"],
@@ -36,6 +36,10 @@ Demo nodes for for testing flexiv_ros2.""",
         "console_scripts": [
             "publisher_joint_trajectory_controller = \
                 flexiv_test_nodes.publisher_joint_trajectory_controller:main",
+            "robot_states_publisher = \
+                flexiv_test_nodes.robot_states_publisher:main",
+            "robot_states_monitor = \
+                flexiv_test_nodes.robot_states_monitor:main",
         ],
     },
 )
