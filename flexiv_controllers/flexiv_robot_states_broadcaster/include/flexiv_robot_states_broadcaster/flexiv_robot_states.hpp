@@ -69,9 +69,9 @@ public:
         message.flange_pose.header.frame_id = kWorldFrameId;
         message.ft_sensor_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
         message.ext_wrench_in_tcp.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_world.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.ext_wrench_in_world.header.frame_id = kWorldFrameId;
         message.ext_wrench_in_tcp_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_world_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.ext_wrench_in_world_raw.header.frame_id = kWorldFrameId;
     }
 
     /// Return RobotStates message
