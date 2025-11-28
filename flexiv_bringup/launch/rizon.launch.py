@@ -146,6 +146,7 @@ def generate_launch_description():
                 "rizon_type:=",
                 rizon_type,
                 " ",
+                "ros2_control:=true ",
                 "rdk_control_mode:=",
                 rdk_control_mode,
                 " ",
