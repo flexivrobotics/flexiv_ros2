@@ -273,7 +273,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_deactivate(
 hardware_interface::return_type FlexivHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    if (robot_->operational() && robot_->mode() != flexiv::rdk::Mode::IDLE) {
+    if (robot_->operational()) {
 
         hw_flexiv_robot_states_ = robot_->states();
 

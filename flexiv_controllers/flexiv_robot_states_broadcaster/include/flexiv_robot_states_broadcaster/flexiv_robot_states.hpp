@@ -69,7 +69,9 @@ public:
         message.flange_pose.header.frame_id = kWorldFrameId;
         message.ft_sensor_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
         message.ext_wrench_in_tcp.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_world.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.ext_wrench_in_world.header.frame_id = kWorldFrameId;
+        message.ext_wrench_in_tcp_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.ext_wrench_in_world_raw.header.frame_id = kWorldFrameId;
     }
 
     /// Return RobotStates message
@@ -100,8 +102,13 @@ public:
         message.ft_sensor_raw.header.stamp = message.header.stamp;
         message.ext_wrench_in_tcp.header.stamp = message.header.stamp;
         message.ext_wrench_in_world.header.stamp = message.header.stamp;
+        message.ext_wrench_in_tcp_raw.header.stamp = message.header.stamp;
+        message.ext_wrench_in_world_raw.header.stamp = message.header.stamp;
 
         // Fill the RobotStates message
+        message.robot_timestamp.sec = flexiv_robot_states_ptr->timestamp.first;
+        message.robot_timestamp.nanosec = flexiv_robot_states_ptr->timestamp.second;
+
         message.q = toJointStateMsg(flexiv_robot_states_ptr->q);
         message.theta = toJointStateMsg(flexiv_robot_states_ptr->theta);
         message.dq = toJointStateMsg(flexiv_robot_states_ptr->dq);
@@ -110,6 +117,8 @@ public:
         message.tau_des = toJointStateMsg(flexiv_robot_states_ptr->tau_des);
         message.tau_dot = toJointStateMsg(flexiv_robot_states_ptr->tau_dot);
         message.tau_ext = toJointStateMsg(flexiv_robot_states_ptr->tau_ext);
+        message.tau_interact = toJointStateMsg(flexiv_robot_states_ptr->tau_interact);
+        message.temperature = toJointStateMsg(flexiv_robot_states_ptr->temperature);
 
         message.tcp_pose.pose = toPoseMsg(flexiv_robot_states_ptr->tcp_pose);
         message.tcp_vel.accel = toAccelMsg(flexiv_robot_states_ptr->tcp_vel);
@@ -118,6 +127,10 @@ public:
         message.ext_wrench_in_tcp.wrench = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_tcp);
         message.ext_wrench_in_world.wrench
             = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_world);
+        message.ext_wrench_in_tcp_raw.wrench
+            = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_tcp_raw);
+        message.ext_wrench_in_world_raw.wrench
+            = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_world_raw);
 
         return true;
     }

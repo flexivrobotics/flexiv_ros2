@@ -15,7 +15,6 @@ import argparse
 
 # Import ROS2 message types
 from flexiv_msgs.msg import RobotStates
-from std_msgs.msg import Header
 from geometry_msgs.msg import PoseStamped, AccelStamped, WrenchStamped
 
 
@@ -178,6 +177,10 @@ class RobotStatesPublisher(Node):
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = "world"
 
+            # Robot timestamp
+            msg.robot_timestamp.sec = robot_states.timestamp[0]
+            msg.robot_timestamp.nanosec = robot_states.timestamp[1]
+
             # Joint-space states (all arrays are size 7 for Flexiv robots)
             msg.q = list(robot_states.q)  # Joint positions (link-side)
             msg.theta = list(robot_states.theta)  # Joint positions (motor-side)
@@ -187,6 +190,10 @@ class RobotStatesPublisher(Node):
             msg.tau_des = list(robot_states.tau_des)  # Desired joint torques
             msg.tau_dot = list(robot_states.tau_dot)  # Joint torque derivatives
             msg.tau_ext = list(robot_states.tau_ext)  # External joint torques
+            msg.tau_interact = list(
+                robot_states.tau_interact
+            )  # Interaction joint torques
+            msg.temperature = list(robot_states.temperature)  # Joint temperatures
 
             # Cartesian-space states using geometry_msgs
             # TCP pose: [x, y, z, q_w, q_x, q_y, q_z]
@@ -207,12 +214,22 @@ class RobotStatesPublisher(Node):
 
             # External wrench in TCP frame: [f_x, f_y, f_z, m_x, m_y, m_z]
             msg.ext_wrench_in_tcp = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_tcp, "tcp"
+                robot_states.ext_wrench_in_tcp, "flange"
             )
 
             # External wrench in world frame: [f_x, f_y, f_z, m_x, m_y, m_z]
             msg.ext_wrench_in_world = self.create_wrench_stamped(
                 robot_states.ext_wrench_in_world, "world"
+            )
+
+            # External wrench in TCP frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
+            msg.ext_wrench_in_tcp_raw = self.create_wrench_stamped(
+                robot_states.ext_wrench_in_tcp_raw, "flange"
+            )
+
+            # External wrench in world frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
+            msg.ext_wrench_in_world_raw = self.create_wrench_stamped(
+                robot_states.ext_wrench_in_world_raw, "world"
             )
 
             # Publish the message
