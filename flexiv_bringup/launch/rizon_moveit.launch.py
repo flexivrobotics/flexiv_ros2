@@ -76,6 +76,7 @@ def launch_setup(context):
                 "rizon_type:=",
                 rizon_type,
                 " ",
+                "ros2_control:=true ",
                 "rdk_control_mode:=",
                 rdk_control_mode,
                 " ",
@@ -254,7 +255,7 @@ def launch_setup(context):
             {"robot_sn": robot_sn},
             {"rdk_control_mode": rdk_control_mode},
         ],
-        remappings=[("joint_states", "flexiv_arm/joint_states")],
+        remappings=[("joint_states", "flexiv_rizon_arm/joint_states")],
         output="both",
     )
 
@@ -266,7 +267,7 @@ def launch_setup(context):
         parameters=[
             {
                 "source_list": [
-                    "flexiv_arm/joint_states",
+                    "flexiv_rizon_arm/joint_states",
                     "flexiv_gripper_node/gripper_joint_states",
                 ],
                 "rate": 30,
