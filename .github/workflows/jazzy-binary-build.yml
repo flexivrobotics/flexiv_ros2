@@ -51,9 +51,9 @@ jobs:
         uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
+          vcs-repo-file-url: ${{ github.workspace }}/flexiv.jazzy.repos
           package-name: |
             flexiv_bringup
-            flexiv_description
             flexiv_gripper
             flexiv_hardware
             flexiv_moveit_config

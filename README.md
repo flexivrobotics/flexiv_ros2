@@ -62,6 +62,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
 
    ```bash
    cd ~/flexiv_ros2_ws
+   vcs import src < src/flexiv_ros2/flexiv.jazzy.repos --recursive --skip-existing
    rosdep update
    rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
    ```
