@@ -63,6 +63,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    ```bash
    cd ~/flexiv_ros2_ws
    vcs import src < src/flexiv_ros2/flexiv.humble.repos --recursive --skip-existing
+   touch src/flexiv_rdk/COLCON_IGNORE
    rosdep update
    rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
    ```
@@ -86,6 +87,35 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    cmake --build . --target install --config Release
    ```
 
+> [!NOTE]
+> (Optional) If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as well.
+>
+> 1. Clone `flexiv_drdk` into the workspace source directory and ignore it from colcon build:
+>
+>    ```bash
+>    cd ~/flexiv_ros2_ws/src
+>    git clone https://github.com/flexivrobotics/flexiv_drdk.git
+>    cd flexiv_drdk
+>    git checkout v1.1
+>    touch COLCON_IGNORE
+>    ```
+>
+> 2. Install dependencies and build `flexiv_drdk` by choosing an installation directory, e.g., `~/drdk_install`:
+>
+>    ```bash
+>    cd ~/flexiv_ros2_ws/src/flexiv_drdk/thirdparty
+>    bash build_and_install_dependencies.sh ~/drdk_install
+>    ```
+>
+> 3. Configure and install `flexiv_drdk`:
+>
+>    ```bash
+>    cd ~/flexiv_ros2_ws/src/flexiv_drdk
+>    mkdir build && cd build
+>    cmake .. -DCMAKE_INSTALL_PREFIX=~/drdk_install
+>    cmake --build . --target install --config Release
+>    ```
+
 7. Build and source the workspace:
 
    ```bash
@@ -93,6 +123,12 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    source /opt/ros/humble/setup.bash
    colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/rdk_install
    source install/setup.bash
+   ```
+
+   If `flexiv_drdk` is installed, add its installation path to `CMAKE_PREFIX_PATH`:
+
+   ```bash
+   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH="~/rdk_install;~/drdk_install"
    ```
 
 > [!NOTE]
