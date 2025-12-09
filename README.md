@@ -36,18 +36,19 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    python3-colcon-common-extensions \
    python3-rosdep2 \
    libeigen3-dev \
-   ros-humble-xacro \
-   ros-humble-tinyxml2-vendor \
-   ros-humble-ros2-control \
-   ros-humble-realtime-tools \
    ros-humble-control-toolbox \
-   ros-humble-moveit \
-   ros-humble-ros2-controllers \
-   ros-humble-test-msgs \
+   ros-humble-hardware-interface \
    ros-humble-joint-state-publisher \
    ros-humble-joint-state-publisher-gui \
+   ros-humble-moveit \
+   ros-humble-realtime-tools \
    ros-humble-robot-state-publisher \
+   ros-humble-ros2-control \
+   ros-humble-ros2-controllers \
    ros-humble-rviz2
+   ros-humble-test-msgs \
+   ros-humble-tinyxml2-vendor \
+   ros-humble-xacro \
    ```
 
 3. Setup workspace:
@@ -67,9 +68,6 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    rosdep update
    rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
    ```
-
-> [!NOTE]
-> Skip step 5 and 6 if you have compile and install [flexiv_rdk](https://github.com/flexivrobotics/flexiv_rdk).
 
 5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`. Compile and install to the installation directory:
 
