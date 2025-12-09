@@ -26,6 +26,10 @@ add_library(
   src/flexiv_hardware_interface.cpp
 )
 
+if(flexiv_drdk_FOUND)
+  target_sources(${PROJECT_NAME} PRIVATE src/flexiv_dual_hardware_interface.cpp)
+endif()
+
 target_include_directories(
   ${PROJECT_NAME}
   PRIVATE

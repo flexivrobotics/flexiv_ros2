@@ -1,0 +1,429 @@
+/**
+ * @file flexiv_dual_hardware_interface.cpp
+ * @brief Hardware interface to a pair of Flexiv robots for ROS 2 control.
+ * @copyright Copyright (C) 2016-2025 Flexiv Ltd. All Rights Reserved.
+ * @author Flexiv
+ */
+
+#include <vector>
+#include <string>
+
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/clock.hpp>
+#include <hardware_interface/types/hardware_interface_return_values.hpp>
+#include <hardware_interface/types/hardware_interface_type_values.hpp>
+
+#include "flexiv/drdk/robot_pair.hpp"
+#include "flexiv_hardware/flexiv_dual_hardware_interface.hpp"
+
+namespace {
+constexpr double kMaxJointVelocity = 2.0;
+constexpr double kMaxJointAcceleration = 3.0;
+}
+
+namespace flexiv_hardware {
+
+hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
+    const hardware_interface::HardwareInfo& info)
+{
+    if (hardware_interface::SystemInterface::on_init(info)
+        != hardware_interface::CallbackReturn::SUCCESS) {
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    hw_states_joint_positions_.resize(
+        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+    hw_states_joint_velocities_.resize(
+        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+    hw_states_joint_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+    hw_commands_joint_positions_.resize(
+        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+    hw_commands_joint_velocities_.resize(
+        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+    hw_commands_joint_efforts_.resize(
+        info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+
+    // 16 ports per robot
+    hw_states_gpio_in_.resize(flexiv::rdk::kIOPorts * 2, std::numeric_limits<double>::quiet_NaN());
+    hw_commands_gpio_out_.resize(
+        flexiv::rdk::kIOPorts * 2, std::numeric_limits<double>::quiet_NaN());
+    stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
+        StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
+        StoppingInterface::NONE};
+    start_modes_ = {};
+    position_controller_running_ = false;
+    velocity_controller_running_ = false;
+    torque_controller_running_ = false;
+    controllers_initialized_ = false;
+
+    if (info_.joints.size() != kDualJointDoF) {
+        RCLCPP_FATAL(
+            getLogger(), "Got %ld joints. Expected %ld.", info_.joints.size(), kDualJointDoF);
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    for (const hardware_interface::ComponentInfo& joint : info_.joints) {
+        if (joint.command_interfaces.size() != 3) {
+            RCLCPP_FATAL(getLogger(), "Joint '%s' has %ld command interfaces found. 3 expected.",
+                joint.name.c_str(), joint.command_interfaces.size());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
+        if (joint.command_interfaces[0].name != hardware_interface::HW_IF_POSITION) {
+            RCLCPP_FATAL(getLogger(), "Joint '%s' have %s command interfaces found. '%s' expected.",
+                joint.name.c_str(), joint.command_interfaces[0].name.c_str(),
+                hardware_interface::HW_IF_POSITION);
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
+        if (joint.command_interfaces[1].name != hardware_interface::HW_IF_VELOCITY) {
+            RCLCPP_FATAL(getLogger(), "Joint '%s' have %s command interfaces found. '%s' expected.",
+                joint.name.c_str(), joint.command_interfaces[1].name.c_str(),
+                hardware_interface::HW_IF_VELOCITY);
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
+        if (joint.command_interfaces[2].name != hardware_interface::HW_IF_EFFORT) {
+            RCLCPP_FATAL(getLogger(), "Joint '%s' have %s command interfaces found. '%s' expected.",
+                joint.name.c_str(), joint.command_interfaces[2].name.c_str(),
+                hardware_interface::HW_IF_EFFORT);
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
+        if (joint.state_interfaces.size() != 3) {
+            RCLCPP_FATAL(getLogger(), "Joint '%s' has %ld state interfaces found. 3 expected.",
+                joint.name.c_str(), joint.state_interfaces.size());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
+        if (joint.state_interfaces[0].name != hardware_interface::HW_IF_POSITION) {
+            RCLCPP_FATAL(getLogger(), "Joint '%s' have %s state interfaces found. '%s' expected.",
+                joint.name.c_str(), joint.state_interfaces[0].name.c_str(),
+                hardware_interface::HW_IF_POSITION);
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
+        if (joint.state_interfaces[1].name != hardware_interface::HW_IF_VELOCITY) {
+            RCLCPP_FATAL(getLogger(), "Joint '%s' have %s state interfaces found. '%s' expected.",
+                joint.name.c_str(), joint.state_interfaces[1].name.c_str(),
+                hardware_interface::HW_IF_VELOCITY);
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
+        if (joint.state_interfaces[2].name != hardware_interface::HW_IF_EFFORT) {
+            RCLCPP_FATAL(getLogger(), "Joint '%s' have %s state interfaces found. '%s' expected.",
+                joint.name.c_str(), joint.state_interfaces[2].name.c_str(),
+                hardware_interface::HW_IF_EFFORT);
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+    }
+
+    std::string robot_sn_left;
+    std::string robot_sn_right;
+    try {
+        robot_sn_left = info_.hardware_parameters.at("robot_sn_left");
+        robot_sn_right = info_.hardware_parameters.at("robot_sn_right");
+    } catch (const std::out_of_range& ex) {
+        RCLCPP_FATAL(getLogger(), "Parameter 'robot_sn_left' or 'robot_sn_right' not set");
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    try {
+        auto rdk_control_mode_str = info_.hardware_parameters.at("rdk_control_mode");
+        if (rdk_control_mode_str == "joint_position") {
+            rdk_control_mode_ = flexiv::rdk::Mode::NRT_JOINT_POSITION;
+        } else if (rdk_control_mode_str == "joint_impedance") {
+            rdk_control_mode_ = flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE;
+        } else {
+            RCLCPP_FATAL(getLogger(),
+                "Parameter 'rdk_control_mode' has invalid value '%s'. Options: joint_position, "
+                "joint_impedance",
+                rdk_control_mode_str.c_str());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+    } catch (const std::out_of_range& ex) {
+        RCLCPP_FATAL(getLogger(), "Parameter 'rdk_control_mode' not set");
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    try {
+        RCLCPP_INFO(getLogger(), "Connecting to robots %s and %s ...", robot_sn_left.c_str(),
+            robot_sn_right.c_str());
+        robot_pair_ = std::make_unique<flexiv::drdk::RobotPair>(
+            std::make_pair(robot_sn_left, robot_sn_right));
+    } catch (const std::exception& e) {
+        RCLCPP_FATAL(getLogger(), "Could not connect to robots");
+        RCLCPP_FATAL(getLogger(), e.what());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    RCLCPP_INFO(getLogger(), "Successfully connected to robots");
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+rclcpp::Logger FlexivDualHardwareInterface::getLogger()
+{
+    return rclcpp::get_logger("FlexivDualHardwareInterface");
+}
+
+std::vector<hardware_interface::StateInterface>
+FlexivDualHardwareInterface::export_state_interfaces()
+{
+    std::vector<hardware_interface::StateInterface> state_interfaces;
+    for (std::size_t i = 0; i < info_.joints.size(); i++) {
+        state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name,
+            hardware_interface::HW_IF_POSITION, &hw_states_joint_positions_[i]));
+        state_interfaces.emplace_back(hardware_interface::StateInterface(info_.joints[i].name,
+            hardware_interface::HW_IF_VELOCITY, &hw_states_joint_velocities_[i]));
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+            info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_states_joint_efforts_[i]));
+    }
+
+    // Export robot states for both robots
+    std::string robot_sn_left = info_.hardware_parameters.at("robot_sn_left");
+    state_interfaces.emplace_back(hardware_interface::StateInterface(robot_sn_left,
+        "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_left_)));
+
+    std::string robot_sn_right = info_.hardware_parameters.at("robot_sn_right");
+    state_interfaces.emplace_back(hardware_interface::StateInterface(robot_sn_right,
+        "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_right_)));
+
+    // GPIOs
+    const std::string prefix = info_.hardware_parameters.at("prefix");
+    for (size_t i = 0; i < flexiv::rdk::kIOPorts * 2; i++) {
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+            prefix + "gpio", "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i]));
+    }
+
+    return state_interfaces;
+}
+
+std::vector<hardware_interface::CommandInterface>
+FlexivDualHardwareInterface::export_command_interfaces()
+{
+    std::vector<hardware_interface::CommandInterface> command_interfaces;
+    for (size_t i = 0; i < info_.joints.size(); i++) {
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(info_.joints[i].name,
+            hardware_interface::HW_IF_POSITION, &hw_commands_joint_positions_[i]));
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(info_.joints[i].name,
+            hardware_interface::HW_IF_VELOCITY, &hw_commands_joint_velocities_[i]));
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(info_.joints[i].name,
+            hardware_interface::HW_IF_EFFORT, &hw_commands_joint_efforts_[i]));
+    }
+
+    const std::string prefix = info_.hardware_parameters.at("prefix");
+    for (size_t i = 0; i < flexiv::rdk::kIOPorts * 2; i++) {
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(
+            prefix + "gpio", "digital_output_" + std::to_string(i), &hw_commands_gpio_out_[i]));
+    }
+
+    return command_interfaces;
+}
+
+hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    RCLCPP_INFO(getLogger(), "Starting... please wait...");
+
+    try {
+        // Clear fault on the connected robots if any
+        if (robot_pair_->fault()) {
+            RCLCPP_WARN(
+                getLogger(), "Fault occurred on one of the connected robots, trying to clear ...");
+            // Try to clear the fault for both robots
+            auto result = robot_pair_->ClearFault();
+            // If fault is not cleared on both robots
+            if (!(result.first && result.second)) {
+                RCLCPP_ERROR(getLogger(), "Fault cannot be cleared, exiting ...");
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+            RCLCPP_INFO(getLogger(), "Fault on the connected robot is cleared");
+        }
+
+        // Check the DoF of both robots
+        if (robot_pair_->info().first.DoF != kJointDoF
+            || robot_pair_->info().second.DoF != kJointDoF) {
+            RCLCPP_FATAL(getLogger(),
+                "Connected robots DoF (%ld, %ld) do not match expected DoF (%ld, %ld)",
+                robot_pair_->info().first.DoF, robot_pair_->info().second.DoF, kJointDoF,
+                kJointDoF);
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
+        // Enable the pair of robots
+        RCLCPP_INFO(getLogger(), "Enabling robots ...");
+        robot_pair_->Enable();
+
+        // Wait for both robots to become operational
+        while (!robot_pair_->operational()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        RCLCPP_INFO(getLogger(), "Both robots are now operational");
+    } catch (const std::exception& e) {
+        RCLCPP_FATAL(getLogger(), "Could not enable the robots");
+        RCLCPP_FATAL(getLogger(), e.what());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    RCLCPP_INFO(getLogger(), "System successfully started!");
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_deactivate(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    RCLCPP_INFO(getLogger(), "Stopping... please wait...");
+    robot_pair_->Stop();
+    RCLCPP_INFO(getLogger(), "System successfully stopped!");
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::return_type FlexivDualHardwareInterface::read(
+    const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
+{
+    if (robot_pair_->operational()) {
+        auto robot_states_pair = robot_pair_->states();
+        hw_flexiv_robot_states_left_ = robot_states_pair.first;
+        hw_flexiv_robot_states_right_ = robot_states_pair.second;
+
+        // Robot Left
+        for (size_t i = 0; i < 7; i++) {
+            hw_states_joint_positions_[i] = robot_pair_->states().first.q[i];
+            hw_states_joint_velocities_[i] = robot_pair_->states().first.dq[i];
+            hw_states_joint_efforts_[i] = robot_pair_->states().first.tau[i];
+        }
+        // Robot Right
+        for (size_t i = 0; i < 7; i++) {
+            hw_states_joint_positions_[i + 7] = robot_pair_->states().second.q[i];
+            hw_states_joint_velocities_[i + 7] = robot_pair_->states().second.dq[i];
+            hw_states_joint_efforts_[i + 7] = robot_pair_->states().second.tau[i];
+        }
+
+        // Read GPIO inputs
+        auto gpio_inputs = robot_pair_->digital_inputs();
+        for (size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
+            hw_states_gpio_in_[i] = static_cast<double>(gpio_inputs.first[i]);
+            hw_states_gpio_in_[i + flexiv::rdk::kIOPorts]
+                = static_cast<double>(gpio_inputs.second[i]);
+        }
+    }
+    return hardware_interface::return_type::OK;
+}
+
+hardware_interface::return_type FlexivDualHardwareInterface::write(
+    const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
+{
+    // Initialize target position and velocity vectors
+    std::vector<double> target_pos_left(robot_pair_->info().first.DoF);
+    std::vector<double> target_vel_left(robot_pair_->info().first.DoF);
+    std::vector<double> max_vel_left(robot_pair_->info().first.DoF, kMaxJointVelocity);
+    std::vector<double> max_acc_left(robot_pair_->info().first.DoF, kMaxJointAcceleration);
+
+    std::vector<double> target_pos_right(robot_pair_->info().second.DoF);
+    std::vector<double> target_vel_right(robot_pair_->info().second.DoF);
+    std::vector<double> max_vel_right(robot_pair_->info().second.DoF, kMaxJointVelocity);
+    std::vector<double> max_acc_right(robot_pair_->info().second.DoF, kMaxJointAcceleration);
+
+    bool is_pos_nan = false;
+    bool is_vel_nan = false;
+    bool is_eff_nan = false;
+    for (size_t i = 0; i < kDualJointDoF; i++) {
+        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
+            is_pos_nan = true;
+        }
+        if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i]) {
+            is_vel_nan = true;
+        }
+        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i]) {
+            is_eff_nan = true;
+        }
+    }
+
+    if (position_controller_running_
+        && robot_pair_->mode() == std::pair {rdk_control_mode_, rdk_control_mode_} && !is_pos_nan) {
+        target_pos_left = {hw_commands_joint_positions_.begin(),
+            hw_commands_joint_positions_.begin() + robot_pair_->info().first.DoF};
+        target_pos_right = {hw_commands_joint_positions_.begin() + robot_pair_->info().first.DoF,
+            hw_commands_joint_positions_.end()};
+        robot_pair_->SendJointPosition({target_pos_left, target_pos_right},
+            {target_vel_left, target_vel_right}, {max_vel_left, max_vel_right},
+            {max_acc_left, max_acc_right});
+    } else if (velocity_controller_running_
+               && robot_pair_->mode() == std::pair {rdk_control_mode_, rdk_control_mode_}
+               && !is_vel_nan) {
+        target_pos_left = {hw_commands_joint_positions_.begin(),
+            hw_commands_joint_positions_.begin() + robot_pair_->info().first.DoF};
+        target_pos_right = {hw_commands_joint_positions_.begin() + robot_pair_->info().first.DoF,
+            hw_commands_joint_positions_.end()};
+        target_vel_left = {hw_commands_joint_velocities_.begin(),
+            hw_commands_joint_velocities_.begin() + robot_pair_->info().first.DoF};
+        target_vel_right = {hw_commands_joint_velocities_.begin() + robot_pair_->info().first.DoF,
+            hw_commands_joint_velocities_.end()};
+        robot_pair_->SendJointPosition({target_pos_left, target_pos_right},
+            {target_vel_left, target_vel_right}, {max_vel_left, max_vel_right},
+            {max_acc_left, max_acc_right});
+    } else if (torque_controller_running_
+               && robot_pair_->mode()
+                      == std::pair {flexiv::rdk::Mode::RT_JOINT_TORQUE,
+                          flexiv::rdk::Mode::RT_JOINT_TORQUE}
+               && !is_eff_nan) {
+        std::vector<double> target_torque_left(robot_pair_->info().first.DoF);
+        std::vector<double> target_torque_right(robot_pair_->info().second.DoF);
+        target_torque_left = {hw_commands_joint_efforts_.begin(),
+            hw_commands_joint_efforts_.begin() + robot_pair_->info().first.DoF};
+        target_torque_right = {hw_commands_joint_efforts_.begin() + robot_pair_->info().first.DoF,
+            hw_commands_joint_efforts_.end()};
+        robot_pair_->StreamJointTorque({target_torque_left, target_torque_right});
+    }
+
+    // Write digital outputs
+    std::map<unsigned int, bool> digital_outputs_left;
+    std::map<unsigned int, bool> digital_outputs_right;
+    for (size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
+        if (hw_commands_gpio_out_[i] == hw_commands_gpio_out_[i]) {
+            digital_outputs_left[i] = static_cast<bool>(hw_commands_gpio_out_[i]);
+        }
+        if (hw_commands_gpio_out_[i + flexiv::rdk::kIOPorts]
+            == hw_commands_gpio_out_[i + flexiv::rdk::kIOPorts]) {
+            digital_outputs_right[i]
+                = static_cast<bool>(hw_commands_gpio_out_[i + flexiv::rdk::kIOPorts]);
+        }
+    }
+    // Check if there is any change in digital outputs before sending
+    bool digital_outputs_changed = false;
+    for (const auto& [port, value] : digital_outputs_left) {
+        if (current_digital_outputs_left_[port] != value) {
+            digital_outputs_changed = true;
+            current_digital_outputs_left_[port] = value;
+        }
+    }
+    for (const auto& [port, value] : digital_outputs_right) {
+        if (current_digital_outputs_right_[port] != value) {
+            digital_outputs_changed = true;
+            current_digital_outputs_right_[port] = value;
+        }
+    }
+    current_digital_outputs_left_.clear();
+    current_digital_outputs_right_.clear();
+    for (const auto& [port, value] : digital_outputs_left) {
+        current_digital_outputs_left_[port] = value;
+    }
+    for (const auto& [port, value] : digital_outputs_right) {
+        current_digital_outputs_right_[port] = value;
+    }
+
+    // Set digital outputs
+    if (digital_outputs_changed
+        && (!digital_outputs_left.empty() || !digital_outputs_right.empty())) {
+        robot_pair_->SetDigitalOutputs({digital_outputs_left, digital_outputs_right});
+    }
+
+    return hardware_interface::return_type::OK;
+}
+
+} /* namespace flexiv_hardware */
+
+#include "pluginlib/class_list_macros.hpp"
+
+PLUGINLIB_EXPORT_CLASS(
+    flexiv_hardware::FlexivDualHardwareInterface, hardware_interface::SystemInterface)
