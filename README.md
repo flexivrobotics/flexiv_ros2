@@ -80,7 +80,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk
-   mkdir build && cd build
+   rm -rf build && mkdir build && cd build
    cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
    cmake --build . --target install --config Release
    ```
@@ -119,7 +119,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk
-   mkdir build && cd build
+   rm -rf build && mkdir build && cd build
    cmake .. -DCMAKE_INSTALL_PREFIX=~/drdk_install
    cmake --build . --target install --config Release
    ```
