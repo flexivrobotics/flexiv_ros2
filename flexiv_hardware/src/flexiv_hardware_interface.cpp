@@ -119,7 +119,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
 
     std::string robot_sn;
     try {
-        robot_sn = info_.hardware_parameters["robot_sn"];
+        robot_sn = info_.hardware_parameters.at("robot_sn");
     } catch (const std::out_of_range& ex) {
         RCLCPP_FATAL(getLogger(), "Parameter 'robot_sn' not set");
         return hardware_interface::CallbackReturn::ERROR;
@@ -304,36 +304,36 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     std::vector<double> max_vel(robot_->info().DoF, kMaxJointVelocity);
     std::vector<double> max_acc(robot_->info().DoF, kMaxJointAcceleration);
 
-    bool isNanPos = false;
-    bool isNanVel = false;
-    bool isNanEff = false;
+    bool is_pos_nan = false;
+    bool is_vel_nan = false;
+    bool is_eff_nan = false;
     for (std::size_t i = 0; i < robot_->info().DoF; i++) {
         if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
-            isNanPos = true;
+            is_pos_nan = true;
         }
         if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i]) {
-            isNanVel = true;
+            is_vel_nan = true;
         }
         if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i]) {
-            isNanEff = true;
+            is_eff_nan = true;
         }
     }
 
-    if (position_controller_running_ && robot_->mode() == rdk_control_mode_ && !isNanPos) {
+    if (position_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_pos_nan) {
         target_pos = hw_commands_joint_positions_;
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
-    } else if (velocity_controller_running_ && robot_->mode() == rdk_control_mode_ && !isNanVel) {
+    } else if (velocity_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_vel_nan) {
         target_pos = hw_commands_joint_positions_;
         target_vel = hw_commands_joint_velocities_;
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
-               && !isNanEff) {
+               && !is_eff_nan) {
         std::vector<double> target_torque(robot_->info().DoF);
         target_torque = hw_commands_joint_efforts_;
         robot_->StreamJointTorque(target_torque, true, true);
     }
 
-    // Write digital output
+    // Write digital outputs
     std::map<unsigned int, bool> digital_outputs;
     for (size_t i = 0; i < hw_commands_gpio_out_.size(); i++) {
         if (hw_commands_gpio_out_[i] != hw_commands_gpio_out_[i]) {
