@@ -63,6 +63,16 @@ public:
     std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
     FLEXIV_HARDWARE_PUBLIC
+    hardware_interface::return_type prepare_command_mode_switch(
+        const std::vector<std::string>& start_interfaces,
+        const std::vector<std::string>& stop_interfaces) override;
+
+    FLEXIV_HARDWARE_PUBLIC
+    hardware_interface::return_type perform_command_mode_switch(
+        const std::vector<std::string>& start_interfaces,
+        const std::vector<std::string>& stop_interfaces) override;
+
+    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::CallbackReturn on_activate(
         const rclcpp_lifecycle::State& previous_state) override;
 

@@ -421,6 +421,137 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
     return hardware_interface::return_type::OK;
 }
 
+hardware_interface::return_type FlexivDualHardwareInterface::prepare_command_mode_switch(
+    const std::vector<std::string>& start_interfaces,
+    const std::vector<std::string>& stop_interfaces)
+{
+    start_modes_.clear();
+    stop_modes_.clear();
+
+    // Starting interfaces
+    for (const auto& key : start_interfaces) {
+        for (std::size_t i = 0; i < info_.joints.size(); i++) {
+            if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION) {
+                start_modes_.push_back(hardware_interface::HW_IF_POSITION);
+            }
+            if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_VELOCITY) {
+                start_modes_.push_back(hardware_interface::HW_IF_VELOCITY);
+            }
+            if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_EFFORT) {
+                start_modes_.push_back(hardware_interface::HW_IF_EFFORT);
+            }
+        }
+    }
+    // All joints must be given new command mode at the same time
+    if (start_modes_.size() != 0 && start_modes_.size() != info_.joints.size()) {
+        return hardware_interface::return_type::ERROR;
+    }
+    // All joints must have the same command mode
+    if (start_modes_.size() != 0
+        && !std::equal(start_modes_.begin() + 1, start_modes_.end(), start_modes_.begin())) {
+        return hardware_interface::return_type::ERROR;
+    }
+
+    // Stop motion on all relevant joints that are stopping
+    for (const auto& key : stop_interfaces) {
+        for (std::size_t i = 0; i < info_.joints.size(); i++) {
+            if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_POSITION) {
+                stop_modes_.push_back(StoppingInterface::STOP_POSITION);
+            }
+            if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_VELOCITY) {
+                stop_modes_.push_back(StoppingInterface::STOP_VELOCITY);
+            }
+            if (key == info_.joints[i].name + "/" + hardware_interface::HW_IF_EFFORT) {
+                stop_modes_.push_back(StoppingInterface::STOP_EFFORT);
+            }
+        }
+    }
+    // stop all interfaces at the same time
+    if (stop_modes_.size() != 0
+        && (stop_modes_.size() != info_.joints.size()
+            || !std::equal(stop_modes_.begin() + 1, stop_modes_.end(), stop_modes_.begin()))) {
+        return hardware_interface::return_type::ERROR;
+    }
+
+    controllers_initialized_ = true;
+    return hardware_interface::return_type::OK;
+}
+
+hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mode_switch(
+    const std::vector<std::string>& /*start_interfaces*/,
+    const std::vector<std::string>& /*stop_interfaces*/)
+{
+    if (stop_modes_.size() != 0
+        && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_POSITION)
+               != stop_modes_.end()) {
+        position_controller_running_ = false;
+        robot_pair_->Stop();
+    } else if (stop_modes_.size() != 0
+               && std::find(
+                      stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_VELOCITY)
+                      != stop_modes_.end()) {
+        velocity_controller_running_ = false;
+        robot_pair_->Stop();
+    } else if (stop_modes_.size() != 0
+               && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_EFFORT)
+                      != stop_modes_.end()) {
+        torque_controller_running_ = false;
+        robot_pair_->Stop();
+    }
+
+    if (start_modes_.size() != 0
+        && std::find(start_modes_.begin(), start_modes_.end(), hardware_interface::HW_IF_POSITION)
+               != start_modes_.end()) {
+        velocity_controller_running_ = false;
+        torque_controller_running_ = false;
+
+        // Hold joints before user commands arrives
+        std::fill(hw_commands_joint_positions_.begin(), hw_commands_joint_positions_.end(),
+            std::numeric_limits<double>::quiet_NaN());
+
+        // Set to joint position or joint impedance mode
+        robot_pair_->SwitchMode(rdk_control_mode_);
+
+        position_controller_running_ = true;
+    } else if (start_modes_.size() != 0
+               && std::find(
+                      start_modes_.begin(), start_modes_.end(), hardware_interface::HW_IF_VELOCITY)
+                      != start_modes_.end()) {
+        position_controller_running_ = false;
+        torque_controller_running_ = false;
+
+        // Hold joints before user commands arrives
+        std::fill(hw_commands_joint_velocities_.begin(), hw_commands_joint_velocities_.end(),
+            std::numeric_limits<double>::quiet_NaN());
+
+        // Set to joint position or joint impedance mode
+        robot_pair_->SwitchMode(rdk_control_mode_);
+
+        velocity_controller_running_ = true;
+    } else if (start_modes_.size() != 0
+               && std::find(
+                      start_modes_.begin(), start_modes_.end(), hardware_interface::HW_IF_EFFORT)
+                      != start_modes_.end()) {
+        position_controller_running_ = false;
+        velocity_controller_running_ = false;
+
+        // Hold joints when starting joint torque controller before user
+        // commands arrives
+        std::fill(hw_commands_joint_efforts_.begin(), hw_commands_joint_efforts_.end(),
+            std::numeric_limits<double>::quiet_NaN());
+
+        // Set to joint torque mode
+        robot_pair_->SwitchMode(flexiv::rdk::Mode::RT_JOINT_TORQUE);
+
+        torque_controller_running_ = true;
+    }
+
+    start_modes_.clear();
+    stop_modes_.clear();
+
+    return hardware_interface::return_type::OK;
+}
+
 } /* namespace flexiv_hardware */
 
 #include "pluginlib/class_list_macros.hpp"
