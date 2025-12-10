@@ -73,7 +73,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk/thirdparty
-   bash build_and_install_dependencies.sh ~/rdk_install
+   bash build_and_install_dependencies_not_in_ros2.sh ~/rdk_install
    ```
 
 6. Configure and install `flexiv_rdk`:
