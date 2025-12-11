@@ -201,18 +201,26 @@ FlexivDualHardwareInterface::export_state_interfaces()
             info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_states_joint_efforts_[i]));
     }
 
-    // Export robot states for both robots
-    std::string robot_sn_left = info_.hardware_parameters.at("robot_sn_left");
-    state_interfaces.emplace_back(hardware_interface::StateInterface(robot_sn_left,
-        "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_left_)));
-
-    std::string robot_sn_right = info_.hardware_parameters.at("robot_sn_right");
-    state_interfaces.emplace_back(hardware_interface::StateInterface(robot_sn_right,
-        "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_right_)));
-
     // GPIOs
     const std::string prefix_left = info_.hardware_parameters.at("prefix_left");
     const std::string prefix_right = info_.hardware_parameters.at("prefix_right");
+
+    // Remove trailing underscore from prefix to get the robot name used in controllers
+    std::string robot_name_left = prefix_left;
+    if (!robot_name_left.empty() && robot_name_left.back() == '_') {
+        robot_name_left.pop_back();
+    }
+    std::string robot_name_right = prefix_right;
+    if (!robot_name_right.empty() && robot_name_right.back() == '_') {
+        robot_name_right.pop_back();
+    }
+
+    // Export robot states for both robots
+    state_interfaces.emplace_back(hardware_interface::StateInterface(robot_name_left,
+        "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_left_)));
+
+    state_interfaces.emplace_back(hardware_interface::StateInterface(robot_name_right,
+        "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_right_)));
     for (size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
         state_interfaces.emplace_back(hardware_interface::StateInterface(
             prefix_left + "gpio", "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i]));
@@ -353,55 +361,66 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
     std::vector<double> max_vel_right(robot_pair_->info().second.DoF, kMaxJointVelocity);
     std::vector<double> max_acc_right(robot_pair_->info().second.DoF, kMaxJointAcceleration);
 
-    bool is_pos_nan = false;
-    bool is_vel_nan = false;
-    bool is_eff_nan = false;
-    for (size_t i = 0; i < kDualJointDoF; i++) {
-        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
-            is_pos_nan = true;
+    // Populate target vectors, using current state if command is NaN
+    for (size_t i = 0; i < robot_pair_->info().first.DoF; i++) {
+        if (std::isnan(hw_commands_joint_positions_[i])) {
+            target_pos_left[i] = hw_states_joint_positions_[i];
+        } else {
+            target_pos_left[i] = hw_commands_joint_positions_[i];
         }
-        if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i]) {
-            is_vel_nan = true;
+        if (std::isnan(hw_commands_joint_velocities_[i])) {
+            target_vel_left[i] = 0.0;
+        } else {
+            target_vel_left[i] = hw_commands_joint_velocities_[i];
         }
-        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i]) {
-            is_eff_nan = true;
+    }
+
+    for (size_t i = 0; i < robot_pair_->info().second.DoF; i++) {
+        size_t idx = i + robot_pair_->info().first.DoF;
+        if (std::isnan(hw_commands_joint_positions_[idx])) {
+            target_pos_right[i] = hw_states_joint_positions_[idx];
+        } else {
+            target_pos_right[i] = hw_commands_joint_positions_[idx];
+        }
+        if (std::isnan(hw_commands_joint_velocities_[idx])) {
+            target_vel_right[i] = 0.0;
+        } else {
+            target_vel_right[i] = hw_commands_joint_velocities_[idx];
         }
     }
 
     if (position_controller_running_
-        && robot_pair_->mode() == std::pair {rdk_control_mode_, rdk_control_mode_} && !is_pos_nan) {
-        target_pos_left = {hw_commands_joint_positions_.begin(),
-            hw_commands_joint_positions_.begin() + robot_pair_->info().first.DoF};
-        target_pos_right = {hw_commands_joint_positions_.begin() + robot_pair_->info().first.DoF,
-            hw_commands_joint_positions_.end()};
+        && robot_pair_->mode() == std::pair {rdk_control_mode_, rdk_control_mode_}) {
         robot_pair_->SendJointPosition({target_pos_left, target_pos_right},
             {target_vel_left, target_vel_right}, {max_vel_left, max_vel_right},
             {max_acc_left, max_acc_right});
     } else if (velocity_controller_running_
-               && robot_pair_->mode() == std::pair {rdk_control_mode_, rdk_control_mode_}
-               && !is_vel_nan) {
-        target_pos_left = {hw_commands_joint_positions_.begin(),
-            hw_commands_joint_positions_.begin() + robot_pair_->info().first.DoF};
-        target_pos_right = {hw_commands_joint_positions_.begin() + robot_pair_->info().first.DoF,
-            hw_commands_joint_positions_.end()};
-        target_vel_left = {hw_commands_joint_velocities_.begin(),
-            hw_commands_joint_velocities_.begin() + robot_pair_->info().first.DoF};
-        target_vel_right = {hw_commands_joint_velocities_.begin() + robot_pair_->info().first.DoF,
-            hw_commands_joint_velocities_.end()};
+               && robot_pair_->mode() == std::pair {rdk_control_mode_, rdk_control_mode_}) {
         robot_pair_->SendJointPosition({target_pos_left, target_pos_right},
             {target_vel_left, target_vel_right}, {max_vel_left, max_vel_right},
             {max_acc_left, max_acc_right});
     } else if (torque_controller_running_
                && robot_pair_->mode()
-                      == std::pair {flexiv::rdk::Mode::RT_JOINT_TORQUE,
-                          flexiv::rdk::Mode::RT_JOINT_TORQUE}
-               && !is_eff_nan) {
+                      == std::pair {
+                          flexiv::rdk::Mode::RT_JOINT_TORQUE, flexiv::rdk::Mode::RT_JOINT_TORQUE}) {
         std::vector<double> target_torque_left(robot_pair_->info().first.DoF);
         std::vector<double> target_torque_right(robot_pair_->info().second.DoF);
-        target_torque_left = {hw_commands_joint_efforts_.begin(),
-            hw_commands_joint_efforts_.begin() + robot_pair_->info().first.DoF};
-        target_torque_right = {hw_commands_joint_efforts_.begin() + robot_pair_->info().first.DoF,
-            hw_commands_joint_efforts_.end()};
+
+        for (size_t i = 0; i < robot_pair_->info().first.DoF; i++) {
+            if (std::isnan(hw_commands_joint_efforts_[i])) {
+                target_torque_left[i] = 0.0;
+            } else {
+                target_torque_left[i] = hw_commands_joint_efforts_[i];
+            }
+        }
+        for (size_t i = 0; i < robot_pair_->info().second.DoF; i++) {
+            size_t idx = i + robot_pair_->info().first.DoF;
+            if (std::isnan(hw_commands_joint_efforts_[idx])) {
+                target_torque_right[i] = 0.0;
+            } else {
+                target_torque_right[i] = hw_commands_joint_efforts_[idx];
+            }
+        }
         robot_pair_->StreamJointTorque({target_torque_left, target_torque_right});
     }
 
@@ -471,10 +490,7 @@ hardware_interface::return_type FlexivDualHardwareInterface::prepare_command_mod
             }
         }
     }
-    // All joints must be given new command mode at the same time
-    if (start_modes_.size() != 0 && start_modes_.size() != info_.joints.size()) {
-        return hardware_interface::return_type::ERROR;
-    }
+
     // All joints must have the same command mode
     if (start_modes_.size() != 0
         && !std::equal(start_modes_.begin() + 1, start_modes_.end(), start_modes_.begin())) {
@@ -494,12 +510,6 @@ hardware_interface::return_type FlexivDualHardwareInterface::prepare_command_mod
                 stop_modes_.push_back(StoppingInterface::STOP_EFFORT);
             }
         }
-    }
-    // stop all interfaces at the same time
-    if (stop_modes_.size() != 0
-        && (stop_modes_.size() != info_.joints.size()
-            || !std::equal(stop_modes_.begin() + 1, stop_modes_.end(), stop_modes_.begin()))) {
-        return hardware_interface::return_type::ERROR;
     }
 
     controllers_initialized_ = true;

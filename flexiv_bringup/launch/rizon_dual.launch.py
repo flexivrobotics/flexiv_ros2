@@ -3,7 +3,6 @@ from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
     RegisterEventHandler,
-    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
@@ -29,6 +28,12 @@ def generate_launch_description():
     start_rviz_param_name = "start_rviz"
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
+    load_gripper_left_param_name = "load_gripper_left"
+    gripper_name_left_param_name = "gripper_name_left"
+    load_gripper_right_param_name = "load_gripper_right"
+    gripper_name_right_param_name = "gripper_name_right"
+    load_mounted_ft_sensor_left_param_name = "load_mounted_ft_sensor_left"
+    load_mounted_ft_sensor_right_param_name = "load_mounted_ft_sensor_right"
 
     # Declare arguments
     declared_arguments = []
@@ -98,6 +103,54 @@ def generate_launch_description():
         )
     )
 
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            load_gripper_left_param_name,
+            default_value="false",
+            description="Flag to load the Flexiv Grav gripper as the end-effector of the left robot.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            gripper_name_left_param_name,
+            default_value="Flexiv-GN01",
+            description="Full name of the left gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            load_gripper_right_param_name,
+            default_value="false",
+            description="Flag to load the Flexiv Grav gripper as the end-effector of the right robot.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            gripper_name_right_param_name,
+            default_value="Flexiv-GN01",
+            description="Full name of the right gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            load_mounted_ft_sensor_left_param_name,
+            default_value="false",
+            description="Flag to load the mounted force torque sensor for the left robot. Only available for Rizon4, Rizon4R and Rizon10.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            load_mounted_ft_sensor_right_param_name,
+            default_value="false",
+            description="Flag to load the mounted force torque sensor for the right robot. Only available for Rizon4, Rizon4R and Rizon10.",
+        )
+    )
+
     # Initialize Arguments
     rizon_type_left = LaunchConfiguration(rizon_type_left_param_name)
     rizon_type_right = LaunchConfiguration(rizon_type_right_param_name)
@@ -107,6 +160,16 @@ def generate_launch_description():
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
+    load_gripper_left = LaunchConfiguration(load_gripper_left_param_name)
+    gripper_name_left = LaunchConfiguration(gripper_name_left_param_name)
+    load_gripper_right = LaunchConfiguration(load_gripper_right_param_name)
+    gripper_name_right = LaunchConfiguration(gripper_name_right_param_name)
+    load_mounted_ft_sensor_left = LaunchConfiguration(
+        load_mounted_ft_sensor_left_param_name
+    )
+    load_mounted_ft_sensor_right = LaunchConfiguration(
+        load_mounted_ft_sensor_right_param_name
+    )
 
     # Construct prefixes
     from launch.actions import SetLaunchConfiguration
@@ -119,8 +182,6 @@ def generate_launch_description():
         name="prefix_right",
         value=PythonExpression(["'right_' + '", robot_sn_right, "' + '_'"]),
     )
-
-    # Get URDF via xacro
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
@@ -145,6 +206,24 @@ def generate_launch_description():
                 " ",
                 "rizon_type_right:=",
                 rizon_type_right,
+                " ",
+                "load_gripper_left:=",
+                load_gripper_left,
+                " ",
+                "gripper_name_left:=",
+                gripper_name_left,
+                " ",
+                "load_gripper_right:=",
+                load_gripper_right,
+                " ",
+                "gripper_name_right:=",
+                gripper_name_right,
+                " ",
+                "load_mounted_ft_sensor_left:=",
+                load_mounted_ft_sensor_left,
+                " ",
+                "load_mounted_ft_sensor_right:=",
+                load_mounted_ft_sensor_right,
                 " ",
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
@@ -194,6 +273,7 @@ def generate_launch_description():
             {"prefix_right": LaunchConfiguration("prefix_right")},
             {"rdk_control_mode": rdk_control_mode},
         ],
+        remappings=[("joint_states", "flexiv_dual_arm/joint_states")],
         output="both",
     )
 
@@ -205,9 +285,9 @@ def generate_launch_description():
         parameters=[
             {
                 "source_list": [
-                    "left_arm_controller/joint_states",
-                    "right_arm_controller/joint_states",
-                    "joint_states",
+                    "flexiv_dual_arm/joint_states",
+                    "left_gripper_node/gripper_joint_states",
+                    "right_gripper_node/gripper_joint_states",
                 ],
                 "rate": 30,
             }
@@ -261,7 +341,6 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["flexiv_robot_states_broadcaster_left"],
-        parameters=[{"robot_sn": robot_sn_left}],
         condition=UnlessCondition(use_fake_hardware),
     )
 
@@ -270,15 +349,66 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["flexiv_robot_states_broadcaster_right"],
-        parameters=[{"robot_sn": robot_sn_right}],
         condition=UnlessCondition(use_fake_hardware),
     )
 
-    # Run gpio controller
-    gpio_controller_spawner = Node(
+    # Include gripper launch files
+    load_gripper_left_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution(
+                [
+                    FindPackageShare("flexiv_gripper"),
+                    "launch",
+                    "flexiv_gripper.launch.py",
+                ]
+            )
+        ),
+        launch_arguments={
+            "gripper_node_name": "left_gripper_node",
+            "robot_sn": robot_sn_left,
+            "gripper_name": gripper_name_left,
+            "use_fake_hardware": use_fake_hardware,
+        }.items(),
+        condition=IfCondition(load_gripper_left),
+    )
+    load_gripper_right_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution(
+                [
+                    FindPackageShare("flexiv_gripper"),
+                    "launch",
+                    "flexiv_gripper.launch.py",
+                ]
+            )
+        ),
+        launch_arguments={
+            "gripper_node_name": "right_gripper_node",
+            "robot_sn": robot_sn_right,
+            "gripper_name": gripper_name_right,
+            "use_fake_hardware": use_fake_hardware,
+        }.items(),
+        condition=IfCondition(load_gripper_right),
+    )
+
+    # Run gpio controllers
+    gpio_controller_left_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["gpio_controller", "--controller-manager", "/controller_manager"],
+        arguments=[
+            "gpio_controller_left",
+            "--controller-manager",
+            "/controller_manager",
+        ],
+        condition=UnlessCondition(use_fake_hardware),
+    )
+    gpio_controller_right_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=[
+            "gpio_controller_right",
+            "--controller-manager",
+            "/controller_manager",
+        ],
         condition=UnlessCondition(use_fake_hardware),
     )
 
@@ -290,17 +420,18 @@ def generate_launch_description():
         )
     )
 
-    delay_right_controller_after_jsb = RegisterEventHandler(
+    # Delay right controller start after left controller
+    delay_right_controller_after_left_controller = RegisterEventHandler(
         event_handler=OnProcessExit(
-            target_action=joint_state_broadcaster_spawner,
+            target_action=left_arm_controller_spawner,
             on_exit=[right_arm_controller_spawner],
         )
     )
 
-    # Delay rviz start after `joint_state_broadcaster` (just to be safe)
-    delay_rviz_after_jsb = RegisterEventHandler(
+    # Delay rviz start after right controller
+    delay_rviz_after_right_controller = RegisterEventHandler(
         event_handler=OnProcessExit(
-            target_action=joint_state_broadcaster_spawner,
+            target_action=right_arm_controller_spawner,
             on_exit=[rviz_node],
         )
     )
@@ -314,10 +445,13 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_left_spawner,
         flexiv_robot_states_broadcaster_right_spawner,
-        gpio_controller_spawner,
+        load_gripper_left_launch,
+        load_gripper_right_launch,
+        gpio_controller_left_spawner,
+        gpio_controller_right_spawner,
         delay_left_controller_after_jsb,
-        delay_right_controller_after_jsb,
-        delay_rviz_after_jsb,
+        delay_right_controller_after_left_controller,
+        delay_rviz_after_right_controller,
     ]
 
     return LaunchDescription(declared_arguments + nodes)
