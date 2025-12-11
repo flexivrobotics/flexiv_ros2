@@ -315,22 +315,22 @@ def generate_launch_description():
     )
 
     # Run left arm controller
-    left_arm_controller_spawner = Node(
+    left_rizon_arm_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=[
-            "left_arm_controller",
+            "left_rizon_arm_controller",
             "--controller-manager",
             "/controller_manager",
         ],
     )
 
     # Run right arm controller
-    right_arm_controller_spawner = Node(
+    right_rizon_arm_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=[
-            "right_arm_controller",
+            "right_rizon_arm_controller",
             "--controller-manager",
             "/controller_manager",
         ],
@@ -416,22 +416,22 @@ def generate_launch_description():
     delay_left_controller_after_jsb = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_state_broadcaster_spawner,
-            on_exit=[left_arm_controller_spawner],
+            on_exit=[left_rizon_arm_controller_spawner],
         )
     )
 
     # Delay right controller start after left controller
     delay_right_controller_after_left_controller = RegisterEventHandler(
         event_handler=OnProcessExit(
-            target_action=left_arm_controller_spawner,
-            on_exit=[right_arm_controller_spawner],
+            target_action=left_rizon_arm_controller_spawner,
+            on_exit=[right_rizon_arm_controller_spawner],
         )
     )
 
     # Delay rviz start after right controller
     delay_rviz_after_right_controller = RegisterEventHandler(
         event_handler=OnProcessExit(
-            target_action=right_arm_controller_spawner,
+            target_action=right_rizon_arm_controller_spawner,
             on_exit=[rviz_node],
         )
     )

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="rizon_dual">
+    <!-- parameters -->
+    <xacro:arg name="robot_sn_left" default="" />
+    <xacro:arg name="robot_sn_right" default="" />
+    <xacro:arg name="load_gripper_left" default="false" />
+    <xacro:arg name="load_gripper_right" default="false" />
+    <xacro:arg name="load_mounted_ft_sensor_left" default="false" />
+    <xacro:arg name="load_mounted_ft_sensor_right" default="false" />
+    <xacro:arg name="prefix_left" default="left_" />
+    <xacro:arg name="prefix_right" default="right_" />
+
+    <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
+
+    <!-- Left Arm -->
+    <xacro:rizon_srdf arm_prefix="$(arg prefix_left)" robot_sn="$(arg robot_sn_left)"
+        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_left)" />
+
+    <!-- Right Arm -->
+    <xacro:rizon_srdf arm_prefix="$(arg prefix_right)" robot_sn="$(arg robot_sn_right)"
+        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" />
+
+    <!-- Load grippers -->
+    <xacro:if value="$(arg load_gripper_left)">
+        <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
+        <xacro:grav_srdf arm_prefix="$(arg prefix_left)" robot_sn="$(arg robot_sn_left)"
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_left)" />
+    </xacro:if>
+
+    <xacro:if value="$(arg load_gripper_right)">
+        <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
+        <xacro:grav_srdf arm_prefix="$(arg prefix_right)" robot_sn="$(arg robot_sn_right)"
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" />
+    </xacro:if>
+
+</robot>
