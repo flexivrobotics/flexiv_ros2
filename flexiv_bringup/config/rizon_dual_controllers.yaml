@@ -1,0 +1,65 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 1000  # Hz
+
+    left_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    right_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    gpio_controller:
+      type: gpio_controller/GPIOController
+
+    flexiv_robot_states_broadcaster_left:
+      type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
+
+    flexiv_robot_states_broadcaster_right:
+      type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
+
+left_arm_controller:
+  ros__parameters:
+    joints:
+      - $(var prefix_left)joint1
+      - $(var prefix_left)joint2
+      - $(var prefix_left)joint3
+      - $(var prefix_left)joint4
+      - $(var prefix_left)joint5
+      - $(var prefix_left)joint6
+      - $(var prefix_left)joint7
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    constraints:
+      stopped_velocity_tolerance: 0.01
+      goal_time: 0.0
+
+right_arm_controller:
+  ros__parameters:
+    joints:
+      - $(var prefix_right)joint1
+      - $(var prefix_right)joint2
+      - $(var prefix_right)joint3
+      - $(var prefix_right)joint4
+      - $(var prefix_right)joint5
+      - $(var prefix_right)joint6
+      - $(var prefix_right)joint7
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    constraints:
+      stopped_velocity_tolerance: 0.01
+      goal_time: 0.0

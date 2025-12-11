@@ -146,11 +146,33 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    // Read translation parameters
+    double left_x = 0.0, left_y = 0.0, left_z = 0.0;
+    double right_x = 0.0, right_y = 0.0, right_z = 0.0;
+    try {
+        if (info_.hardware_parameters.count("translation_left_x")) {
+            left_x = std::stod(info_.hardware_parameters.at("translation_left_x"));
+            left_y = std::stod(info_.hardware_parameters.at("translation_left_y"));
+            left_z = std::stod(info_.hardware_parameters.at("translation_left_z"));
+        }
+        if (info_.hardware_parameters.count("translation_right_x")) {
+            right_x = std::stod(info_.hardware_parameters.at("translation_right_x"));
+            right_y = std::stod(info_.hardware_parameters.at("translation_right_y"));
+            right_z = std::stod(info_.hardware_parameters.at("translation_right_z"));
+        }
+    } catch (const std::exception& ex) {
+        RCLCPP_WARN(getLogger(), "Failed to parse translation parameters, using default (0,0,0)");
+    }
+
+    std::pair<std::array<double, 3>, std::array<double, 3>> translations;
+    translations.first = {left_x, left_y, left_z};
+    translations.second = {right_x, right_y, right_z};
+
     try {
         RCLCPP_INFO(getLogger(), "Connecting to robots %s and %s ...", robot_sn_left.c_str(),
             robot_sn_right.c_str());
         robot_pair_ = std::make_unique<flexiv::drdk::RobotPair>(
-            std::make_pair(robot_sn_left, robot_sn_right));
+            std::make_pair(robot_sn_left, robot_sn_right), translations);
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not connect to robots");
         RCLCPP_FATAL(getLogger(), e.what());
@@ -189,10 +211,13 @@ FlexivDualHardwareInterface::export_state_interfaces()
         "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_right_)));
 
     // GPIOs
-    const std::string prefix = info_.hardware_parameters.at("prefix");
-    for (size_t i = 0; i < flexiv::rdk::kIOPorts * 2; i++) {
+    const std::string prefix_left = info_.hardware_parameters.at("prefix_left");
+    const std::string prefix_right = info_.hardware_parameters.at("prefix_right");
+    for (size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
         state_interfaces.emplace_back(hardware_interface::StateInterface(
-            prefix + "gpio", "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i]));
+            prefix_left + "gpio", "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i]));
+        state_interfaces.emplace_back(hardware_interface::StateInterface(prefix_right + "gpio",
+            "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i + flexiv::rdk::kIOPorts]));
     }
 
     return state_interfaces;
@@ -211,10 +236,14 @@ FlexivDualHardwareInterface::export_command_interfaces()
             hardware_interface::HW_IF_EFFORT, &hw_commands_joint_efforts_[i]));
     }
 
-    const std::string prefix = info_.hardware_parameters.at("prefix");
-    for (size_t i = 0; i < flexiv::rdk::kIOPorts * 2; i++) {
-        command_interfaces.emplace_back(hardware_interface::CommandInterface(
-            prefix + "gpio", "digital_output_" + std::to_string(i), &hw_commands_gpio_out_[i]));
+    const std::string prefix_left = info_.hardware_parameters.at("prefix_left");
+    const std::string prefix_right = info_.hardware_parameters.at("prefix_right");
+    for (size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(prefix_left + "gpio",
+            "digital_output_" + std::to_string(i), &hw_commands_gpio_out_[i]));
+        command_interfaces.emplace_back(hardware_interface::CommandInterface(prefix_right + "gpio",
+            "digital_output_" + std::to_string(i),
+            &hw_commands_gpio_out_[i + flexiv::rdk::kIOPorts]));
     }
 
     return command_interfaces;
