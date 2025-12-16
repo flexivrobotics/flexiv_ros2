@@ -27,6 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y \
+          wget \
           libeigen3-dev \
           ros-humble-control-toolbox \
           ros-humble-hardware-interface \
