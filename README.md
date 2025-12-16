@@ -202,6 +202,12 @@ Test with fake hardware:
 ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
 ```
 
+With dual robot setup:
+
+```bash
+ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=Rizon4-123456 robot_sn_right:=Rizon4R-654321
+```
+
 ### Robot States
 
 The robot driver (`rizon.launch.py`) publishes the following feedback states to the respective ROS topics:
