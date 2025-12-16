@@ -48,6 +48,7 @@ jobs:
           cd flexiv_rdk
           git checkout release/v1.9
           cd thirdparty
+          source /opt/ros/humble/setup.bash
           bash build_and_install_dependencies_not_in_ros2.sh ~/rdk_install
           cd ..
           mkdir -p build && cd build
@@ -60,6 +61,7 @@ jobs:
           cd flexiv_drdk
           git checkout v1.1
           cd thirdparty
+          source /opt/ros/humble/setup.bash
           bash build_and_install_dependencies.sh ~/drdk_install
           cd ..
           mkdir -p build && cd build
