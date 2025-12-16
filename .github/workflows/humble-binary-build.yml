@@ -34,12 +34,12 @@ jobs:
           ros-humble-joint-state-publisher-gui \
           ros-humble-moveit \
           ros-humble-realtime-tools \
-          ros-humble-robot-state-publisher
+          ros-humble-robot-state-publisher \
           ros-humble-ros2-control \
           ros-humble-ros2-controllers \
           ros-humble-test-msgs \
           ros-humble-tinyxml2-vendor \
-          ros-humble-xacro \
+          ros-humble-xacro
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
