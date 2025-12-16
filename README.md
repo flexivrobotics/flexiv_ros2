@@ -45,7 +45,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    ros-humble-robot-state-publisher \
    ros-humble-ros2-control \
    ros-humble-ros2-controllers \
-   ros-humble-rviz2
+   ros-humble-rviz2 \
    ros-humble-test-msgs \
    ros-humble-tinyxml2-vendor \
    ros-humble-xacro \
