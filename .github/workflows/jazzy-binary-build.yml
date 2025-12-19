@@ -27,23 +27,26 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y \
+          wget \
           libeigen3-dev \
-          ros-jazzy-xacro \
-          ros-jazzy-tinyxml2-vendor \
-          ros-jazzy-ros2-control \
-          ros-jazzy-realtime-tools \
           ros-jazzy-control-toolbox \
-          ros-jazzy-moveit \
-          ros-jazzy-ros2-controllers \
-          ros-jazzy-test-msgs \
+          ros-jazzy-hardware-interface \
           ros-jazzy-joint-state-publisher \
           ros-jazzy-joint-state-publisher-gui \
-          ros-jazzy-robot-state-publisher
+          ros-jazzy-moveit \
+          ros-jazzy-realtime-tools \
+          ros-jazzy-robot-state-publisher \
+          ros-jazzy-ros2-control \
+          ros-jazzy-ros2-controllers \
+          ros-jazzy-test-msgs \
+          ros-jazzy-tinyxml2-vendor \
+          ros-jazzy-xacro
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
           source /opt/ros/jazzy/setup.bash
-          cd flexiv_hardware/rdk
+          git clone https://github.com/flexivrobotics/flexiv_rdk.git -b release/v1.9
+          cd flexiv_rdk
           mkdir -p build && cd build
           cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install -DRDK_SUPPORT_ROS2_JAZZY=ON
           make install

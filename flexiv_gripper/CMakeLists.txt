@@ -28,8 +28,7 @@ add_library(gripper_action_server
   src/gripper_action_server.cpp)
 
 target_include_directories(gripper_action_server PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/../flexiv_hardware/rdk/include)
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(gripper_action_server
   flexiv::flexiv_rdk
