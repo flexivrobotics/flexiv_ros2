@@ -22,6 +22,7 @@ find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
+find_package(flexiv_rdk REQUIRED)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   builtin_interfaces
@@ -52,6 +53,7 @@ target_include_directories(flexiv_robot_states_broadcaster PRIVATE
 
 target_link_libraries(flexiv_robot_states_broadcaster PUBLIC
   flexiv_robot_states_broadcaster_parameters
+  flexiv::flexiv_rdk
 )
 
 ament_target_dependencies(flexiv_robot_states_broadcaster PUBLIC
