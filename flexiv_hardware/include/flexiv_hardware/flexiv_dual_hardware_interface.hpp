@@ -1,17 +1,17 @@
 /**
- * @file flexiv_hardware_interface.hpp
- * @brief Hardware interface to Flexiv robots for ROS 2 control. Adapted from
- * ros2_control_demos/example_3/hardware/include/ros2_control_demo_example_3/rrbot_system_multi_interface.hpp
- * @copyright Copyright (C) 2016-2024 Flexiv Ltd. All Rights Reserved.
+ * @file flexiv_dual_hardware_interface.hpp
+ * @brief Hardware interface to a pair of Flexiv robots for ROS 2 control.
+ * @copyright Copyright (C) 2016-2025 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
 
-#ifndef FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
-#define FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
+#ifndef FLEXIV_HARDWARE__FLEXIV_DUAL_HARDWARE_INTERFACE_HPP_
+#define FLEXIV_HARDWARE__FLEXIV_DUAL_HARDWARE_INTERFACE_HPP_
 
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 
 // ROS
 #include <rclcpp/clock.hpp>
@@ -29,12 +29,15 @@
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 
 // Flexiv
-#include "flexiv/rdk/robot.hpp"
+#include "flexiv/drdk/robot_pair.hpp"
 
 namespace flexiv_hardware {
 
 /** Robot joint space degree of freedoms */
 constexpr size_t kJointDoF = 7;
+
+/** Robot joint space degree of freedoms for a pair of robots */
+constexpr size_t kDualJointDoF = 14;
 
 enum StoppingInterface
 {
@@ -44,10 +47,10 @@ enum StoppingInterface
     STOP_EFFORT
 };
 
-class FlexivHardwareInterface : public hardware_interface::SystemInterface
+class FlexivDualHardwareInterface : public hardware_interface::SystemInterface
 {
 public:
-    RCLCPP_SHARED_PTR_DEFINITIONS(FlexivHardwareInterface)
+    RCLCPP_SHARED_PTR_DEFINITIONS(FlexivDualHardwareInterface)
 
     hardware_interface::CallbackReturn on_init(
         const hardware_interface::HardwareComponentInterfaceParams& params) override;
@@ -77,8 +80,8 @@ public:
         const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
 private:
-    // Flexiv RDK
-    std::unique_ptr<flexiv::rdk::Robot> robot_;
+    // Flexiv DRDK
+    std::unique_ptr<flexiv::drdk::RobotPair> robot_pair_;
 
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;
@@ -94,15 +97,18 @@ private:
     std::vector<double> hw_states_joint_efforts_;
 
     // Robot States
-    flexiv::rdk::RobotStates hw_flexiv_robot_states_;
-    flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_ = &hw_flexiv_robot_states_;
+    flexiv::rdk::RobotStates hw_flexiv_robot_states_left_;
+    flexiv::rdk::RobotStates hw_flexiv_robot_states_right_;
+    flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_left_ = &hw_flexiv_robot_states_left_;
+    flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_right_ = &hw_flexiv_robot_states_right_;
 
     // GPIO commands and states
     std::vector<double> hw_commands_gpio_out_;
     std::vector<double> hw_states_gpio_in_;
 
     // Current digital output map
-    std::map<unsigned int, bool> current_digital_outputs_;
+    std::map<unsigned int, bool> current_digital_outputs_left_;
+    std::map<unsigned int, bool> current_digital_outputs_right_;
 
     static rclcpp::Logger getLogger();
 
@@ -117,4 +123,4 @@ private:
 
 } /* namespace flexiv_hardware */
 
-#endif /* FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_ */
+#endif /* FLEXIV_HARDWARE__FLEXIV_DUAL_HARDWARE_INTERFACE_HPP_ */
