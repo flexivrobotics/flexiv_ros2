@@ -34,6 +34,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    sudo apt install -y \
    python3-colcon-common-extensions \
    libeigen3-dev \
+   wget \
    ros-jazzy-xacro \
    ros-jazzy-tinyxml2-vendor \
    ros-jazzy-ros2-control \
@@ -87,8 +88,45 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    source install/setup.bash
    ```
 
-> [!NOTE]
+### Flexiv DRDK Installation (Optional)
+
+If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as well.
+
+1. Clone `flexiv_drdk` into the workspace source directory and ignore it from colcon build:
+
+   ```bash
+   cd ~/flexiv_ros2_ws/src
+   git clone https://github.com/flexivrobotics/flexiv_drdk.git -b v1.1
+   touch flexiv_drdk/COLCON_IGNORE
+   ```
+
+2. Install dependencies and build `flexiv_drdk` by choosing an installation directory, e.g., `~/drdk_install`:
+
+   ```bash
+   cd ~/flexiv_ros2_ws/src/flexiv_drdk/thirdparty
+   source /opt/ros/jazzy/setup.bash
+   bash build_and_install_dependencies.sh ~/drdk_install
+   ```
+
+3. Configure and install `flexiv_drdk`:
+
+   ```bash
+   cd ~/flexiv_ros2_ws/src/flexiv_drdk
+   rm -rf build && mkdir build && cd build
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/drdk_install
+   cmake --build . --target install --config Release
+   ```
+
+4. Rebuild the workspace with both RDK and DRDK installation paths:
+
+   ```bash
+   cd ~/flexiv_ros2_ws
+   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH="~/rdk_install;~/drdk_install"
+   ```
+
+> [!IMPORTANT]
 > Remember to source the setup file and the workspace whenever a new terminal is opened:
+>
 > ```bash
 > source /opt/ros/jazzy/setup.bash
 > source ~/flexiv_ros2_ws/install/setup.bash
@@ -155,6 +193,11 @@ Test with fake hardware:
 
 ```bash
 ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
+```
+
+With dual robot setup:
+```bash
+ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=Rizon4-123456 robot_sn_right:=Rizon4R-654321
 ```
 
 ### Robot States
