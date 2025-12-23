@@ -10,6 +10,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    gripper_node_param_name = "gripper_node_name"
     robot_sn_param_name = "robot_sn"
     gripper_name_param_name = "gripper_name"
     use_fake_hardware_param_name = "use_fake_hardware"
@@ -17,6 +18,14 @@ def generate_launch_description():
 
     # Declare arguments
     declared_arguments = []
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            gripper_node_param_name,
+            default_value="flexiv_gripper_node",
+            description="Name of the flexiv gripper node.",
+        )
+    )
 
     declared_arguments.append(
         DeclareLaunchArgument(
@@ -50,6 +59,7 @@ def generate_launch_description():
     )
 
     # Initialize arguments
+    gripper_node = LaunchConfiguration(gripper_node_param_name)
     robot_sn = LaunchConfiguration(robot_sn_param_name)
     gripper_name = LaunchConfiguration(gripper_name_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
@@ -63,7 +73,7 @@ def generate_launch_description():
     flexiv_gripper_node = Node(
         package="flexiv_gripper",
         executable="flexiv_gripper_node",
-        name="flexiv_gripper_node",
+        name=gripper_node,
         parameters=[
             {
                 "robot_sn": robot_sn,
