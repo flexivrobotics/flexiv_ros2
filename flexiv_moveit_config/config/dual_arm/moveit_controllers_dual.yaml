@@ -1,0 +1,45 @@
+controller_names:
+  - left_rizon_arm_controller
+  - right_rizon_arm_controller
+  - left_gripper_node
+  - right_gripper_node
+
+left_rizon_arm_controller:
+  action_ns: follow_joint_trajectory
+  type: FollowJointTrajectory
+  default: true
+  joints:
+    - $(var prefix_left)joint1
+    - $(var prefix_left)joint2
+    - $(var prefix_left)joint3
+    - $(var prefix_left)joint4
+    - $(var prefix_left)joint5
+    - $(var prefix_left)joint6
+    - $(var prefix_left)joint7
+
+right_rizon_arm_controller:
+  action_ns: follow_joint_trajectory
+  type: FollowJointTrajectory
+  default: true
+  joints:
+    - $(var prefix_right)joint1
+    - $(var prefix_right)joint2
+    - $(var prefix_right)joint3
+    - $(var prefix_right)joint4
+    - $(var prefix_right)joint5
+    - $(var prefix_right)joint6
+    - $(var prefix_right)joint7
+
+left_gripper_node:
+  action_ns: gripper_action
+  type: GripperCommand
+  default: true
+  joints:
+    - $(var prefix_left)finger_width_joint
+
+right_gripper_node:
+  action_ns: gripper_action
+  type: GripperCommand
+  default: true
+  joints:
+    - $(var prefix_right)finger_width_joint
