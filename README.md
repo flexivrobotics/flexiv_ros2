@@ -96,7 +96,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src
-   git clone https://github.com/flexivrobotics/flexiv_drdk.git -b v1.1
+   git clone https://github.com/flexivrobotics/flexiv_drdk.git -b v1.2
    touch flexiv_drdk/COLCON_IGNORE
    ```
 
