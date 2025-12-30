@@ -82,7 +82,7 @@ jobs:
             {
               "build": {
                 "cmake-args": [
-                    "-DCMAKE_PREFIX_PATH=~/rdk_install;~/drdk_install"
+                    "-DCMAKE_PREFIX_PATH=~/flexiv_install"
                 ]
               }
             }
