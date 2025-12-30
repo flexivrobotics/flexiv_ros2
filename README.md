@@ -67,12 +67,12 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
    ```
 
-5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`. Compile and install to the installation directory:
+5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `flexiv_install` under the home directory: `~/flexiv_install`. Compile and install to the installation directory:
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk/thirdparty
    source /opt/ros/jazzy/setup.bash
-   bash build_and_install_dependencies_not_in_ros2.sh ~/rdk_install
+   bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
    ```
 
 6. Configure and install `flexiv_rdk`:
@@ -81,7 +81,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    cd ~/flexiv_ros2_ws/src/flexiv_rdk
    rm -rf build && mkdir build && cd build
    source /opt/ros/jazzy/setup.bash
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install -DRDK_SUPPORT_ROS2_JAZZY=ON
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DRDK_SUPPORT_ROS2_JAZZY=ON
    make install
    ```
 
@@ -90,7 +90,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    ```bash
    cd ~/flexiv_ros2_ws
    source /opt/ros/jazzy/setup.bash
-   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/rdk_install
+   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/flexiv_install
    source install/setup.bash
    ```
 
@@ -102,16 +102,16 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src
-   git clone https://github.com/flexivrobotics/flexiv_drdk.git -b v1.2
+   git clone https://github.com/flexivrobotics/flexiv_drdk.git -b release/v1.2
    touch flexiv_drdk/COLCON_IGNORE
    ```
 
-2. Install dependencies and build `flexiv_drdk` by choosing an installation directory, e.g., `~/drdk_install`:
+2. Install dependencies and build `flexiv_drdk` by choosing an installation directory, e.g., `~/flexiv_install`:
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk/thirdparty
    source /opt/ros/jazzy/setup.bash
-   bash build_and_install_dependencies.sh ~/drdk_install
+   bash build_and_install_dependencies.sh ~/flexiv_install 8 --skip-rdk
    ```
 
 3. Configure and install `flexiv_drdk`:
@@ -119,15 +119,15 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk
    rm -rf build && mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/drdk_install
-   cmake --build . --target install --config Release
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DDRDK_SUPPORT_ROS2_JAZZY=ON
+   make install
    ```
 
-4. Rebuild the workspace with both RDK and DRDK installation paths:
+4. Rebuild the workspace with `flexiv_drdk` included:
 
    ```bash
    cd ~/flexiv_ros2_ws
-   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH="~/rdk_install;~/drdk_install"
+   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/flexiv_install
    ```
 
 > [!IMPORTANT]
@@ -202,6 +202,7 @@ ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=Rizon4-123456 use_fa
 ```
 
 With dual robot setup:
+
 ```bash
 ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=Rizon4-123456 robot_sn_right:=Rizon4R-654321
 ```
