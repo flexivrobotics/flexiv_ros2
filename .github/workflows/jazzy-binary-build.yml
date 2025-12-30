@@ -47,22 +47,22 @@ jobs:
           git clone https://github.com/flexivrobotics/flexiv_rdk.git -b release/v1.9
           cd flexiv_rdk/thirdparty
           source /opt/ros/jazzy/setup.bash
-          bash build_and_install_dependencies_not_in_ros2.sh ~/rdk_install
+          bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install 8
           cd ..
           mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install -DRDK_SUPPORT_ROS2_JAZZY=ON
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DRDK_SUPPORT_ROS2_JAZZY=ON
           make install
       - name: Build and install flexiv_drdk
         shell: bash
         run: |
-          git clone https://github.com/flexivrobotics/flexiv_drdk.git -b v1.2_dev
+          git clone https://github.com/flexivrobotics/flexiv_drdk.git -b release/v1.2
           cd flexiv_drdk/thirdparty
           source /opt/ros/jazzy/setup.bash
-          bash build_and_install_dependencies.sh ~/drdk_install
+          bash build_and_install_dependencies.sh ~/flexiv_install 8 --skip-rdk
           cd ..
           mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/drdk_install
-          cmake --build . --target install --config Release
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DDRDK_SUPPORT_ROS2_JAZZY=ON
+          make install
       - name: Build and run tests
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.4
