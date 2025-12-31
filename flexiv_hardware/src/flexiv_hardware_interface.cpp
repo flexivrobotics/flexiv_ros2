@@ -56,8 +56,8 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     torque_controller_running_ = false;
     controllers_initialized_ = false;
 
-    if (info_.joints.size() != kJointDoF) {
-        RCLCPP_FATAL(getLogger(), "Got %ld joints. Expected %ld.", info_.joints.size(), kJointDoF);
+    if (info_.joints.size() < 7) {
+        RCLCPP_FATAL(getLogger(), "Got %ld joints. Expected at least 7.", info_.joints.size());
         return hardware_interface::CallbackReturn::ERROR;
     }
 
@@ -230,11 +230,9 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
         }
 
         // Check the DoF of the robot
-        if (robot_->info().DoF != kJointDoF) {
-            RCLCPP_FATAL(getLogger(),
-                "Robot has %ld DoF. Expected %ld. External axes control is not supported in ROS 2 "
-                "yet.",
-                robot_->info().DoF, kJointDoF);
+        if (robot_->info().DoF != info_.joints.size()) {
+            RCLCPP_FATAL(getLogger(), "Robot has %ld DoF. Expected %ld (from URDF).",
+                robot_->info().DoF, info_.joints.size());
             return hardware_interface::CallbackReturn::ERROR;
         }
 

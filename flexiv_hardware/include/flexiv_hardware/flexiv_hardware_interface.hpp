@@ -33,9 +33,6 @@
 
 namespace flexiv_hardware {
 
-/** Robot joint space degree of freedoms */
-constexpr size_t kJointDoF = 7;
-
 enum StoppingInterface
 {
     NONE,

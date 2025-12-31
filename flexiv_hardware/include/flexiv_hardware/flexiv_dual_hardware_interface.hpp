@@ -33,12 +33,6 @@
 
 namespace flexiv_hardware {
 
-/** Robot joint space degree of freedoms */
-constexpr size_t kJointDoF = 7;
-
-/** Robot joint space degree of freedoms for a pair of robots */
-constexpr size_t kDualJointDoF = 14;
-
 enum StoppingInterface
 {
     NONE,
@@ -109,6 +103,14 @@ private:
     // Current digital output map
     std::map<unsigned int, bool> current_digital_outputs_left_;
     std::map<unsigned int, bool> current_digital_outputs_right_;
+
+    // Joint mapping
+    struct JointMap
+    {
+        int robot_index; // 0: Left, 1: Right
+        int dof_index;   // Index in the robot's q vector
+    };
+    std::vector<JointMap> joint_map_;
 
     static rclcpp::Logger getLogger();
 
