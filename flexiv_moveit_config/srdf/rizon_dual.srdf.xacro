@@ -20,6 +20,10 @@
     <xacro:rizon_srdf arm_prefix="$(arg prefix_right)" robot_sn="$(arg robot_sn_right)"
         load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" />
 
+    <!-- Left and Right Arms Collisions -->
+    <disable_collisions link1="${prefix_left}base_link" link2="${prefix_right}base_link" reason="Never" />
+    <disable_collisions link1="${prefix_left}link1" link2="${prefix_right}link1" reason="Never" />
+
     <!-- Load grippers -->
     <xacro:if value="$(arg load_gripper_left)">
         <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />

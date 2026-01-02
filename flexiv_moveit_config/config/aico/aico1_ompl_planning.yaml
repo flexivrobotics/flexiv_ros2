@@ -122,7 +122,7 @@ planner_configs:
     max_failures: 5000 # maximum consecutive failure limit. default: 5000
   TrajOptDefault:
     type: geometric::TrajOpt
-$(var prefix_left)arm:
+$(var prefix)arm:
   planner_configs:
     - SBLkConfigDefault
     - ESTkConfigDefault
@@ -148,59 +148,7 @@ $(var prefix_left)arm:
     - SPARSkConfigDefault
     - SPARStwokConfigDefault
     - TrajOptDefault
-$(var prefix_right)arm:
-  planner_configs:
-    - SBLkConfigDefault
-    - ESTkConfigDefault
-    - LBKPIECEkConfigDefault
-    - BKPIECEkConfigDefault
-    - KPIECEkConfigDefault
-    - RRTkConfigDefault
-    - RRTConnectkConfigDefault
-    - RRTstarkConfigDefault
-    - TRRTkConfigDefault
-    - PRMkConfigDefault
-    - PRMstarkConfigDefault
-    - FMTkConfigDefault
-    - BFMTkConfigDefault
-    - PDSTkConfigDefault
-    - STRIDEkConfigDefault
-    - BiTRRTkConfigDefault
-    - LBTRRTkConfigDefault
-    - BiESTkConfigDefault
-    - ProjESTkConfigDefault
-    - LazyPRMkConfigDefault
-    - LazyPRMstarkConfigDefault
-    - SPARSkConfigDefault
-    - SPARStwokConfigDefault
-    - TrajOptDefault
-$(var prefix_left)grav_gripper:
-  planner_configs:
-    - SBLkConfigDefault
-    - ESTkConfigDefault
-    - LBKPIECEkConfigDefault
-    - BKPIECEkConfigDefault
-    - KPIECEkConfigDefault
-    - RRTkConfigDefault
-    - RRTConnectkConfigDefault
-    - RRTstarkConfigDefault
-    - TRRTkConfigDefault
-    - PRMkConfigDefault
-    - PRMstarkConfigDefault
-    - FMTkConfigDefault
-    - BFMTkConfigDefault
-    - PDSTkConfigDefault
-    - STRIDEkConfigDefault
-    - BiTRRTkConfigDefault
-    - LBTRRTkConfigDefault
-    - BiESTkConfigDefault
-    - ProjESTkConfigDefault
-    - LazyPRMkConfigDefault
-    - LazyPRMstarkConfigDefault
-    - SPARSkConfigDefault
-    - SPARStwokConfigDefault
-    - TrajOptDefault
-$(var prefix_right)grav_gripper:
+$(var prefix)grav_gripper:
   planner_configs:
     - SBLkConfigDefault
     - ESTkConfigDefault

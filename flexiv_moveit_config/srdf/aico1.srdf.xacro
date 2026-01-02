@@ -15,21 +15,23 @@
         load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" use_virtual_joint="false" />
 
     <!-- Prefixes -->
-    <xacro:property name="prefix" value="${arm_prefix + robot_sn + '_'}" />
+    <xacro:property name="prefix" value="$(arg arm_prefix)$(arg robot_sn)_" />
     <xacro:property name="platform_prefix" value="$(arg platform_prefix)" />
 
     <!-- Virtual Joint and Platform Group -->
     <xacro:if value="${'$(arg platform_type)' == 'X1'}">
         <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
             child_link="${platform_prefix}aico1_x1_base_link" />
-        <group name="aico1_x1_platform">
-            <chain base_link="${platform_prefix}aico1_x1_base_link" tip_link="${prefix}base_link" />
+        <group name="${platform_prefix}aico1_x1_platform_${prefix}arm">
+            <chain base_link="${platform_prefix}aico1_x1_base_link" tip_link="${prefix}flange" />
+        </group>
     </xacro:if>
     <xacro:if value="${'$(arg platform_type)' == 'X2'}">
         <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
             child_link="${platform_prefix}aico1_x2_agv" />
-        <group name="aico1_x2_platform">
-            <chain base_link="${platform_prefix}aico1_x2_base_link" tip_link="${prefix}base_link" />
+        <group name="${platform_prefix}aico1_x2_platform_${prefix}arm">
+            <chain base_link="${platform_prefix}aico1_x2_base_link" tip_link="${prefix}flange" />
+        </group>
     </xacro:if>
 
     <!-- Platform Collisions -->
