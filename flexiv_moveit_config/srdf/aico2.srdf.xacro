@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="aico2">
+    <!-- parameters -->
+    <xacro:arg name="platform_type" default="X1" />
+    <xacro:arg name="platform_prefix" default="" />
+    <xacro:arg name="robot_sn_left" default="" />
+    <xacro:arg name="robot_sn_right" default="" />
+    <xacro:arg name="load_gripper_left" default="false" />
+    <xacro:arg name="load_gripper_right" default="false" />
+    <xacro:arg name="load_mounted_ft_sensor_left" default="false" />
+    <xacro:arg name="load_mounted_ft_sensor_right" default="false" />
+    <xacro:arg name="prefix_left" default="left_" />
+    <xacro:arg name="prefix_right" default="right_" />
+
+    <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
+
+    <!-- Left Arm -->
+    <xacro:rizon_srdf arm_prefix="$(arg prefix_left)" robot_sn="$(arg robot_sn_left)"
+        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_left)" use_virtual_joint="false" />
+
+    <!-- Right Arm -->
+    <xacro:rizon_srdf arm_prefix="$(arg prefix_right)" robot_sn="$(arg robot_sn_right)"
+        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" use_virtual_joint="false" />
+
+    <!-- Prefixes -->
+    <xacro:property name="prefix_left" value="${prefix_left + robot_sn_left + '_'}" />
+    <xacro:property name="prefix_right" value="${prefix_right + robot_sn_right + '_'}" />
+    <xacro:property name="platform_prefix" value="$(arg platform_prefix)" />
+
+    <!-- Virtual Joint and Platform Group -->
+    <xacro:if value="${'$(arg platform_type)' == 'X1'}">
+        <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
+            child_link="${platform_prefix}aico2_x1_base_link" />
+        <group name="aico2_x1_platform">
+            <chain base_link="${platform_prefix}aico2_x1_base_link" tip_link="${prefix_left}base_link" />
+    </xacro:if>
+    <xacro:if value="${'$(arg platform_type)' == 'X2'}">
+        <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
+            child_link="${platform_prefix}aico2_x2_base_link" />
+        <group name="aico2_x2_platform">
+            <chain base_link="${platform_prefix}aico2_x2_base_link" tip_link="${prefix_left}base_link" />
+    </xacro:if>
+
+    <!-- Platform Collisions -->
+    <xacro:if value="${'$(arg platform_type)' == 'X1'}">
+        <!-- Left Arm -->
+        <disable_collisions link1="${prefix_left}base_link" link2="${platform_prefix}aico2_x1_link2" reason="Adjacent" />
+        <disable_collisions link1="${prefix_left}base_link" link2="${platform_prefix}aico2_x1_link1" reason="Never" />
+        <disable_collisions link1="${prefix_left}base_link" link2="${platform_prefix}aico2_x1_base_link" reason="Never" />
+        <disable_collisions link1="${prefix_left}link1" link2="${platform_prefix}aico2_x1_link2" reason="Never" />
+        <disable_collisions link1="${prefix_left}link1" link2="${platform_prefix}aico2_x1_link1" reason="Never" />
+        <disable_collisions link1="${prefix_left}link1" link2="${platform_prefix}aico2_x1_base_link" reason="Never" />
+
+        <!-- Right Arm -->
+        <disable_collisions link1="${prefix_right}base_link" link2="${platform_prefix}aico2_x1_link2" reason="Adjacent" />
+        <disable_collisions link1="${prefix_right}base_link" link2="${platform_prefix}aico2_x1_link1" reason="Never" />
+        <disable_collisions link1="${prefix_right}base_link" link2="${platform_prefix}aico2_x1_base_link" reason="Never" />
+        <disable_collisions link1="${prefix_right}link1" link2="${platform_prefix}aico2_x1_link2" reason="Never" />
+        <disable_collisions link1="${prefix_right}link1" link2="${platform_prefix}aico2_x1_link1" reason="Never" />
+        <disable_collisions link1="${prefix_right}link1" link2="${platform_prefix}aico2_x1_base_link" reason="Never" />
+
+        <!-- Platform internal -->
+        <disable_collisions link1="${platform_prefix}aico2_x1_base_link" link2="${platform_prefix}aico2_x1_link1" reason="Adjacent" />
+        <disable_collisions link1="${platform_prefix}aico2_x1_base_link" link2="${platform_prefix}aico2_x1_link2" reason="Never" />
+        <disable_collisions link1="${platform_prefix}aico2_x1_link1" link2="${platform_prefix}aico2_x1_link2" reason="Adjacent" />
+    </xacro:if>
+
+    <xacro:if value="${'$(arg platform_type)' == 'X2'}">
+        <!-- Left Arm -->
+        <disable_collisions link1="${prefix_left}base_link" link2="${platform_prefix}aico2_x2_link2" reason="Adjacent" />
+        <disable_collisions link1="${prefix_left}base_link" link2="${platform_prefix}aico2_x2_link1" reason="Never" />
+        <disable_collisions link1="${prefix_left}base_link" link2="${platform_prefix}aico2_x2_base_link" reason="Never" />
+        <disable_collisions link1="${prefix_left}link1" link2="${platform_prefix}aico2_x2_link2" reason="Never" />
+        <disable_collisions link1="${prefix_left}link1" link2="${platform_prefix}aico2_x2_link1" reason="Never" />
+        <disable_collisions link1="${prefix_left}link1" link2="${platform_prefix}aico2_x2_base_link" reason="Never" />
+
+        <!-- Right Arm -->
+        <disable_collisions link1="${prefix_right}base_link" link2="${platform_prefix}aico2_x2_link2" reason="Adjacent" />
+        <disable_collisions link1="${prefix_right}base_link" link2="${platform_prefix}aico2_x2_link1" reason="Never" />
+        <disable_collisions link1="${prefix_right}base_link" link2="${platform_prefix}aico2_x2_base_link" reason="Never" />
+        <disable_collisions link1="${prefix_right}link1" link2="${platform_prefix}aico2_x2_link2" reason="Never" />
+        <disable_collisions link1="${prefix_right}link1" link2="${platform_prefix}aico2_x2_link1" reason="Never" />
+        <disable_collisions link1="${prefix_right}link1" link2="${platform_prefix}aico2_x2_base_link" reason="Never" />
+
+        <!-- Platform internal -->
+        <disable_collisions link1="${platform_prefix}aico2_x2_base_link" link2="${platform_prefix}aico2_x2_link1" reason="Adjacent" />
+        <disable_collisions link1="${platform_prefix}aico2_x2_base_link" link2="${platform_prefix}aico2_x2_link2" reason="Never" />
+        <disable_collisions link1="${platform_prefix}aico2_x2_link1" link2="${platform_prefix}aico2_x2_link2" reason="Adjacent" />
+    </xacro:if>
+
+    <!-- Load grippers -->
+    <xacro:if value="$(arg load_gripper_left)">
+        <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
+        <xacro:grav_srdf arm_prefix="$(arg prefix_left)" robot_sn="$(arg robot_sn_left)"
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_left)" />
+    </xacro:if>
+
+    <xacro:if value="$(arg load_gripper_right)">
+        <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
+        <xacro:grav_srdf arm_prefix="$(arg prefix_right)" robot_sn="$(arg robot_sn_right)"
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" />
+    </xacro:if>
+
+</robot>
