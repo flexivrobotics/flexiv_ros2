@@ -156,7 +156,11 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
 - `robot_controller` (default: *rizon_arm_controller*) - robot controller to start. Available controllers: *rizon_arm_controller*
 
-*(Details about other launch files can be found in [`flexiv_bringup`](/flexiv_bringup))*
+There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual robot setups. *(Details about other launch files can be found in [`flexiv_bringup`](/flexiv_bringup))*
+
+- `robot_sn_left` (*required for dual robot setup*) - Serial number of the left robot to connect to. Remove any space, for example: Rizon4-123456
+- `robot_sn_right` (*required for dual robot setup*) - Serial number of the right robot to connect to. Remove any space, for example: Rizon4R-654321
+- `platform_type` (default: *X1*) - type of the Flexiv AICO robot platform. Options: *X1* or *X2*
 
 ### Example Commands
 
@@ -187,6 +191,20 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 
      The joint position goals can be changed in `flexiv_bringup/config/joint_trajectory_position_publisher.yaml`
 
+#### AICO1 and AICO2 Example Commands
+
+**AICO1-X1** robot:
+
+```bash
+ros2 launch flexiv_bringup aico1.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4 platform_type:=X1
+```
+
+**AICO2-X1** robot:
+
+```bash
+ros2 launch flexiv_bringup aico2.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] platform_type:=X1
+```
+
 ### Using MoveIt
 
 You can also run the MoveIt example and use the `MotionPlanning` plugin in RViZ to start planning:
@@ -204,7 +222,13 @@ ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=Rizon4-123456 use_fa
 With dual robot setup:
 
 ```bash
-ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=Rizon4-123456 robot_sn_right:=Rizon4R-654321
+ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right]
+```
+
+With AICO2-X1 (AICO2-4) setup:
+
+```bash
+ros2 launch flexiv_bringup aico2_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] platform_type:=X1
 ```
 
 ### Robot States
