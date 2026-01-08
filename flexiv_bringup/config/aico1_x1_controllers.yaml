@@ -1,6 +1,6 @@
 controller_manager:
   ros__parameters:
-    update_rate: 1000  # Hz
+    update_rate: 100  # Hz
 
     rizon_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
@@ -17,6 +17,7 @@ controller_manager:
 rizon_arm_controller:
   ros__parameters:
     joints:
+      - $(var external_axis_prefix)aico1_x1_joint2
       - $(var robot_sn)_joint1
       - $(var robot_sn)_joint2
       - $(var robot_sn)_joint3
@@ -24,7 +25,6 @@ rizon_arm_controller:
       - $(var robot_sn)_joint5
       - $(var robot_sn)_joint6
       - $(var robot_sn)_joint7
-      - $(var external_axis_prefix)aico1_x1_joint2
     command_interfaces:
       - position
     state_interfaces:

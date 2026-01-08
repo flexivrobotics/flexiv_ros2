@@ -98,6 +98,10 @@ private:
     std::vector<double> hw_commands_gpio_out_;
     std::vector<double> hw_states_gpio_in_;
 
+    // Map from RDK joint index to ROS joint index
+    // RDK expects: [ext_axis_1, ..., ext_axis_N, arm_joint_1, ..., arm_joint_7]
+    std::vector<size_t> rdk_to_ros_map_;
+
     // Current digital output map
     std::map<unsigned int, bool> current_digital_outputs_;
 

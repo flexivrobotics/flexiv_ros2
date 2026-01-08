@@ -178,6 +178,77 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    // Check the DoF of both robots
+    if (robot_pair_->info().first.DoF + robot_pair_->info().second.DoF != info_.joints.size()) {
+        RCLCPP_FATAL(getLogger(),
+            "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
+            robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
+            robot_pair_->info().first.DoF + robot_pair_->info().second.DoF, info_.joints.size());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    // Build joint map
+    joint_map_.resize(info_.joints.size());
+    std::vector<size_t> unmapped_indices;
+    const std::string prefix_left = info_.hardware_parameters.at("prefix_left");
+    const std::string prefix_right = info_.hardware_parameters.at("prefix_right");
+
+    // Determine external DOFs first
+    size_t extra_dof_left
+        = robot_pair_->info().first.DoF > 7 ? robot_pair_->info().first.DoF - 7 : 0;
+    size_t extra_dof_right
+        = robot_pair_->info().second.DoF > 7 ? robot_pair_->info().second.DoF - 7 : 0;
+
+    for (size_t i = 0; i < info_.joints.size(); i++) {
+        std::string name = info_.joints[i].name;
+        bool mapped = false;
+        // Left robot arm joints (ext_dof_left + 0...6)
+        if (name.find(prefix_left + "joint") == 0) {
+            std::string num_str = name.substr((prefix_left + "joint").length());
+            try {
+                int joint_num = std::stoi(num_str);
+                if (joint_num >= 1 && joint_num <= 7) {
+                    joint_map_[i] = {0, (int)extra_dof_left + joint_num - 1};
+                    mapped = true;
+                }
+            } catch (...) {
+            }
+        }
+
+        // Right robot arm joints (ext_dof_right + 0...6)
+        if (!mapped && name.find(prefix_right + "joint") == 0) {
+            std::string num_str = name.substr((prefix_right + "joint").length());
+            try {
+                int joint_num = std::stoi(num_str);
+                if (joint_num >= 1 && joint_num <= 7) {
+                    joint_map_[i] = {1, (int)extra_dof_right + joint_num - 1};
+                    mapped = true;
+                }
+            } catch (...) {
+            }
+        }
+
+        if (!mapped) {
+            unmapped_indices.push_back(i);
+        }
+    }
+
+    if (unmapped_indices.size() != extra_dof_left + extra_dof_right) {
+        RCLCPP_FATAL(getLogger(), "Mismatch in extra joints count. Unmapped: %ld, Expected: %ld",
+            unmapped_indices.size(), extra_dof_left + extra_dof_right);
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    size_t unmapped_idx = 0;
+    // Assign external joints to Left Robot (indices 0 to extra_dof_left-1)
+    for (size_t k = 0; k < extra_dof_left; k++) {
+        joint_map_[unmapped_indices[unmapped_idx++]] = {0, (int)k};
+    }
+    // Assign external joints to Right Robot (indices 0 to extra_dof_right-1)
+    for (size_t k = 0; k < extra_dof_right; k++) {
+        joint_map_[unmapped_indices[unmapped_idx++]] = {1, (int)k};
+    }
+
     RCLCPP_INFO(getLogger(), "Successfully connected to robots");
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -286,67 +357,6 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
             return hardware_interface::CallbackReturn::ERROR;
         }
 
-        // Build joint map
-        joint_map_.resize(info_.joints.size());
-        std::vector<size_t> unmapped_indices;
-        const std::string prefix_left = info_.hardware_parameters.at("prefix_left");
-        const std::string prefix_right = info_.hardware_parameters.at("prefix_right");
-
-        for (size_t i = 0; i < info_.joints.size(); i++) {
-            std::string name = info_.joints[i].name;
-            bool mapped = false;
-            if (name.find(prefix_left + "joint") == 0) {
-                std::string num_str = name.substr((prefix_left + "joint").length());
-                try {
-                    int joint_num = std::stoi(num_str);
-                    if (joint_num >= 1 && joint_num <= 7) {
-                        joint_map_[i] = {0, joint_num - 1};
-                        mapped = true;
-                    }
-                } catch (...) {
-                }
-            }
-
-            if (!mapped && name.find(prefix_right + "joint") == 0) {
-                std::string num_str = name.substr((prefix_right + "joint").length());
-                try {
-                    int joint_num = std::stoi(num_str);
-                    if (joint_num >= 1 && joint_num <= 7) {
-                        joint_map_[i] = {1, joint_num - 1};
-                        mapped = true;
-                    }
-                } catch (...) {
-                }
-            }
-
-            if (!mapped) {
-                unmapped_indices.push_back(i);
-            }
-        }
-
-        // Handle platform joints
-        size_t extra_dof_left
-            = robot_pair_->info().first.DoF > 7 ? robot_pair_->info().first.DoF - 7 : 0;
-        size_t extra_dof_right
-            = robot_pair_->info().second.DoF > 7 ? robot_pair_->info().second.DoF - 7 : 0;
-
-        if (unmapped_indices.size() != extra_dof_left + extra_dof_right) {
-            RCLCPP_FATAL(getLogger(),
-                "Mismatch in extra joints count. Unmapped: %ld, Expected: %ld",
-                unmapped_indices.size(), extra_dof_left + extra_dof_right);
-            return hardware_interface::CallbackReturn::ERROR;
-        }
-
-        size_t unmapped_idx = 0;
-        // Assign to Left Robot
-        for (size_t k = 0; k < extra_dof_left; k++) {
-            joint_map_[unmapped_indices[unmapped_idx++]] = {0, 7 + (int)k};
-        }
-        // Assign to Right Robot
-        for (size_t k = 0; k < extra_dof_right; k++) {
-            joint_map_[unmapped_indices[unmapped_idx++]] = {1, 7 + (int)k};
-        }
-
         // Enable the pair of robots
         RCLCPP_INFO(getLogger(), "Enabling robots ...");
         robot_pair_->Enable();
@@ -356,6 +366,14 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         RCLCPP_INFO(getLogger(), "Both robots are now operational");
+
+        // Unlock external axes if any
+        if (robot_pair_->info().first.DoF > 7 || robot_pair_->info().second.DoF > 7) {
+            RCLCPP_INFO(getLogger(), "Unlocking external axes ...");
+            // Unlock (false) if DoF > 7, otherwise Lock (true)
+            robot_pair_->LockExternalAxes(
+                {robot_pair_->info().first.DoF <= 7, robot_pair_->info().second.DoF <= 7});
+        }
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable the robots");
         RCLCPP_FATAL(getLogger(), e.what());
