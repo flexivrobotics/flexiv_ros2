@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot xmlns:xacro="http://wiki.ros.org/xacro" name="rizon">
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg rizon_type)">
     <!-- parameters -->
+    <xacro:arg name="rizon_type" default="Rizon4" />
     <xacro:arg name="arm_prefix" default="" />
     <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper" default="false" />
