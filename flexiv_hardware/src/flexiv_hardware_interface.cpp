@@ -323,7 +323,7 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         target_pos = hw_commands_joint_positions_;
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
     } else if (velocity_controller_running_ && robot_->mode() == rdk_control_mode_ && !isNanVel) {
-        target_pos = hw_commands_joint_positions_;
+        target_pos = hw_states_joint_positions_;
         target_vel = hw_commands_joint_velocities_;
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
