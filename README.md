@@ -160,7 +160,7 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
 
 - `robot_sn_left` (*required for dual robot setup*) - Serial number of the left robot to connect to. Remove any space, for example: Rizon4-123456
 - `robot_sn_right` (*required for dual robot setup*) - Serial number of the right robot to connect to. Remove any space, for example: Rizon4R-654321
-- `platform_type` (default: *X1*) - type of the Flexiv AICO robot platform. Options: *X1* or *X2*
+- `external_axis_type` (default: *AICO1-platform-X1*) - type of the Flexiv AICO1 robot platform. Options: *AICO1-platform-X1* or *AICO1-platform-X2*
 
 ### Example Commands
 
@@ -193,16 +193,16 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
 
 #### AICO1 and AICO2 Example Commands
 
-**AICO1-X1** robot:
+**AICO1-4** robot:
 
 ```bash
-ros2 launch flexiv_bringup aico1.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4 platform_type:=X1
+ros2 launch flexiv_bringup aico1.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4 external_axis_type:=AICO1-platform-X1
 ```
 
-**AICO2-X1** robot:
+**AICO2-4** robot:
 
 ```bash
-ros2 launch flexiv_bringup aico2.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] platform_type:=X1
+ros2 launch flexiv_bringup aico2.launch.py rizon_type:=Rizon4 robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] external_axis_type:=AICO2-platform-X1
 ```
 
 ### Using MoveIt
@@ -225,10 +225,10 @@ With dual robot setup:
 ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right]
 ```
 
-With AICO2-X1 (AICO2-4) setup:
+With AICO2-4 setup:
 
 ```bash
-ros2 launch flexiv_bringup aico2_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] platform_type:=X1
+ros2 launch flexiv_bringup aico2_moveit.launch.py rizon_type:=Rizon4 robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] external_axis_type:=AICO2-platform-X1
 ```
 
 ### Robot States

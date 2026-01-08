@@ -30,8 +30,8 @@ def generate_launch_description():
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
     robot_controller_param_name = "robot_controller"
-    platform_type_param_name = "platform_type"
-    platform_prefix_param_name = "platform_prefix"
+    external_axis_type_param_name = "external_axis_type"
+    external_axis_prefix_param_name = "external_axis_prefix"
     arm_prefix_param_name = "arm_prefix"
 
     # Declare arguments
@@ -121,18 +121,18 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            platform_type_param_name,
-            default_value="X1",
-            description="Type of the AICO platform. Options: X1, X2",
-            choices=["X1", "X2"],
+            external_axis_type_param_name,
+            default_value="AICO1-platform-X1",
+            description="Type of the AICO1 platform.",
+            choices=["AICO1-platform-X1", "AICO1-platform-X2"],
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            platform_prefix_param_name,
+            external_axis_prefix_param_name,
             default_value="",
-            description="Prefix for the platform links and joints.",
+            description="Prefix for the external axis links and joints.",
         )
     )
 
@@ -155,8 +155,8 @@ def generate_launch_description():
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
     robot_controller = LaunchConfiguration(robot_controller_param_name)
-    platform_type = LaunchConfiguration(platform_type_param_name)
-    platform_prefix = LaunchConfiguration(platform_prefix_param_name)
+    external_axis_type = LaunchConfiguration(external_axis_type_param_name)
+    external_axis_prefix = LaunchConfiguration(external_axis_prefix_param_name)
     arm_prefix = LaunchConfiguration(arm_prefix_param_name)
 
     # Get URDF via xacro
@@ -197,11 +197,13 @@ def generate_launch_description():
                 "fake_sensor_commands:=",
                 fake_sensor_commands,
                 " ",
-                "platform_type:=",
-                platform_type,
+                "external_axis_type:=",
+                PythonExpression(
+                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
+                ),
                 " ",
-                "platform_prefix:=",
-                platform_prefix,
+                "external_axis_prefix:=",
+                external_axis_prefix,
                 " ",
                 "arm_prefix:=",
                 arm_prefix,
@@ -227,13 +229,18 @@ def generate_launch_description():
     )
 
     # Robot controllers
+    controller_file_name = PythonExpression(
+        [
+            "'aico1_x2_controllers.yaml' if '",
+            external_axis_type,
+            "' == 'AICO1-platform-X2' else 'aico1_x1_controllers.yaml'",
+        ]
+    )
     robot_controllers = PathJoinSubstitution(
         [
             FindPackageShare("flexiv_bringup"),
             "config",
-            PythonExpression(
-                ["'aico1_' + '", platform_type, "'.lower() + '_controllers.yaml'"]
-            ),
+            controller_file_name,
         ]
     )
 
@@ -246,7 +253,7 @@ def generate_launch_description():
             ParameterFile(robot_controllers, allow_substs=True),
             {"robot_sn": robot_sn},
             {"rdk_control_mode": rdk_control_mode},
-            {"platform_prefix": platform_prefix},
+            {"external_axis_prefix": external_axis_prefix},
         ],
         remappings=[("joint_states", "flexiv_rizon_arm/joint_states")],
         output="both",

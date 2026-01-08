@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro" name="aico1">
     <!-- parameters -->
-    <xacro:arg name="platform_type" default="X1" />
-    <xacro:arg name="platform_prefix" default="" />
+    <xacro:arg name="external_axis_type" default="aico1_platform_x1" />
+    <xacro:arg name="external_axis_prefix" default="" />
     <xacro:arg name="arm_prefix" default="" />
     <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper" default="false" />
@@ -16,52 +16,52 @@
 
     <!-- Prefixes -->
     <xacro:property name="prefix" value="$(arg arm_prefix)$(arg robot_sn)_" />
-    <xacro:property name="platform_prefix" value="$(arg platform_prefix)" />
+    <xacro:property name="external_axis_prefix" value="$(arg external_axis_prefix)" />
 
     <!-- Virtual Joint and Platform Group -->
-    <xacro:if value="${'$(arg platform_type)' == 'X1'}">
+    <xacro:if value="${'$(arg external_axis_type)' == 'aico1_platform_x1'}">
         <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
-            child_link="${platform_prefix}aico1_x1_base_link" />
-        <group name="${platform_prefix}aico1_x1_platform_${prefix}arm">
-            <chain base_link="${platform_prefix}aico1_x1_base_link" tip_link="${prefix}flange" />
+            child_link="${external_axis_prefix}aico1_x1_base_link" />
+        <group name="${external_axis_prefix}aico1_x1_platform_${prefix}arm">
+            <chain base_link="${external_axis_prefix}aico1_x1_base_link" tip_link="${prefix}flange" />
         </group>
     </xacro:if>
-    <xacro:if value="${'$(arg platform_type)' == 'X2'}">
+    <xacro:if value="${'$(arg external_axis_type)' == 'aico1_platform_x2'}">
         <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
-            child_link="${platform_prefix}aico1_x2_agv" />
-        <group name="${platform_prefix}aico1_x2_platform_${prefix}arm">
-            <chain base_link="${platform_prefix}aico1_x2_base_link" tip_link="${prefix}flange" />
+            child_link="${external_axis_prefix}aico1_x2_agv" />
+        <group name="${external_axis_prefix}aico1_x2_platform_${prefix}arm">
+            <chain base_link="${external_axis_prefix}aico1_x2_base_link" tip_link="${prefix}flange" />
         </group>
     </xacro:if>
 
     <!-- Platform Collisions -->
-    <xacro:if value="${'$(arg platform_type)' == 'X1'}">
-        <disable_collisions link1="${prefix}base_link" link2="${platform_prefix}aico1_x1_link2" reason="Adjacent" />
-        <disable_collisions link1="${prefix}base_link" link2="${platform_prefix}aico1_x1_link1" reason="Never" />
-        <disable_collisions link1="${prefix}base_link" link2="${platform_prefix}aico1_x1_base_link" reason="Never" />
-        <disable_collisions link1="${prefix}link1" link2="${platform_prefix}aico1_x1_link2" reason="Never" />
-        <disable_collisions link1="${prefix}link1" link2="${platform_prefix}aico1_x1_link1" reason="Never" />
-        <disable_collisions link1="${prefix}link1" link2="${platform_prefix}aico1_x1_base_link" reason="Never" />
-        <disable_collisions link1="${platform_prefix}aico1_x1_base_link" link2="${platform_prefix}aico1_x1_link1" reason="Adjacent" />
-        <disable_collisions link1="${platform_prefix}aico1_x1_base_link" link2="${platform_prefix}aico1_x1_link2" reason="Never" />
-        <disable_collisions link1="${platform_prefix}aico1_x1_link1" link2="${platform_prefix}aico1_x1_link2" reason="Adjacent" />
+    <xacro:if value="${'$(arg external_axis_type)' == 'aico1_platform_x1'}">
+        <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_x1_link2" reason="Adjacent" />
+        <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_x1_link1" reason="Never" />
+        <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_x1_base_link" reason="Never" />
+        <disable_collisions link1="${prefix}link1" link2="${external_axis_prefix}aico1_x1_link2" reason="Never" />
+        <disable_collisions link1="${prefix}link1" link2="${external_axis_prefix}aico1_x1_link1" reason="Never" />
+        <disable_collisions link1="${prefix}link1" link2="${external_axis_prefix}aico1_x1_base_link" reason="Never" />
+        <disable_collisions link1="${external_axis_prefix}aico1_x1_base_link" link2="${external_axis_prefix}aico1_x1_link1" reason="Adjacent" />
+        <disable_collisions link1="${external_axis_prefix}aico1_x1_base_link" link2="${external_axis_prefix}aico1_x1_link2" reason="Never" />
+        <disable_collisions link1="${external_axis_prefix}aico1_x1_link1" link2="${external_axis_prefix}aico1_x1_link2" reason="Adjacent" />
     </xacro:if>
 
-    <xacro:if value="${'$(arg platform_type)' == 'X2'}">
-        <disable_collisions link1="${prefix}base_link" link2="${platform_prefix}aico1_x2_link1" reason="Adjacent" />
-        <disable_collisions link1="${prefix}base_link" link2="${platform_prefix}aico1_x2_base_link" reason="Never" />
-        <disable_collisions link1="${prefix}base_link" link2="${platform_prefix}aico1_x2_neck_link" reason="Never" />
-        <disable_collisions link1="${prefix}base_link" link2="${platform_prefix}aico1_x2_head_link" reason="Never" />
+    <xacro:if value="${'$(arg external_axis_type)' == 'aico1_platform_x2'}">
+        <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_x2_link1" reason="Adjacent" />
+        <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_x2_base_link" reason="Never" />
+        <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_x2_neck_link" reason="Never" />
+        <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_x2_head_link" reason="Never" />
 
-        <disable_collisions link1="${prefix}link1" link2="${platform_prefix}aico1_x2_link1" reason="Never" />
-        <disable_collisions link1="${prefix}link1" link2="${platform_prefix}aico1_x2_base_link" reason="Never" />
-        <disable_collisions link1="${prefix}link1" link2="${platform_prefix}aico1_x2_neck_link" reason="Never" />
-        <disable_collisions link1="${prefix}link1" link2="${platform_prefix}aico1_x2_head_link" reason="Never" />
+        <disable_collisions link1="${prefix}link1" link2="${external_axis_prefix}aico1_x2_link1" reason="Never" />
+        <disable_collisions link1="${prefix}link1" link2="${external_axis_prefix}aico1_x2_base_link" reason="Never" />
+        <disable_collisions link1="${prefix}link1" link2="${external_axis_prefix}aico1_x2_neck_link" reason="Never" />
+        <disable_collisions link1="${prefix}link1" link2="${external_axis_prefix}aico1_x2_head_link" reason="Never" />
 
-        <disable_collisions link1="${platform_prefix}aico1_x2_base_link" link2="${platform_prefix}aico1_x2_link1" reason="Adjacent" />
-        <disable_collisions link1="${platform_prefix}aico1_x2_base_link" link2="${platform_prefix}aico1_x2_neck_link" reason="Never" />
-        <disable_collisions link1="${platform_prefix}aico1_x2_link1" link2="${platform_prefix}aico1_x2_neck_link" reason="Adjacent" />
-        <disable_collisions link1="${platform_prefix}aico1_x2_neck_link" link2="${platform_prefix}aico1_x2_head_link" reason="Adjacent" />
+        <disable_collisions link1="${external_axis_prefix}aico1_x2_base_link" link2="${external_axis_prefix}aico1_x2_link1" reason="Adjacent" />
+        <disable_collisions link1="${external_axis_prefix}aico1_x2_base_link" link2="${external_axis_prefix}aico1_x2_neck_link" reason="Never" />
+        <disable_collisions link1="${external_axis_prefix}aico1_x2_link1" link2="${external_axis_prefix}aico1_x2_neck_link" reason="Adjacent" />
+        <disable_collisions link1="${external_axis_prefix}aico1_x2_neck_link" link2="${external_axis_prefix}aico1_x2_head_link" reason="Adjacent" />
     </xacro:if>
 
     <!-- Load gripper -->

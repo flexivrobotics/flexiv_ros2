@@ -20,6 +20,7 @@ from launch.substitutions import (
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
+    PythonExpression,
 )
 
 
@@ -44,6 +45,7 @@ def load_yaml(package_name, file_path, replacements=None):
 
 def launch_setup(context):
     # Initialize Arguments
+    rizon_type = LaunchConfiguration("rizon_type")
     robot_sn_left = LaunchConfiguration("robot_sn_left")
     robot_sn_right = LaunchConfiguration("robot_sn_right")
 
@@ -63,13 +65,13 @@ def launch_setup(context):
     load_mounted_ft_sensor_left = LaunchConfiguration("load_mounted_ft_sensor_left")
     load_mounted_ft_sensor_right = LaunchConfiguration("load_mounted_ft_sensor_right")
 
-    platform_type = LaunchConfiguration("platform_type")
-    platform_prefix = LaunchConfiguration("platform_prefix")
+    external_axis_type = LaunchConfiguration("external_axis_type")
+    external_axis_prefix = LaunchConfiguration("external_axis_prefix")
 
     warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
 
-    platform_type_str = platform_type.perform(context)
-    platform_prefix_str = platform_prefix.perform(context)
+    external_axis_type_str = external_axis_type.perform(context)
+    external_axis_prefix_str = external_axis_prefix.perform(context)
 
     # Construct prefixes
     prefix_left_str = "left_" + robot_sn_left_str + "_"
@@ -92,6 +94,9 @@ def launch_setup(context):
                 PathJoinSubstitution([FindExecutable(name="xacro")]),
                 " ",
                 flexiv_urdf_xacro,
+                " ",
+                "rizon_type:=",
+                rizon_type,
                 " ",
                 "robot_sn_left:=",
                 robot_sn_left,
@@ -127,11 +132,13 @@ def launch_setup(context):
                 "fake_sensor_commands:=",
                 fake_sensor_commands,
                 " ",
-                "platform_type:=",
-                platform_type,
+                "external_axis_type:=",
+                PythonExpression(
+                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
+                ),
                 " ",
-                "platform_prefix:=",
-                platform_prefix,
+                "external_axis_prefix:=",
+                external_axis_prefix,
             ]
         ),
         value_type=str,
@@ -175,11 +182,13 @@ def launch_setup(context):
                 "arm_prefix_right:=",
                 "right_",
                 " ",
-                "platform_type:=",
-                platform_type,
+                "external_axis_type:=",
+                PythonExpression(
+                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
+                ),
                 " ",
-                "platform_prefix:=",
-                platform_prefix,
+                "external_axis_prefix:=",
+                external_axis_prefix,
             ]
         ),
         value_type=str,
@@ -194,7 +203,7 @@ def launch_setup(context):
     replacements = {
         "$(var prefix_left)": prefix_left_str,
         "$(var prefix_right)": prefix_right_str,
-        "$(var platform_prefix)": platform_prefix_str,
+        "$(var external_axis_prefix)": external_axis_prefix_str,
     }
 
     robot_description_kinematics_yaml = load_yaml(
@@ -228,7 +237,7 @@ def launch_setup(context):
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
     controllers_file = "config/aico/aico2_x1_moveit_controllers.yaml"
-    if platform_type_str == "X2":
+    if external_axis_type_str == "AICO2-platform-X2":
         controllers_file = "config/aico/aico2_x2_moveit_controllers.yaml"
 
     moveit_simple_controllers_yaml = load_yaml(
@@ -269,10 +278,10 @@ def launch_setup(context):
     )
 
     # Load platform joint limits
-    platform_joint_limits = load_yaml(
+    external_axis_joint_limits = load_yaml(
         "flexiv_moveit_config",
         "config/aico/aico_joint_limits.yaml",
-        {"$(var platform_prefix)": platform_prefix_str},
+        {"$(var external_axis_prefix)": external_axis_prefix_str},
     )
 
     joint_limits_yaml = {"robot_description_planning": {"joint_limits": {}}}
@@ -287,9 +296,9 @@ def launch_setup(context):
             joint_limits_right["joint_limits"]
         )
 
-    if platform_joint_limits and "joint_limits" in platform_joint_limits:
+    if external_axis_joint_limits and "joint_limits" in external_axis_joint_limits:
         joint_limits_yaml["robot_description_planning"]["joint_limits"].update(
-            platform_joint_limits["joint_limits"]
+            external_axis_joint_limits["joint_limits"]
         )
 
     warehouse_ros_config = {
@@ -349,7 +358,7 @@ def launch_setup(context):
 
     # Robot controllers
     ros2_controllers_file = "aico2_x1_controllers.yaml"
-    if platform_type_str == "X2":
+    if external_axis_type_str == "AICO2-platform-X2":
         ros2_controllers_file = "aico2_x2_controllers.yaml"
     robot_controllers = PathJoinSubstitution(
         [FindPackageShare("flexiv_bringup"), "config", ros2_controllers_file]
@@ -547,6 +556,15 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            "rizon_type",
+            default_value="Rizon4",
+            description="Type of the Flexiv Rizon robot.",
+            choices=["Rizon4", "Rizon10"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             "robot_sn_left",
             description="Serial number of the left robot.",
         )
@@ -642,18 +660,18 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "platform_type",
-            default_value="X1",
-            description="Type of the AICO platform. Options: X1, X2",
-            choices=["X1", "X2"],
+            "external_axis_type",
+            default_value="AICO2-platform-X1",
+            description="Type of the AICO2 platform.",
+            choices=["AICO2-platform-X1", "AICO2-platform-X2"],
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "platform_prefix",
+            "external_axis_prefix",
             default_value="",
-            description="Prefix for the platform links and joints.",
+            description="Prefix for the external axis links and joints.",
         )
     )
 

@@ -20,6 +20,7 @@ from launch.substitutions import (
 
 
 def generate_launch_description():
+    rizon_type_param_name = "rizon_type"
     robot_sn_left_param_name = "robot_sn_left"
     robot_sn_right_param_name = "robot_sn_right"
     rdk_control_mode_param_name = "rdk_control_mode"
@@ -32,11 +33,20 @@ def generate_launch_description():
     gripper_name_right_param_name = "gripper_name_right"
     load_mounted_ft_sensor_left_param_name = "load_mounted_ft_sensor_left"
     load_mounted_ft_sensor_right_param_name = "load_mounted_ft_sensor_right"
-    platform_type_param_name = "platform_type"
-    platform_prefix_param_name = "platform_prefix"
+    external_axis_type_param_name = "external_axis_type"
+    external_axis_prefix_param_name = "external_axis_prefix"
 
     # Declare arguments
     declared_arguments = []
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            rizon_type_param_name,
+            description="Type of the Flexiv Rizon robot.",
+            default_value="Rizon4",
+            choices=["Rizon4", "Rizon10"],
+        )
+    )
 
     declared_arguments.append(
         DeclareLaunchArgument(
@@ -135,22 +145,23 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            platform_type_param_name,
-            default_value="X1",
-            description="Type of the AICO platform. Options: X1, X2",
-            choices=["X1", "X2"],
+            external_axis_type_param_name,
+            default_value="AICO2-platform-X1",
+            description="Type of the AICO2 platform.",
+            choices=["AICO2-platform-X1", "AICO2-platform-X2"],
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            platform_prefix_param_name,
+            external_axis_prefix_param_name,
             default_value="",
-            description="Prefix for the platform links and joints.",
+            description="Prefix for the external axis links and joints.",
         )
     )
 
     # Initialize Arguments
+    rizon_type = LaunchConfiguration(rizon_type_param_name)
     robot_sn_left = LaunchConfiguration(robot_sn_left_param_name)
     robot_sn_right = LaunchConfiguration(robot_sn_right_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
@@ -167,8 +178,8 @@ def generate_launch_description():
     load_mounted_ft_sensor_right = LaunchConfiguration(
         load_mounted_ft_sensor_right_param_name
     )
-    platform_type = LaunchConfiguration(platform_type_param_name)
-    platform_prefix = LaunchConfiguration(platform_prefix_param_name)
+    external_axis_type = LaunchConfiguration(external_axis_type_param_name)
+    external_axis_prefix = LaunchConfiguration(external_axis_prefix_param_name)
 
     # Construct prefixes
     from launch.actions import SetLaunchConfiguration
@@ -193,6 +204,9 @@ def generate_launch_description():
                 PathJoinSubstitution([FindExecutable(name="xacro")]),
                 " ",
                 flexiv_urdf_xacro,
+                " ",
+                "rizon_type:=",
+                rizon_type,
                 " ",
                 "robot_sn_left:=",
                 robot_sn_left,
@@ -228,11 +242,13 @@ def generate_launch_description():
                 "fake_sensor_commands:=",
                 fake_sensor_commands,
                 " ",
-                "platform_type:=",
-                platform_type,
+                "external_axis_type:=",
+                PythonExpression(
+                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
+                ),
                 " ",
-                "platform_prefix:=",
-                platform_prefix,
+                "external_axis_prefix:=",
+                external_axis_prefix,
             ]
         ),
         value_type=str,
@@ -255,13 +271,18 @@ def generate_launch_description():
     )
 
     # Robot controllers
+    controller_file_name = PythonExpression(
+        [
+            "'aico2_x2_controllers.yaml' if '",
+            external_axis_type,
+            "' == 'AICO2-platform-X2' else 'aico2_x1_controllers.yaml'",
+        ]
+    )
     robot_controllers = PathJoinSubstitution(
         [
             FindPackageShare("flexiv_bringup"),
             "config",
-            PythonExpression(
-                ["'aico2_' + '", platform_type, "'.lower() + '_controllers.yaml'"]
-            ),
+            controller_file_name,
         ]
     )
 
@@ -277,7 +298,7 @@ def generate_launch_description():
             {"prefix_left": LaunchConfiguration("prefix_left")},
             {"prefix_right": LaunchConfiguration("prefix_right")},
             {"rdk_control_mode": rdk_control_mode},
-            {"platform_prefix": platform_prefix},
+            {"external_axis_prefix": external_axis_prefix},
         ],
         remappings=[("joint_states", "flexiv_dual_arm/joint_states")],
         output="both",

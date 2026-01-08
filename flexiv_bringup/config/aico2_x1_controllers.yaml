@@ -33,8 +33,8 @@ left_rizon_arm_controller:
       - $(var prefix_left)joint5
       - $(var prefix_left)joint6
       - $(var prefix_left)joint7
-      - $(var platform_prefix)aico2_x1_joint1
-      - $(var platform_prefix)aico2_x1_joint2
+      - $(var external_axis_prefix)aico2_x1_joint1
+      - $(var external_axis_prefix)aico2_x1_joint2
     command_interfaces:
       - position
     state_interfaces:

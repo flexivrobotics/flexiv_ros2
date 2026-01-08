@@ -14,7 +14,7 @@ rizon_arm_controller:
     - $(var prefix)joint5
     - $(var prefix)joint6
     - $(var prefix)joint7
-    - $(var platform_prefix)aico1_x1_joint2
+    - $(var external_axis_prefix)aico1_x1_joint2
 
 flexiv_gripper_node:
   action_ns: gripper_action

@@ -20,6 +20,7 @@ from launch.substitutions import (
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
+    PythonExpression,
 )
 
 
@@ -53,14 +54,14 @@ def launch_setup(context):
     use_fake_hardware = LaunchConfiguration("use_fake_hardware")
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
     robot_controller = LaunchConfiguration("robot_controller")
-    platform_type = LaunchConfiguration("platform_type")
-    platform_prefix = LaunchConfiguration("platform_prefix")
+    external_axis_type = LaunchConfiguration("external_axis_type")
+    external_axis_prefix = LaunchConfiguration("external_axis_prefix")
     arm_prefix = LaunchConfiguration("arm_prefix")
 
     robot_sn_str = robot_sn.perform(context)
     arm_prefix_str = arm_prefix.perform(context)
-    platform_prefix_str = platform_prefix.perform(context)
-    platform_type_str = platform_type.perform(context)
+    external_axis_prefix_str = external_axis_prefix.perform(context)
+    external_axis_type_str = external_axis_type.perform(context)
 
     # Construct prefix
     prefix_str = ""
@@ -107,11 +108,13 @@ def launch_setup(context):
                 "fake_sensor_commands:=",
                 fake_sensor_commands,
                 " ",
-                "platform_type:=",
-                platform_type,
+                "external_axis_type:=",
+                PythonExpression(
+                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
+                ),
                 " ",
-                "platform_prefix:=",
-                platform_prefix,
+                "external_axis_prefix:=",
+                external_axis_prefix,
                 " ",
                 "arm_prefix:=",
                 arm_prefix,
@@ -143,11 +146,13 @@ def launch_setup(context):
                 "load_mounted_ft_sensor:=",
                 load_mounted_ft_sensor,
                 " ",
-                "platform_type:=",
-                platform_type,
+                "external_axis_type:=",
+                PythonExpression(
+                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
+                ),
                 " ",
-                "platform_prefix:=",
-                platform_prefix,
+                "external_axis_prefix:=",
+                external_axis_prefix,
                 " ",
                 "arm_prefix:=",
                 arm_prefix,
@@ -164,7 +169,7 @@ def launch_setup(context):
     # Trajectory Execution Configuration
     replacements = {
         "$(var prefix)": prefix_str,
-        "$(var platform_prefix)": platform_prefix_str,
+        "$(var external_axis_prefix)": external_axis_prefix_str,
     }
 
     robot_description_kinematics_yaml = load_yaml(
@@ -198,7 +203,7 @@ def launch_setup(context):
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
     controllers_file = "config/aico/aico1_x1_moveit_controllers.yaml"
-    if platform_type_str == "X2":
+    if external_axis_type_str == "AICO1-platform-X2":
         controllers_file = "config/aico/aico1_x2_moveit_controllers.yaml"
 
     moveit_simple_controllers_yaml = load_yaml(
@@ -233,11 +238,11 @@ def launch_setup(context):
         {"$(var robot_sn)": prefix_str.rstrip("_")},
     )
 
-    # Load platform joint limits
-    platform_joint_limits = load_yaml(
+    # Load external axis joint limits
+    external_axis_joint_limits = load_yaml(
         "flexiv_moveit_config",
         "config/aico/aico_joint_limits.yaml",
-        {"$(var platform_prefix)": platform_prefix_str},
+        {"$(var external_axis_prefix)": external_axis_prefix_str},
     )
 
     joint_limits_yaml = {"robot_description_planning": {"joint_limits": {}}}
@@ -247,9 +252,9 @@ def launch_setup(context):
             joint_limits["joint_limits"]
         )
 
-    if platform_joint_limits and "joint_limits" in platform_joint_limits:
+    if external_axis_joint_limits and "joint_limits" in external_axis_joint_limits:
         joint_limits_yaml["robot_description_planning"]["joint_limits"].update(
-            platform_joint_limits["joint_limits"]
+            external_axis_joint_limits["joint_limits"]
         )
 
     warehouse_ros_config = {
@@ -309,7 +314,7 @@ def launch_setup(context):
 
     # Robot controllers
     ros2_controllers_file = "aico1_x1_controllers.yaml"
-    if platform_type_str == "X2":
+    if external_axis_type_str == "AICO1-platform-X2":
         ros2_controllers_file = "aico1_x2_controllers.yaml"
     robot_controllers = PathJoinSubstitution(
         [FindPackageShare("flexiv_bringup"), "config", ros2_controllers_file]
@@ -524,18 +529,18 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "platform_type",
-            default_value="X1",
-            description="Type of the AICO platform. Options: X1, X2",
-            choices=["X1", "X2"],
+            "external_axis_type",
+            default_value="AICO1-platform-X1",
+            description="Type of the AICO1 platform.",
+            choices=["AICO1-platform-X1", "AICO1-platform-X2"],
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "platform_prefix",
+            "external_axis_prefix",
             default_value="",
-            description="Prefix for the platform links and joints.",
+            description="Prefix for the external axis links and joints.",
         )
     )
 
