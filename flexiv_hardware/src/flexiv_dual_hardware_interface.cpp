@@ -145,6 +145,14 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    try {
+        if (info_.hardware_parameters.count("external_axis_type")) {
+            external_axis_type_ = info_.hardware_parameters.at("external_axis_type");
+        }
+    } catch (const std::exception& ex) {
+        RCLCPP_WARN(getLogger(), "Failed to parse external_axis_type, using default empty");
+    }
+
     // Read translation parameters
     double left_x = 0.0, left_y = 0.0, left_z = 0.0;
     double right_x = 0.0, right_y = 0.0, right_z = 0.0;
@@ -194,10 +202,13 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
     const std::string prefix_right = info_.hardware_parameters.at("prefix_right");
 
     // Determine external DOFs first
-    size_t extra_dof_left
-        = robot_pair_->info().first.DoF > 7 ? robot_pair_->info().first.DoF - 7 : 0;
-    size_t extra_dof_right
-        = robot_pair_->info().second.DoF > 7 ? robot_pair_->info().second.DoF - 7 : 0;
+    size_t extra_dof_left = robot_pair_->info().first.DoF_e;
+    size_t extra_dof_right = robot_pair_->info().second.DoF_e;
+
+    // For AICO2, external joints on both arms are identical but only mapped once (usually left)
+    if (external_axis_type_.find("aico2") != std::string::npos) {
+        extra_dof_right = 0;
+    }
 
     for (size_t i = 0; i < info_.joints.size(); i++) {
         std::string name = info_.joints[i].name;
@@ -368,11 +379,9 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
         RCLCPP_INFO(getLogger(), "Both robots are now operational");
 
         // Unlock external axes if any
-        if (robot_pair_->info().first.DoF > 7 || robot_pair_->info().second.DoF > 7) {
-            RCLCPP_INFO(getLogger(), "Unlocking external axes ...");
-            // Unlock (false) if DoF > 7, otherwise Lock (true)
+        if (robot_pair_->info().first.DoF_e > 0 || robot_pair_->info().second.DoF_e > 0) {
             robot_pair_->LockExternalAxes(
-                {robot_pair_->info().first.DoF <= 7, robot_pair_->info().second.DoF <= 7});
+                {robot_pair_->info().first.DoF_e == 0, robot_pair_->info().second.DoF_e == 0});
         }
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable the robots");
@@ -471,6 +480,16 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
         }
     }
 
+    // For AICO2, duplicate external axis commands from left to right
+    if (external_axis_type_.find("aico2") != std::string::npos) {
+        if (target_pos_left.size() >= 2 && target_pos_right.size() >= 2) {
+            target_pos_right[0] = target_pos_left[0];
+            target_pos_right[1] = target_pos_left[1];
+            target_vel_right[0] = target_vel_left[0];
+            target_vel_right[1] = target_vel_left[1];
+        }
+    }
+
     if (position_controller_running_
         && robot_pair_->mode() == std::pair {rdk_control_mode_, rdk_control_mode_}) {
         robot_pair_->SendJointPosition({target_pos_left, target_pos_right},
@@ -506,6 +525,15 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
                 }
             }
         }
+
+        // For AICO2, duplicate external axis commands from left to right
+        if (external_axis_type_.find("aico2") != std::string::npos) {
+            if (target_torque_left.size() >= 2 && target_torque_right.size() >= 2) {
+                target_torque_right[0] = target_torque_left[0];
+                target_torque_right[1] = target_torque_left[1];
+            }
+        }
+
         robot_pair_->StreamJointTorque({target_torque_left, target_torque_right});
     }
 

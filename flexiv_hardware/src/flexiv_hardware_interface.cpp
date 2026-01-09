@@ -296,8 +296,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
         RCLCPP_INFO(getLogger(), "Robot is now operational");
 
         // Unlock external axes if any
-        if (robot_->info().DoF > 7) {
-            RCLCPP_INFO(getLogger(), "Unlocking external axes ...");
+        if (robot_->info().DoF_e > 0) {
             robot_->LockExternalAxes(false);
         }
     } catch (const std::exception& e) {

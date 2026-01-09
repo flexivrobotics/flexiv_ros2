@@ -80,6 +80,9 @@ private:
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;
 
+    // External axis type
+    std::string external_axis_type_ = "";
+
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
     std::vector<double> hw_commands_joint_velocities_;
