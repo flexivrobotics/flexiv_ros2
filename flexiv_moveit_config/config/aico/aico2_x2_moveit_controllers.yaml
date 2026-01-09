@@ -9,6 +9,8 @@ left_rizon_arm_controller:
   type: FollowJointTrajectory
   default: true
   joints:
+    - $(var external_axis_prefix)aico2_x2_joint1
+    - $(var external_axis_prefix)aico2_x2_joint2
     - $(var prefix_left)joint1
     - $(var prefix_left)joint2
     - $(var prefix_left)joint3
@@ -16,8 +18,6 @@ left_rizon_arm_controller:
     - $(var prefix_left)joint5
     - $(var prefix_left)joint6
     - $(var prefix_left)joint7
-    - $(var external_axis_prefix)aico2_x2_joint1
-    - $(var external_axis_prefix)aico2_x2_joint2
 
 right_rizon_arm_controller:
   action_ns: follow_joint_trajectory
