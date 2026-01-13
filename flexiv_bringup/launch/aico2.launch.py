@@ -146,9 +146,9 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             external_axis_type_param_name,
-            default_value="AICO2-platform-X1",
+            default_value="AICO2-4-V1",
             description="Type of the AICO2 platform.",
-            choices=["AICO2-platform-X1", "AICO2-platform-X2"],
+            choices=["AICO2-4-V1", "AICO2-4-V2", "AICO2-10-V1"],
         )
     )
 
@@ -273,9 +273,11 @@ def generate_launch_description():
     # Robot controllers
     controller_file_name = PythonExpression(
         [
-            "'aico2_x2_controllers.yaml' if '",
+            "'aico2_10_v1_controllers.yaml' if '",
             external_axis_type,
-            "' == 'AICO2-platform-X2' else 'aico2_x1_controllers.yaml'",
+            "' == 'AICO2-10-V1' else ('aico2_4_v2_controllers.yaml' if '",
+            external_axis_type,
+            "' == 'AICO2-4-V2' else 'aico2_4_v1_controllers.yaml')",
         ]
     )
     robot_controllers = PathJoinSubstitution(

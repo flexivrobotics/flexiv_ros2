@@ -236,9 +236,11 @@ def launch_setup(context):
     )
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
-    controllers_file = "config/aico/aico2_x1_moveit_controllers.yaml"
-    if external_axis_type_str == "AICO2-platform-X2":
-        controllers_file = "config/aico/aico2_x2_moveit_controllers.yaml"
+    controllers_file = "config/aico/aico2_4_v1_moveit_controllers.yaml"
+    if external_axis_type_str == "AICO2-10-V1":
+        controllers_file = "config/aico/aico2_10_v1_moveit_controllers.yaml"
+    elif external_axis_type_str == "AICO2-4-V2":
+        controllers_file = "config/aico/aico2_4_v2_moveit_controllers.yaml"
 
     moveit_simple_controllers_yaml = load_yaml(
         "flexiv_moveit_config",
@@ -357,9 +359,11 @@ def launch_setup(context):
     )
 
     # Robot controllers
-    ros2_controllers_file = "aico2_x1_controllers.yaml"
-    if external_axis_type_str == "AICO2-platform-X2":
-        ros2_controllers_file = "aico2_x2_controllers.yaml"
+    ros2_controllers_file = "aico2_4_v1_controllers.yaml"
+    if external_axis_type_str == "AICO2-10-V1":
+        ros2_controllers_file = "aico2_10_v1_controllers.yaml"
+    elif external_axis_type_str == "AICO2-4-V2":
+        ros2_controllers_file = "aico2_4_v2_controllers.yaml"
     robot_controllers = PathJoinSubstitution(
         [FindPackageShare("flexiv_bringup"), "config", ros2_controllers_file]
     )
@@ -661,9 +665,9 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "external_axis_type",
-            default_value="AICO2-platform-X1",
+            default_value="AICO2-4-V1",
             description="Type of the AICO2 platform.",
-            choices=["AICO2-platform-X1", "AICO2-platform-X2"],
+            choices=["AICO2-4-V1", "AICO2-4-V2", "AICO2-10-V1"],
         )
     )
 

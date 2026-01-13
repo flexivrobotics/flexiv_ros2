@@ -17,7 +17,7 @@ controller_manager:
 rizon_arm_controller:
   ros__parameters:
     joints:
-      - $(var external_axis_prefix)aico1_x1_joint2
+      - $(var external_axis_prefix)aico1_4_v1_joint2
       - $(var robot_sn)_joint1
       - $(var robot_sn)_joint2
       - $(var robot_sn)_joint3
