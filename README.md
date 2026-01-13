@@ -225,6 +225,12 @@ With dual robot setup:
 ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right]
 ```
 
+With AICO1-4 setup:
+
+```bash
+ros2 launch flexiv_bringup aico1_moveit.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4 external_axis_type:=AICO1-4-V1
+```
+
 With AICO2-4 setup:
 
 ```bash
