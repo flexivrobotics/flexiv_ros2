@@ -188,11 +188,20 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
 
     // Check the DoF of both robots
     if (robot_pair_->info().first.DoF + robot_pair_->info().second.DoF != info_.joints.size()) {
-        RCLCPP_FATAL(getLogger(),
-            "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
-            robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
-            robot_pair_->info().first.DoF + robot_pair_->info().second.DoF, info_.joints.size());
-        return hardware_interface::CallbackReturn::ERROR;
+        if (external_axis_type_.find("aico2") != std::string::npos) {
+            RCLCPP_WARN(getLogger(),
+                "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
+                robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
+                robot_pair_->info().first.DoF + robot_pair_->info().second.DoF,
+                info_.joints.size());
+        } else {
+            RCLCPP_FATAL(getLogger(),
+                "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
+                robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
+                robot_pair_->info().first.DoF + robot_pair_->info().second.DoF,
+                info_.joints.size());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
     }
 
     // Build joint map
@@ -360,12 +369,20 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
 
         // Check the DoF of both robots
         if (robot_pair_->info().first.DoF + robot_pair_->info().second.DoF != info_.joints.size()) {
-            RCLCPP_FATAL(getLogger(),
-                "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
-                robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
-                robot_pair_->info().first.DoF + robot_pair_->info().second.DoF,
-                info_.joints.size());
-            return hardware_interface::CallbackReturn::ERROR;
+            if (external_axis_type_.find("aico2") != std::string::npos) {
+                RCLCPP_WARN(getLogger(),
+                    "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
+                    robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
+                    robot_pair_->info().first.DoF + robot_pair_->info().second.DoF,
+                    info_.joints.size());
+            } else {
+                RCLCPP_FATAL(getLogger(),
+                    "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
+                    robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
+                    robot_pair_->info().first.DoF + robot_pair_->info().second.DoF,
+                    info_.joints.size());
+                return hardware_interface::CallbackReturn::ERROR;
+            }
         }
 
         // Enable the pair of robots
