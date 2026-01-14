@@ -36,6 +36,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    python3-colcon-common-extensions \
    python3-rosdep2 \
    libeigen3-dev \
+   wget \
    ros-humble-control-toolbox \
    ros-humble-hardware-interface \
    ros-humble-joint-state-publisher \
@@ -56,7 +57,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    ```bash
    mkdir -p ~/flexiv_ros2_ws/src
    cd ~/flexiv_ros2_ws/src
-   git clone https://github.com/flexivrobotics/flexiv_ros2.git
+   git clone https://github.com/flexivrobotics/flexiv_ros2.git -b humble
    ```
 
 4. Install dependencies:
@@ -69,12 +70,12 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
    ```
 
-5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`. Compile and install to the installation directory:
+5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `flexiv_install` under the home directory: `~/flexiv_install`. Compile and install to the installation directory:
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk/thirdparty
    source /opt/ros/humble/setup.bash
-   bash build_and_install_dependencies_not_in_ros2.sh ~/rdk_install
+   bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
    ```
 
 6. Configure and install `flexiv_rdk`:
@@ -82,7 +83,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk
    rm -rf build && mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
    cmake --build . --target install --config Release
    ```
 
@@ -91,7 +92,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    ```bash
    cd ~/flexiv_ros2_ws
    source /opt/ros/humble/setup.bash
-   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/rdk_install
+   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/flexiv_install
    source install/setup.bash
    ```
 
@@ -103,18 +104,16 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src
-   git clone https://github.com/flexivrobotics/flexiv_drdk.git
-   cd flexiv_drdk
-   git checkout v1.1
-   touch COLCON_IGNORE
+   git clone https://github.com/flexivrobotics/flexiv_drdk.git -b release/v1.2
+   touch flexiv_drdk/COLCON_IGNORE
    ```
 
-2. Install dependencies and build `flexiv_drdk` by choosing an installation directory, e.g., `~/drdk_install`:
+2. Install dependencies and build `flexiv_drdk` by choosing an installation directory, e.g., `~/flexiv_install`:
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk/thirdparty
    source /opt/ros/humble/setup.bash
-   bash build_and_install_dependencies.sh ~/drdk_install
+   bash build_and_install_dependencies.sh ~/flexiv_install
    ```
 
 3. Configure and install `flexiv_drdk`:
@@ -122,7 +121,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk
    rm -rf build && mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/drdk_install
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
    cmake --build . --target install --config Release
    ```
 
@@ -130,7 +129,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws
-   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH="~/rdk_install;~/drdk_install"
+   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/flexiv_install
    ```
 
 > [!IMPORTANT]
