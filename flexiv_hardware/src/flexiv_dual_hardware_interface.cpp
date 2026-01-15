@@ -56,9 +56,8 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
     torque_controller_running_ = false;
     controllers_initialized_ = false;
 
-    if (info_.joints.size() != kDualJointDoF) {
-        RCLCPP_FATAL(
-            getLogger(), "Got %ld joints. Expected %ld.", info_.joints.size(), kDualJointDoF);
+    if (info_.joints.size() < 14) {
+        RCLCPP_FATAL(getLogger(), "Got %ld joints. Expected at least 14.", info_.joints.size());
         return hardware_interface::CallbackReturn::ERROR;
     }
 
@@ -146,6 +145,14 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    try {
+        if (info_.hardware_parameters.count("external_axis_type")) {
+            external_axis_type_ = info_.hardware_parameters.at("external_axis_type");
+        }
+    } catch (const std::exception& ex) {
+        RCLCPP_WARN(getLogger(), "Failed to parse external_axis_type, using default empty");
+    }
+
     // Read translation parameters
     double left_x = 0.0, left_y = 0.0, left_z = 0.0;
     double right_x = 0.0, right_y = 0.0, right_z = 0.0;
@@ -177,6 +184,89 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         RCLCPP_FATAL(getLogger(), "Could not connect to robots");
         RCLCPP_FATAL(getLogger(), e.what());
         return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    // Check the DoF of both robots
+    if (robot_pair_->info().first.DoF + robot_pair_->info().second.DoF != info_.joints.size()) {
+        if (external_axis_type_.find("aico2") != std::string::npos) {
+            RCLCPP_WARN(getLogger(),
+                "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
+                robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
+                robot_pair_->info().first.DoF + robot_pair_->info().second.DoF,
+                info_.joints.size());
+        } else {
+            RCLCPP_FATAL(getLogger(),
+                "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
+                robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
+                robot_pair_->info().first.DoF + robot_pair_->info().second.DoF,
+                info_.joints.size());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+    }
+
+    // Build joint map
+    joint_map_.resize(info_.joints.size());
+    std::vector<size_t> unmapped_indices;
+    const std::string prefix_left = info_.hardware_parameters.at("prefix_left");
+    const std::string prefix_right = info_.hardware_parameters.at("prefix_right");
+
+    // Determine external DOFs first
+    size_t extra_dof_left = robot_pair_->info().first.DoF_e;
+    size_t extra_dof_right = robot_pair_->info().second.DoF_e;
+
+    // For AICO2, external joints on both arms are identical but only mapped once (usually left)
+    if (external_axis_type_.find("aico2") != std::string::npos) {
+        extra_dof_right = 0;
+    }
+
+    for (size_t i = 0; i < info_.joints.size(); i++) {
+        std::string name = info_.joints[i].name;
+        bool mapped = false;
+        // Left robot arm joints (ext_dof_left + 0...6)
+        if (name.find(prefix_left + "joint") == 0) {
+            std::string num_str = name.substr((prefix_left + "joint").length());
+            try {
+                int joint_num = std::stoi(num_str);
+                if (joint_num >= 1 && joint_num <= 7) {
+                    joint_map_[i] = {0, (int)extra_dof_left + joint_num - 1};
+                    mapped = true;
+                }
+            } catch (...) {
+            }
+        }
+
+        // Right robot arm joints (ext_dof_right + 0...6)
+        if (!mapped && name.find(prefix_right + "joint") == 0) {
+            std::string num_str = name.substr((prefix_right + "joint").length());
+            try {
+                int joint_num = std::stoi(num_str);
+                if (joint_num >= 1 && joint_num <= 7) {
+                    joint_map_[i] = {1, (int)extra_dof_right + joint_num - 1};
+                    mapped = true;
+                }
+            } catch (...) {
+            }
+        }
+
+        if (!mapped) {
+            unmapped_indices.push_back(i);
+        }
+    }
+
+    if (unmapped_indices.size() != extra_dof_left + extra_dof_right) {
+        RCLCPP_FATAL(getLogger(), "Mismatch in extra joints count. Unmapped: %ld, Expected: %ld",
+            unmapped_indices.size(), extra_dof_left + extra_dof_right);
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    size_t unmapped_idx = 0;
+    // Assign external joints to Left Robot (indices 0 to extra_dof_left-1)
+    for (size_t k = 0; k < extra_dof_left; k++) {
+        joint_map_[unmapped_indices[unmapped_idx++]] = {0, (int)k};
+    }
+    // Assign external joints to Right Robot (indices 0 to extra_dof_right-1)
+    for (size_t k = 0; k < extra_dof_right; k++) {
+        joint_map_[unmapped_indices[unmapped_idx++]] = {1, (int)k};
     }
 
     RCLCPP_INFO(getLogger(), "Successfully connected to robots");
@@ -278,13 +368,21 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
         }
 
         // Check the DoF of both robots
-        if (robot_pair_->info().first.DoF != kJointDoF
-            || robot_pair_->info().second.DoF != kJointDoF) {
-            RCLCPP_FATAL(getLogger(),
-                "Connected robots DoF (%ld, %ld) do not match expected DoF (%ld, %ld)",
-                robot_pair_->info().first.DoF, robot_pair_->info().second.DoF, kJointDoF,
-                kJointDoF);
-            return hardware_interface::CallbackReturn::ERROR;
+        if (robot_pair_->info().first.DoF + robot_pair_->info().second.DoF != info_.joints.size()) {
+            if (external_axis_type_.find("aico2") != std::string::npos) {
+                RCLCPP_WARN(getLogger(),
+                    "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
+                    robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
+                    robot_pair_->info().first.DoF + robot_pair_->info().second.DoF,
+                    info_.joints.size());
+            } else {
+                RCLCPP_FATAL(getLogger(),
+                    "Connected robots total DoF (%ld + %ld = %ld) do not match expected DoF (%ld)",
+                    robot_pair_->info().first.DoF, robot_pair_->info().second.DoF,
+                    robot_pair_->info().first.DoF + robot_pair_->info().second.DoF,
+                    info_.joints.size());
+                return hardware_interface::CallbackReturn::ERROR;
+            }
         }
 
         // Enable the pair of robots
@@ -296,6 +394,12 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         RCLCPP_INFO(getLogger(), "Both robots are now operational");
+
+        // Unlock external axes if any
+        if (robot_pair_->info().first.DoF_e > 0 || robot_pair_->info().second.DoF_e > 0) {
+            robot_pair_->LockExternalAxes(
+                {robot_pair_->info().first.DoF_e == 0, robot_pair_->info().second.DoF_e == 0});
+        }
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable the robots");
         RCLCPP_FATAL(getLogger(), e.what());
@@ -323,17 +427,19 @@ hardware_interface::return_type FlexivDualHardwareInterface::read(
         hw_flexiv_robot_states_left_ = robot_states_pair.first;
         hw_flexiv_robot_states_right_ = robot_states_pair.second;
 
-        // Robot Left
-        for (size_t i = 0; i < 7; i++) {
-            hw_states_joint_positions_[i] = robot_pair_->states().first.q[i];
-            hw_states_joint_velocities_[i] = robot_pair_->states().first.dq[i];
-            hw_states_joint_efforts_[i] = robot_pair_->states().first.tau[i];
-        }
-        // Robot Right
-        for (size_t i = 0; i < 7; i++) {
-            hw_states_joint_positions_[i + 7] = robot_pair_->states().second.q[i];
-            hw_states_joint_velocities_[i + 7] = robot_pair_->states().second.dq[i];
-            hw_states_joint_efforts_[i + 7] = robot_pair_->states().second.tau[i];
+        for (size_t i = 0; i < info_.joints.size(); i++) {
+            int robot_idx = joint_map_[i].robot_index;
+            int dof_idx = joint_map_[i].dof_index;
+
+            if (robot_idx == 0) {
+                hw_states_joint_positions_[i] = robot_states_pair.first.q[dof_idx];
+                hw_states_joint_velocities_[i] = robot_states_pair.first.dq[dof_idx];
+                hw_states_joint_efforts_[i] = robot_states_pair.first.tau[dof_idx];
+            } else {
+                hw_states_joint_positions_[i] = robot_states_pair.second.q[dof_idx];
+                hw_states_joint_velocities_[i] = robot_states_pair.second.dq[dof_idx];
+                hw_states_joint_efforts_[i] = robot_states_pair.second.tau[dof_idx];
+            }
         }
 
         // Read GPIO inputs
@@ -362,30 +468,42 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
     std::vector<double> max_acc_right(robot_pair_->info().second.DoF, kMaxJointAcceleration);
 
     // Populate target vectors, using current state if command is NaN
-    for (size_t i = 0; i < robot_pair_->info().first.DoF; i++) {
-        if (std::isnan(hw_commands_joint_positions_[i])) {
-            target_pos_left[i] = hw_states_joint_positions_[i];
+    for (size_t i = 0; i < info_.joints.size(); i++) {
+        int robot_idx = joint_map_[i].robot_index;
+        int dof_idx = joint_map_[i].dof_index;
+
+        if (robot_idx == 0) {
+            if (std::isnan(hw_commands_joint_positions_[i])) {
+                target_pos_left[dof_idx] = hw_states_joint_positions_[i];
+            } else {
+                target_pos_left[dof_idx] = hw_commands_joint_positions_[i];
+            }
+            if (std::isnan(hw_commands_joint_velocities_[i])) {
+                target_vel_left[dof_idx] = 0.0;
+            } else {
+                target_vel_left[dof_idx] = hw_commands_joint_velocities_[i];
+            }
         } else {
-            target_pos_left[i] = hw_commands_joint_positions_[i];
-        }
-        if (std::isnan(hw_commands_joint_velocities_[i])) {
-            target_vel_left[i] = 0.0;
-        } else {
-            target_vel_left[i] = hw_commands_joint_velocities_[i];
+            if (std::isnan(hw_commands_joint_positions_[i])) {
+                target_pos_right[dof_idx] = hw_states_joint_positions_[i];
+            } else {
+                target_pos_right[dof_idx] = hw_commands_joint_positions_[i];
+            }
+            if (std::isnan(hw_commands_joint_velocities_[i])) {
+                target_vel_right[dof_idx] = 0.0;
+            } else {
+                target_vel_right[dof_idx] = hw_commands_joint_velocities_[i];
+            }
         }
     }
 
-    for (size_t i = 0; i < robot_pair_->info().second.DoF; i++) {
-        size_t idx = i + robot_pair_->info().first.DoF;
-        if (std::isnan(hw_commands_joint_positions_[idx])) {
-            target_pos_right[i] = hw_states_joint_positions_[idx];
-        } else {
-            target_pos_right[i] = hw_commands_joint_positions_[idx];
-        }
-        if (std::isnan(hw_commands_joint_velocities_[idx])) {
-            target_vel_right[i] = 0.0;
-        } else {
-            target_vel_right[i] = hw_commands_joint_velocities_[idx];
+    // For AICO2, duplicate external axis commands from left to right
+    if (external_axis_type_.find("aico2") != std::string::npos) {
+        if (target_pos_left.size() >= 2 && target_pos_right.size() >= 2) {
+            target_pos_right[0] = target_pos_left[0];
+            target_pos_right[1] = target_pos_left[1];
+            target_vel_right[0] = target_vel_left[0];
+            target_vel_right[1] = target_vel_left[1];
         }
     }
 
@@ -406,21 +524,33 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
         std::vector<double> target_torque_left(robot_pair_->info().first.DoF);
         std::vector<double> target_torque_right(robot_pair_->info().second.DoF);
 
-        for (size_t i = 0; i < robot_pair_->info().first.DoF; i++) {
-            if (std::isnan(hw_commands_joint_efforts_[i])) {
-                target_torque_left[i] = 0.0;
+        for (size_t i = 0; i < info_.joints.size(); i++) {
+            int robot_idx = joint_map_[i].robot_index;
+            int dof_idx = joint_map_[i].dof_index;
+
+            if (robot_idx == 0) {
+                if (std::isnan(hw_commands_joint_efforts_[i])) {
+                    target_torque_left[dof_idx] = 0.0;
+                } else {
+                    target_torque_left[dof_idx] = hw_commands_joint_efforts_[i];
+                }
             } else {
-                target_torque_left[i] = hw_commands_joint_efforts_[i];
+                if (std::isnan(hw_commands_joint_efforts_[i])) {
+                    target_torque_right[dof_idx] = 0.0;
+                } else {
+                    target_torque_right[dof_idx] = hw_commands_joint_efforts_[i];
+                }
             }
         }
-        for (size_t i = 0; i < robot_pair_->info().second.DoF; i++) {
-            size_t idx = i + robot_pair_->info().first.DoF;
-            if (std::isnan(hw_commands_joint_efforts_[idx])) {
-                target_torque_right[i] = 0.0;
-            } else {
-                target_torque_right[i] = hw_commands_joint_efforts_[idx];
+
+        // For AICO2, duplicate external axis commands from left to right
+        if (external_axis_type_.find("aico2") != std::string::npos) {
+            if (target_torque_left.size() >= 2 && target_torque_right.size() >= 2) {
+                target_torque_right[0] = target_torque_left[0];
+                target_torque_right[1] = target_torque_left[1];
             }
         }
+
         robot_pair_->StreamJointTorque({target_torque_left, target_torque_right});
     }
 

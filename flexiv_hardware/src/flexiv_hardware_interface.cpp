@@ -56,10 +56,59 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     torque_controller_running_ = false;
     controllers_initialized_ = false;
 
-    if (info_.joints.size() != kJointDoF) {
-        RCLCPP_FATAL(getLogger(), "Got %ld joints. Expected %ld.", info_.joints.size(), kJointDoF);
+    if (info_.joints.size() < 7) {
+        RCLCPP_FATAL(getLogger(), "Got %ld joints. Expected at least 7.", info_.joints.size());
         return hardware_interface::CallbackReturn::ERROR;
     }
+
+    // Get prefix for joint mapping
+    std::string prefix;
+    try {
+        prefix = info_.hardware_parameters.at("prefix");
+    } catch (const std::out_of_range& ex) {
+        RCLCPP_FATAL(getLogger(), "Parameter 'prefix' not set");
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    // Build RDK to ROS joint mapping
+    std::vector<size_t> arm_indices;
+    std::vector<size_t> ext_indices;
+
+    // Find 7 arm joints in standard order
+    for (int j = 1; j <= 7; ++j) {
+        std::string arm_joint_name = prefix + "joint" + std::to_string(j);
+        bool found = false;
+        for (size_t i = 0; i < info_.joints.size(); ++i) {
+            if (info_.joints[i].name == arm_joint_name) {
+                arm_indices.push_back(i);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            RCLCPP_FATAL(getLogger(), "Could not find arm joint '%s'", arm_joint_name.c_str());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+    }
+
+    // Find external axis joints (any joint that is not an arm joint)
+    for (size_t i = 0; i < info_.joints.size(); ++i) {
+        bool is_arm = false;
+        for (size_t arm_idx : arm_indices) {
+            if (i == arm_idx) {
+                is_arm = true;
+                break;
+            }
+        }
+        if (!is_arm) {
+            ext_indices.push_back(i);
+        }
+    }
+
+    // Construct map: external joints first, then arm joints (RDK order)
+    rdk_to_ros_map_.clear();
+    rdk_to_ros_map_.insert(rdk_to_ros_map_.end(), ext_indices.begin(), ext_indices.end());
+    rdk_to_ros_map_.insert(rdk_to_ros_map_.end(), arm_indices.begin(), arm_indices.end());
 
     for (const hardware_interface::ComponentInfo& joint : info_.joints) {
         if (joint.command_interfaces.size() != 3) {
@@ -119,7 +168,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
 
     std::string robot_sn;
     try {
-        robot_sn = info_.hardware_parameters.at("robot_sn");
+        robot_sn = info_.hardware_parameters["robot_sn"];
     } catch (const std::out_of_range& ex) {
         RCLCPP_FATAL(getLogger(), "Parameter 'robot_sn' not set");
         return hardware_interface::CallbackReturn::ERROR;
@@ -230,11 +279,9 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
         }
 
         // Check the DoF of the robot
-        if (robot_->info().DoF != kJointDoF) {
-            RCLCPP_FATAL(getLogger(),
-                "Robot has %ld DoF. Expected %ld. External axes control is not supported in ROS 2 "
-                "yet.",
-                robot_->info().DoF, kJointDoF);
+        if (robot_->info().DoF != info_.joints.size()) {
+            RCLCPP_FATAL(getLogger(), "Robot has %ld DoF. Expected %ld (from URDF).",
+                robot_->info().DoF, info_.joints.size());
             return hardware_interface::CallbackReturn::ERROR;
         }
 
@@ -247,6 +294,11 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         RCLCPP_INFO(getLogger(), "Robot is now operational");
+
+        // Unlock external axes if any
+        if (robot_->info().DoF_e > 0) {
+            robot_->LockExternalAxes(false);
+        }
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable robot.");
         RCLCPP_FATAL(getLogger(), e.what());
@@ -278,10 +330,14 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         hw_flexiv_robot_states_ = robot_->states();
 
         // Read joint states
-        for (size_t i = 0; i < info_.joints.size(); i++) {
-            hw_states_joint_positions_[i] = robot_->states().q[i];
-            hw_states_joint_velocities_[i] = robot_->states().dtheta[i];
-            hw_states_joint_efforts_[i] = robot_->states().tau[i];
+        // Map RDK states (RDK order) to Hardware Interface states (ROS order)
+        for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
+            size_t ros_idx = rdk_to_ros_map_[rdk_idx];
+            if (ros_idx < info_.joints.size()) {
+                hw_states_joint_positions_[ros_idx] = robot_->states().q[rdk_idx];
+                hw_states_joint_velocities_[ros_idx] = robot_->states().dtheta[rdk_idx];
+                hw_states_joint_efforts_[ros_idx] = robot_->states().tau[rdk_idx];
+            }
         }
 
         // Read GPIO input states
@@ -320,16 +376,28 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     }
 
     if (position_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_pos_nan) {
-        target_pos = hw_commands_joint_positions_;
+        // Map ROS commands to RDK targets
+        for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
+            size_t ros_idx = rdk_to_ros_map_[rdk_idx];
+            target_pos[rdk_idx] = hw_commands_joint_positions_[ros_idx];
+        }
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
     } else if (velocity_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_vel_nan) {
-        target_pos = hw_states_joint_positions_;
-        target_vel = hw_commands_joint_velocities_;
+        // Map ROS commands/states to RDK targets
+        for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
+            size_t ros_idx = rdk_to_ros_map_[rdk_idx];
+            target_pos[rdk_idx] = hw_states_joint_positions_[ros_idx];
+            target_vel[rdk_idx] = hw_commands_joint_velocities_[ros_idx];
+        }
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
                && !is_eff_nan) {
         std::vector<double> target_torque(robot_->info().DoF);
-        target_torque = hw_commands_joint_efforts_;
+        // Map ROS commands to RDK targets
+        for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
+            size_t ros_idx = rdk_to_ros_map_[rdk_idx];
+            target_torque[rdk_idx] = hw_commands_joint_efforts_[ros_idx];
+        }
         robot_->StreamJointTorque(target_torque, true, true);
     }
 
