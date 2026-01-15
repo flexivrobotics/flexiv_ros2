@@ -1,0 +1,24 @@
+controller_names:
+  - rizon_arm_controller
+  - flexiv_gripper_node
+
+rizon_arm_controller:
+  action_ns: follow_joint_trajectory
+  type: FollowJointTrajectory
+  default: true
+  joints:
+    - $(var external_axis_prefix)aico1_4_v1_joint2
+    - $(var prefix)joint1
+    - $(var prefix)joint2
+    - $(var prefix)joint3
+    - $(var prefix)joint4
+    - $(var prefix)joint5
+    - $(var prefix)joint6
+    - $(var prefix)joint7
+
+flexiv_gripper_node:
+  action_ns: gripper_action
+  type: GripperCommand
+  default: true
+  joints:
+    - $(var prefix)finger_width_joint
