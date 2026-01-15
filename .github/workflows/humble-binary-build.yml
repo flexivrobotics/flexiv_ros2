@@ -47,21 +47,21 @@ jobs:
           git clone https://github.com/flexivrobotics/flexiv_rdk.git -b release/v1.9
           cd flexiv_rdk/thirdparty
           source /opt/ros/humble/setup.bash
-          bash build_and_install_dependencies_not_in_ros2.sh ~/rdk_install
+          bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
           cd ..
           mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
           cmake --build . --target install --config Release
       - name: Build and install flexiv_drdk
         shell: bash
         run: |
-          git clone https://github.com/flexivrobotics/flexiv_drdk.git -b v1.1
+          git clone https://github.com/flexivrobotics/flexiv_drdk.git -b release/v1.2
           cd flexiv_drdk/thirdparty
           source /opt/ros/humble/setup.bash
-          bash build_and_install_dependencies.sh ~/drdk_install
+          bash build_and_install_dependencies.sh ~/flexiv_install
           cd ..
           mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/drdk_install
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
           cmake --build . --target install --config Release
       - name: Build and run tests
         id: action-ros-ci
@@ -82,7 +82,7 @@ jobs:
             {
               "build": {
                 "cmake-args": [
-                    "-DCMAKE_PREFIX_PATH=~/rdk_install;~/drdk_install"
+                    "-DCMAKE_PREFIX_PATH=~/flexiv_install"
                 ]
               }
             }
