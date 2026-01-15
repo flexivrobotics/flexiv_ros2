@@ -20,9 +20,13 @@
     <xacro:rizon_srdf arm_prefix="$(arg prefix_right)" robot_sn="$(arg robot_sn_right)"
         load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" />
 
+    <!-- Arm Prefixes -->
+    <xacro:property name="left_arm_prefix" value="$(arg prefix_left)$(arg robot_sn_left)_" />
+    <xacro:property name="right_arm_prefix" value="$(arg prefix_right)$(arg robot_sn_right)_" />
+
     <!-- Left and Right Arms Collisions -->
-    <disable_collisions link1="$(arg prefix_left)base_link" link2="$(arg prefix_right)base_link" reason="Never" />
-    <disable_collisions link1="$(arg prefix_left)link1" link2="$(arg prefix_right)link1" reason="Never" />
+    <disable_collisions link1="${left_arm_prefix}base_link" link2="${right_arm_prefix}base_link" reason="Never" />
+    <disable_collisions link1="${left_arm_prefix}link1" link2="${right_arm_prefix}link1" reason="Never" />
 
     <!-- Load grippers -->
     <xacro:if value="$(arg load_gripper_left)">
