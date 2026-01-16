@@ -36,20 +36,18 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    python3-colcon-common-extensions \
    python3-rosdep2 \
    libeigen3-dev \
-   wget \
+   ros-humble-xacro \
+   ros-humble-tinyxml2-vendor \
+   ros-humble-ros2-control \
+   ros-humble-realtime-tools \
    ros-humble-control-toolbox \
-   ros-humble-hardware-interface \
+   ros-humble-moveit \
+   ros-humble-ros2-controllers \
+   ros-humble-test-msgs \
    ros-humble-joint-state-publisher \
    ros-humble-joint-state-publisher-gui \
-   ros-humble-moveit \
-   ros-humble-realtime-tools \
    ros-humble-robot-state-publisher \
-   ros-humble-ros2-control \
-   ros-humble-ros2-controllers \
-   ros-humble-rviz2 \
-   ros-humble-test-msgs \
-   ros-humble-tinyxml2-vendor \
-   ros-humble-xacro \
+   ros-humble-rviz2
    ```
 
 3. Setup workspace:
@@ -57,33 +55,35 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    ```bash
    mkdir -p ~/flexiv_ros2_ws/src
    cd ~/flexiv_ros2_ws/src
-   git clone https://github.com/flexivrobotics/flexiv_ros2.git -b humble
+   git clone https://github.com/flexivrobotics/flexiv_ros2.git
+   cd flexiv_ros2/
+   git submodule update --init --recursive
    ```
 
 4. Install dependencies:
 
    ```bash
    cd ~/flexiv_ros2_ws
-   vcs import src < src/flexiv_ros2/flexiv.humble.repos --recursive --skip-existing
-   touch src/flexiv_rdk/COLCON_IGNORE
    rosdep update
    rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
    ```
 
-5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `flexiv_install` under the home directory: `~/flexiv_install`. Compile and install to the installation directory:
+> [!NOTE]
+> Skip step 5 and 6 if you have compile and install [flexiv_rdk](https://github.com/flexivrobotics/flexiv_rdk).
+
+5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`. Compile and install to the installation directory:
 
    ```bash
-   cd ~/flexiv_ros2_ws/src/flexiv_rdk/thirdparty
-   source /opt/ros/humble/setup.bash
-   bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
+   cd ~/flexiv_ros2_ws/src/flexiv_ros2/flexiv_hardware/rdk/thirdparty
+   bash build_and_install_dependencies.sh ~/rdk_install
    ```
 
 6. Configure and install `flexiv_rdk`:
 
    ```bash
-   cd ~/flexiv_ros2_ws/src/flexiv_rdk
-   rm -rf build && mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
+   cd ~/flexiv_ros2_ws/src/flexiv_ros2/flexiv_hardware/rdk
+   mkdir build && cd build
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
    cmake --build . --target install --config Release
    ```
 
@@ -92,49 +92,12 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    ```bash
    cd ~/flexiv_ros2_ws
    source /opt/ros/humble/setup.bash
-   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/flexiv_install
+   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/rdk_install
    source install/setup.bash
    ```
 
-### Flexiv DRDK Installation (Optional)
-
-If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as well.
-
-1. Clone `flexiv_drdk` into the workspace source directory and ignore it from colcon build:
-
-   ```bash
-   cd ~/flexiv_ros2_ws/src
-   git clone https://github.com/flexivrobotics/flexiv_drdk.git -b release/v1.2
-   touch flexiv_drdk/COLCON_IGNORE
-   ```
-
-2. Install dependencies and build `flexiv_drdk` by choosing an installation directory, e.g., `~/flexiv_install`:
-
-   ```bash
-   cd ~/flexiv_ros2_ws/src/flexiv_drdk/thirdparty
-   source /opt/ros/humble/setup.bash
-   bash build_and_install_dependencies.sh ~/flexiv_install
-   ```
-
-3. Configure and install `flexiv_drdk`:
-
-   ```bash
-   cd ~/flexiv_ros2_ws/src/flexiv_drdk
-   rm -rf build && mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
-   cmake --build . --target install --config Release
-   ```
-
-4. Rebuild the workspace with both RDK and DRDK installation paths:
-
-   ```bash
-   cd ~/flexiv_ros2_ws
-   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/flexiv_install
-   ```
-
-> [!IMPORTANT]
+> [!NOTE]
 > Remember to source the setup file and the workspace whenever a new terminal is opened:
->
 > ```bash
 > source /opt/ros/humble/setup.bash
 > source ~/flexiv_ros2_ws/install/setup.bash
@@ -154,15 +117,11 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 - `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
-- `start_rviz` (default: *true*) - starts RViz automatically with the launch file.
+- `start_rviz` (deafult: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
 - `robot_controller` (default: *rizon_arm_controller*) - robot controller to start. Available controllers: *rizon_arm_controller*
 
-There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual robot setups. *(Details about other launch files can be found in [`flexiv_bringup`](/flexiv_bringup))*
-
-- `robot_sn_left` (*required for dual robot setup*) - Serial number of the left robot to connect to. Remove any space, for example: Rizon4-123456
-- `robot_sn_right` (*required for dual robot setup*) - Serial number of the right robot to connect to. Remove any space, for example: Rizon4R-654321
-- `external_axis_type` (default: *AICO1-4-V1*) - type of the Flexiv AICO1 robot platform. Options: *AICO1-4-V1* or *AICO1-4-V2*
+*(Details about other launch files can be found in [`flexiv_bringup`](/flexiv_bringup))*
 
 ### Example Commands
 
@@ -193,20 +152,6 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
 
      The joint position goals can be changed in `flexiv_bringup/config/joint_trajectory_position_publisher.yaml`
 
-#### AICO1 and AICO2 Example Commands
-
-**AICO1-4** robot:
-
-```bash
-ros2 launch flexiv_bringup aico1.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4 external_axis_type:=AICO1-4-V1
-```
-
-**AICO2-4** robot:
-
-```bash
-ros2 launch flexiv_bringup aico2.launch.py rizon_type:=Rizon4 robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] external_axis_type:=AICO2-4-V1
-```
-
 ### Using MoveIt
 
 You can also run the MoveIt example and use the `MotionPlanning` plugin in RViZ to start planning:
@@ -220,23 +165,6 @@ Test with fake hardware:
 ```bash
 ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
 ```
-
-With dual robot setup:
-
-```bash
-ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right]
-```
-
-With AICO1-4 setup:
-
-```bash
-ros2 launch flexiv_bringup aico1_moveit.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4 external_axis_type:=AICO1-4-V1
-```
-
-With AICO2-4 setup:
-
-```bash
-ros2 launch flexiv_bringup aico2_moveit.launch.py rizon_type:=Rizon4 robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] external_axis_type:=AICO2-4-V1
 
 ### Robot States
 

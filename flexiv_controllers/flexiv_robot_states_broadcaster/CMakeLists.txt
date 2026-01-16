@@ -22,7 +22,6 @@ find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
-find_package(flexiv_rdk REQUIRED)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   builtin_interfaces
@@ -49,11 +48,11 @@ add_library(flexiv_robot_states_broadcaster
 
 target_include_directories(flexiv_robot_states_broadcaster PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../flexiv_hardware/rdk/include
 )
 
 target_link_libraries(flexiv_robot_states_broadcaster PUBLIC
   flexiv_robot_states_broadcaster_parameters
-  flexiv::flexiv_rdk
 )
 
 ament_target_dependencies(flexiv_robot_states_broadcaster PUBLIC

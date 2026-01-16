@@ -33,6 +33,9 @@
 
 namespace flexiv_hardware {
 
+/** Robot joint space degree of freedoms */
+constexpr size_t kJointDoF = 7;
+
 enum StoppingInterface
 {
     NONE,
@@ -107,16 +110,12 @@ private:
     std::vector<double> hw_commands_gpio_out_;
     std::vector<double> hw_states_gpio_in_;
 
-    // Map from RDK joint index to ROS joint index
-    // RDK expects: [ext_axis_1, ..., ext_axis_N, arm_joint_1, ..., arm_joint_7]
-    std::vector<size_t> rdk_to_ros_map_;
-
     // Current digital output map
     std::map<unsigned int, bool> current_digital_outputs_;
 
     static rclcpp::Logger getLogger();
 
-    // Control modes
+    // control modes
     bool controllers_initialized_;
     std::vector<uint> stop_modes_;
     std::vector<std::string> start_modes_;

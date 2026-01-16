@@ -5,34 +5,34 @@ std_msgs/Header header
 builtin_interfaces/Time robot_timestamp
 
 # Measured joint positions using link-side encoder
-float64[] q
+float64[7] q
 
 # Measured joint positions using motor-side encoder
-float64[] theta
+float64[7] theta
 
 # Measured joint velocities using link-side encoder
-float64[] dq
+float64[7] dq
 
 # Measured joint velocities using motor-side encoder
-float64[] dtheta
+float64[7] dtheta
 
 # Measured joint torques
-float64[] tau
+float64[7] tau
 
 # Desired joint torques
-float64[] tau_des
+float64[7] tau_des
 
 # Numerical derivative of measured joint torques
-float64[] tau_dot
+float64[7] tau_dot
 
 # Estimated external joint torques
-float64[] tau_ext
+float64[7] tau_ext
 
 # Estimated interaction joint torques
-float64[] tau_interact
+float64[7] tau_interact
 
 # Measured joint temperatures
-float64[] temperature
+float64[7] temperature
 
 # Measured TCP pose expressed in world frame
 geometry_msgs/PoseStamped tcp_pose

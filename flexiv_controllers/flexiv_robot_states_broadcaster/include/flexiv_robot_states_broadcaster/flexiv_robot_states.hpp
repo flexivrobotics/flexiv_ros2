@@ -109,16 +109,16 @@ public:
         message.robot_timestamp.sec = flexiv_robot_states_ptr->timestamp.first;
         message.robot_timestamp.nanosec = flexiv_robot_states_ptr->timestamp.second;
 
-        message.q = flexiv_robot_states_ptr->q;
-        message.theta = flexiv_robot_states_ptr->theta;
-        message.dq = flexiv_robot_states_ptr->dq;
-        message.dtheta = flexiv_robot_states_ptr->dtheta;
-        message.tau = flexiv_robot_states_ptr->tau;
-        message.tau_des = flexiv_robot_states_ptr->tau_des;
-        message.tau_dot = flexiv_robot_states_ptr->tau_dot;
-        message.tau_ext = flexiv_robot_states_ptr->tau_ext;
-        message.tau_interact = flexiv_robot_states_ptr->tau_interact;
-        message.temperature = flexiv_robot_states_ptr->temperature;
+        message.q = toJointStateMsg(flexiv_robot_states_ptr->q);
+        message.theta = toJointStateMsg(flexiv_robot_states_ptr->theta);
+        message.dq = toJointStateMsg(flexiv_robot_states_ptr->dq);
+        message.dtheta = toJointStateMsg(flexiv_robot_states_ptr->dtheta);
+        message.tau = toJointStateMsg(flexiv_robot_states_ptr->tau);
+        message.tau_des = toJointStateMsg(flexiv_robot_states_ptr->tau_des);
+        message.tau_dot = toJointStateMsg(flexiv_robot_states_ptr->tau_dot);
+        message.tau_ext = toJointStateMsg(flexiv_robot_states_ptr->tau_ext);
+        message.tau_interact = toJointStateMsg(flexiv_robot_states_ptr->tau_interact);
+        message.temperature = toJointStateMsg(flexiv_robot_states_ptr->temperature);
 
         message.tcp_pose.pose = toPoseMsg(flexiv_robot_states_ptr->tcp_pose);
         message.tcp_vel.accel = toAccelMsg(flexiv_robot_states_ptr->tcp_vel);
@@ -139,6 +139,16 @@ protected:
     flexiv::rdk::RobotStates* flexiv_robot_states_ptr;
 
     const std::string state_interface_name_ {"flexiv_robot_states"};
+
+    // Convert std::vector to std::array
+    std::array<double, 7> toJointStateMsg(const std::vector<double>& joint_values)
+    {
+        std::array<double, 7> joint_state_msg;
+        for (size_t i = 0; i < joint_values.size(); ++i) {
+            joint_state_msg[i] = joint_values[i];
+        }
+        return joint_state_msg;
+    }
 
     // Convert std::array to geometry_msgs::msg::Pose
     geometry_msgs::msg::Pose toPoseMsg(

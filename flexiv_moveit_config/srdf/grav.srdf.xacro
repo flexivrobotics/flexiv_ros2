@@ -4,7 +4,7 @@
         <!-- Prefix defaults to 'arm_prefix_robot_sn' -->
         <xacro:property name="prefix" value="${arm_prefix + robot_sn + '_'}" />
 
-        <group name="${prefix}grav_gripper">
+        <group name="grav_gripper">
             <joint name="${prefix}gripper_base_joint" />
             <joint name="${prefix}open_fingers_tcp_joint" />
             <joint name="${prefix}closed_fingers_tcp_joint" />
@@ -28,16 +28,16 @@
         <passive_joint name="${prefix}right_inner_knuckle_joint" />
         <passive_joint name="${prefix}right_inner_finger_joint" />
 
-        <group_state name="${prefix}open" group="${prefix}grav_gripper">
+        <group_state name="open" group="grav_gripper">
             <joint name="${prefix}finger_width_joint" value="0.1" />
         </group_state>
 
-        <group_state name="${prefix}closed" group="${prefix}grav_gripper">
+        <group_state name="closed" group="grav_gripper">
             <joint name="${prefix}finger_width_joint" value="0.0" />
         </group_state>
 
-        <end_effector name="${prefix}grav_gripper" parent_link="${prefix}flange"
-            group="${prefix}grav_gripper" parent_group="${prefix}arm" />
+        <end_effector name="grav_gripper" parent_link="${prefix}flange"
+            group="grav_gripper" parent_group="rizon_arm" />
 
         <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}grav_tcp" reason="Never" />
         <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}closed_fingers_tcp"

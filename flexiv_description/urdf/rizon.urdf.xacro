@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rizon">
+  <!-- 'rizon_type' values: Rizon4, Rizon4s, Rizon10, Rizon10s -->
+  <xacro:arg name="rizon_type" default="Rizon4" />
+
+  <!-- import main macro -->
+  <xacro:include filename="$(find flexiv_description)/urdf/rizon_macro.xacro" />
+
+  <!-- parameters -->
+  <xacro:arg name="arm_prefix" default="" />
+  <xacro:arg name="robot_sn" default="" />
+  <xacro:arg name="rdk_control_mode" default="joint_position" />
+  <xacro:arg name="load_gripper" default="false" />
+  <xacro:arg name="gripper_name" default="Flexiv-GN01" />
+  <xacro:arg name="load_mounted_ft_sensor" default="false" />
+  <xacro:arg name="use_fake_hardware" default="false" />
+  <xacro:arg name="fake_sensor_commands" default="false" />
+
+  <xacro:rizon_robot
+    rizon_type="$(arg rizon_type)"
+    arm_prefix="$(arg arm_prefix)"
+    robot_sn="$(arg robot_sn)"
+    rdk_control_mode="$(arg rdk_control_mode)"
+    load_gripper="$(arg load_gripper)"
+    gripper_name="$(arg gripper_name)"
+    use_fake_hardware="$(arg use_fake_hardware)"
+    load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)"
+    fake_sensor_commands="$(arg fake_sensor_commands)">
+  </xacro:rizon_robot>
+
+</robot>

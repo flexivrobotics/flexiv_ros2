@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - humble
-      - release/humble-*
 
 jobs:
   humble_binary:
@@ -27,50 +26,35 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y \
-          wget \
           libeigen3-dev \
-          ros-humble-control-toolbox \
-          ros-humble-hardware-interface \
-          ros-humble-joint-state-publisher \
-          ros-humble-joint-state-publisher-gui \
-          ros-humble-moveit \
-          ros-humble-realtime-tools \
-          ros-humble-robot-state-publisher \
+          ros-humble-xacro \
+          ros-humble-tinyxml2-vendor \
           ros-humble-ros2-control \
+          ros-humble-realtime-tools \
+          ros-humble-control-toolbox \
+          ros-humble-moveit \
           ros-humble-ros2-controllers \
           ros-humble-test-msgs \
-          ros-humble-tinyxml2-vendor \
-          ros-humble-xacro
+          ros-humble-joint-state-publisher \
+          ros-humble-joint-state-publisher-gui \
+          ros-humble-robot-state-publisher
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
-          git clone https://github.com/flexivrobotics/flexiv_rdk.git -b release/v1.9
-          cd flexiv_rdk/thirdparty
-          source /opt/ros/humble/setup.bash
-          bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
+          cd flexiv_hardware/rdk/thirdparty
+          bash build_and_install_dependencies.sh ~/rdk_install
           cd ..
           mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
-          cmake --build . --target install --config Release
-      - name: Build and install flexiv_drdk
-        shell: bash
-        run: |
-          git clone https://github.com/flexivrobotics/flexiv_drdk.git -b release/v1.2
-          cd flexiv_drdk/thirdparty
-          source /opt/ros/humble/setup.bash
-          bash build_and_install_dependencies.sh ~/flexiv_install
-          cd ..
-          mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
           cmake --build . --target install --config Release
       - name: Build and run tests
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
-          vcs-repo-file-url: ${{ github.workspace }}/flexiv.humble.repos
           package-name: |
             flexiv_bringup
+            flexiv_description
             flexiv_gripper
             flexiv_hardware
             flexiv_moveit_config
@@ -82,7 +66,7 @@ jobs:
             {
               "build": {
                 "cmake-args": [
-                    "-DCMAKE_PREFIX_PATH=~/flexiv_install"
+                    "-DCMAKE_PREFIX_PATH=~/rdk_install"
                 ]
               }
             }
