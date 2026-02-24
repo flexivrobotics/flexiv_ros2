@@ -44,7 +44,7 @@ jobs:
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
-          git clone https://github.com/flexivrobotics/flexiv_rdk.git -b release/v1.9
+          git clone --branch v1.9 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
           source /opt/ros/jazzy/setup.bash
           bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install 8
