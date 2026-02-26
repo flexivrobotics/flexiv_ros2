@@ -237,6 +237,7 @@ With AICO2-4 setup:
 
 ```bash
 ros2 launch flexiv_bringup aico2_moveit.launch.py rizon_type:=Rizon4 robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] external_axis_type:=AICO2-4-V1
+```
 
 ### Robot States
 
