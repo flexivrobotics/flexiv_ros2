@@ -49,7 +49,7 @@ This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) 
    ros-humble-rviz2 \
    ros-humble-test-msgs \
    ros-humble-tinyxml2-vendor \
-   ros-humble-xacro \
+   ros-humble-xacro
    ```
 
 3. Setup workspace:
@@ -104,7 +104,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src
-   git clone https://github.com/flexivrobotics/flexiv_drdk.git -b release/v1.2
+   git clone --branch v1.2 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
    touch flexiv_drdk/COLCON_IGNORE
    ```
 
