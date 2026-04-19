@@ -8,6 +8,8 @@
 
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <stdexcept>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/clock.hpp>
@@ -22,6 +24,53 @@ namespace {
 constexpr double kMaxJointVelocity = 2.0;
 constexpr double kMaxJointAcceleration = 3.0;
 
+using GroupDofList = std::vector<std::pair<flexiv::rdk::JointGroup, size_t>>;
+
+/**
+ * Resolve active joint groups from Robot::states() for this interface.
+ *
+ * Supported layouts:
+ * 1) Single-arm: exactly one group ARMS with DoF equal to expected_dof.
+ * 2) Dual-arm: exactly two groups ARM_1 and ARM_2 whose DoFs sum to expected_dof.
+ *
+ * @param states_by_group Joint-group keyed robot states from RDK.
+ * @param expected_dof Total DoF expected by this hardware interface mapping.
+ * @return Ordered list of active groups and each group's DoF.
+ *         Returns empty when the layout is unsupported or DoF does not match.
+ */
+GroupDofList determine_active_groups(
+    const std::map<flexiv::rdk::JointGroup, flexiv::rdk::RobotStates>& states_by_group,
+    size_t expected_dof)
+{
+    GroupDofList active_groups;
+
+    // Single-arm robot: one and only one group ARMS.
+    auto arms_it = states_by_group.find(flexiv::rdk::JointGroup::ARMS);
+    if (states_by_group.size() == 1 && arms_it != states_by_group.end()
+        && arms_it->second.q.size() == expected_dof) {
+        active_groups.emplace_back(flexiv::rdk::JointGroup::ARMS, expected_dof);
+        return active_groups;
+    }
+
+    // Dual-arm robot: one and only one group for each arm.
+    auto arm1_it = states_by_group.find(flexiv::rdk::JointGroup::ARM_1);
+    auto arm2_it = states_by_group.find(flexiv::rdk::JointGroup::ARM_2);
+    if (states_by_group.size() == 2 && arm1_it != states_by_group.end()
+        && arm2_it != states_by_group.end()) {
+        const size_t arm1_dof = arm1_it->second.q.size();
+        const size_t arm2_dof = arm2_it->second.q.size();
+        if (arm1_dof > 0 && arm2_dof > 0 && arm1_dof + arm2_dof == expected_dof) {
+            active_groups.emplace_back(flexiv::rdk::JointGroup::ARM_1, arm1_dof);
+            active_groups.emplace_back(flexiv::rdk::JointGroup::ARM_2, arm2_dof);
+            return active_groups;
+        }
+    }
+
+    // Any other group combination is unsupported in this interface.
+    active_groups.clear();
+    return active_groups;
+}
+
 }
 
 namespace flexiv_hardware {
@@ -33,6 +82,9 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         != hardware_interface::CallbackReturn::SUCCESS) {
         return hardware_interface::CallbackReturn::ERROR;
     }
+
+    RCLCPP_INFO(
+        getLogger(), "Parsed %zu joints from ros2_control hardware info", info_.joints.size());
 
     hw_states_joint_positions_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -47,9 +99,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     hw_states_gpio_in_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
     hw_commands_gpio_out_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
-    stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
-        StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
-        StoppingInterface::NONE};
+    stop_modes_ = {};
     start_modes_ = {};
     position_controller_running_ = false;
     velocity_controller_running_ = false;
@@ -74,21 +124,67 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     std::vector<size_t> arm_indices;
     std::vector<size_t> ext_indices;
 
-    // Find 7 arm joints in standard order
-    for (int j = 1; j <= 7; ++j) {
-        std::string arm_joint_name = prefix + "joint" + std::to_string(j);
-        bool found = false;
-        for (size_t i = 0; i < info_.joints.size(); ++i) {
-            if (info_.joints[i].name == arm_joint_name) {
-                arm_indices.push_back(i);
-                found = true;
-                break;
-            }
+    // Find arm joints in standard numeric order: <prefix>joint1 ... <prefix>jointN.
+    std::vector<std::pair<int, size_t>> indexed_arm_joints;
+    const std::string arm_joint_prefix = prefix + "joint";
+    indexed_arm_joints.reserve(info_.joints.size());
+
+    for (size_t i = 0; i < info_.joints.size(); ++i) {
+        const std::string& joint_name = info_.joints[i].name;
+        if (joint_name.rfind(arm_joint_prefix, 0) != 0) {
+            continue;
         }
-        if (!found) {
-            RCLCPP_FATAL(getLogger(), "Could not find arm joint '%s'", arm_joint_name.c_str());
+
+        const std::string suffix = joint_name.substr(arm_joint_prefix.size());
+        if (suffix.empty()) {
+            continue;
+        }
+
+        try {
+            size_t parsed_chars = 0;
+            int joint_index = std::stoi(suffix, &parsed_chars);
+            if (parsed_chars == suffix.size() && joint_index > 0) {
+                indexed_arm_joints.emplace_back(joint_index, i);
+            }
+        } catch (const std::exception&) {
+            continue;
+        }
+    }
+
+    if (indexed_arm_joints.size() < 7) {
+        RCLCPP_FATAL(getLogger(), "Expected at least 7 arm joints named '%sjointN', found %ld",
+            prefix.c_str(), indexed_arm_joints.size());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    std::sort(indexed_arm_joints.begin(), indexed_arm_joints.end(),
+        [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    if (indexed_arm_joints.front().first != 1) {
+        RCLCPP_FATAL(getLogger(), "Arm joint numbering must start at 1 ('%sjoint1')",
+            prefix.c_str());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    for (size_t i = 1; i < indexed_arm_joints.size(); ++i) {
+        if (indexed_arm_joints[i].first != indexed_arm_joints[i - 1].first + 1) {
+            RCLCPP_FATAL(getLogger(),
+                "Arm joints must be contiguous '%sjoint1' ... '%sjointN' without gaps/duplicates",
+                prefix.c_str(), prefix.c_str());
             return hardware_interface::CallbackReturn::ERROR;
         }
+    }
+
+    for (const auto& [joint_number, joint_pos] : indexed_arm_joints) {
+        (void)joint_number;
+        arm_indices.push_back(joint_pos);
+    }
+
+    if (arm_indices.size() % 7 != 0) {
+        RCLCPP_FATAL(getLogger(),
+            "Arm joint count (%ld) is invalid: each joint group must contain 7 arm joints",
+            arm_indices.size());
+        return hardware_interface::CallbackReturn::ERROR;
     }
 
     // Find external axis joints (any joint that is not an arm joint)
@@ -326,26 +422,66 @@ hardware_interface::return_type FlexivHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
     if (robot_->operational()) {
+        const size_t dof = rdk_to_ros_map_.size();
         auto states_by_group = robot_->states();
-        auto states_it = states_by_group.find(flexiv::rdk::JointGroup::ARMS);
-        if (states_it == states_by_group.end()) {
-            if (states_by_group.empty()) {
-                return hardware_interface::return_type::OK;
-            }
-            states_it = states_by_group.begin();
+        if (states_by_group.empty()) {
+            return hardware_interface::return_type::OK;
         }
 
-        const auto& robot_states = states_it->second;
-        hw_flexiv_robot_states_ = robot_states;
+        auto active_groups = determine_active_groups(states_by_group, dof);
+        if (active_groups.empty()) {
+            RCLCPP_ERROR(getLogger(),
+                "Cannot resolve joint groups from robot states (groups=%ld, expected_dof=%ld)",
+                states_by_group.size(), dof);
+            return hardware_interface::return_type::ERROR;
+        }
+
+        std::vector<double> q;
+        std::vector<double> dtheta;
+        std::vector<double> tau;
+        q.reserve(dof);
+        dtheta.reserve(dof);
+        tau.reserve(dof);
+
+        const auto& first_group_states = states_by_group.at(active_groups.front().first);
+        hw_flexiv_robot_states_ = first_group_states;
+
+        for (const auto& [group, group_dof] : active_groups) {
+            const auto& group_states = states_by_group.at(group);
+            if (group_states.q.size() < group_dof || group_states.dtheta.size() < group_dof
+                || group_states.tau.size() < group_dof) {
+                RCLCPP_ERROR(getLogger(),
+                    "Group state vector size mismatch for group %d (q=%ld dtheta=%ld tau=%ld "
+                    "expected=%ld)",
+                    static_cast<int>(group), group_states.q.size(), group_states.dtheta.size(),
+                    group_states.tau.size(), group_dof);
+                return hardware_interface::return_type::ERROR;
+            }
+            q.insert(q.end(), group_states.q.begin(), group_states.q.begin() + group_dof);
+            dtheta.insert(
+                dtheta.end(), group_states.dtheta.begin(), group_states.dtheta.begin() + group_dof);
+            tau.insert(tau.end(), group_states.tau.begin(), group_states.tau.begin() + group_dof);
+        }
+
+        if (q.size() != dof || dtheta.size() != dof || tau.size() != dof) {
+            RCLCPP_ERROR(getLogger(),
+                "Resolved joint state size mismatch (q=%ld dtheta=%ld tau=%ld expected=%ld)",
+                q.size(), dtheta.size(), tau.size(), dof);
+            return hardware_interface::return_type::ERROR;
+        }
+
+        hw_flexiv_robot_states_.q = q;
+        hw_flexiv_robot_states_.dtheta = dtheta;
+        hw_flexiv_robot_states_.tau = tau;
 
         // Read joint states
         // Map RDK states (RDK order) to Hardware Interface states (ROS order)
-        for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
+        for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
             size_t ros_idx = rdk_to_ros_map_[rdk_idx];
             if (ros_idx < info_.joints.size()) {
-                hw_states_joint_positions_[ros_idx] = robot_states.q[rdk_idx];
-                hw_states_joint_velocities_[ros_idx] = robot_states.dtheta[rdk_idx];
-                hw_states_joint_efforts_[ros_idx] = robot_states.tau[rdk_idx];
+                hw_states_joint_positions_[ros_idx] = q[rdk_idx];
+                hw_states_joint_velocities_[ros_idx] = dtheta[rdk_idx];
+                hw_states_joint_efforts_[ros_idx] = tau[rdk_idx];
             }
         }
 
@@ -362,17 +498,19 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 hardware_interface::return_type FlexivHardwareInterface::write(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    // Initialize target vectors to hold position
-    std::vector<double> target_pos(robot_->info().DoF);
-    std::vector<double> target_vel(robot_->info().DoF);
+    const size_t dof = rdk_to_ros_map_.size();
 
-    std::vector<double> max_vel(robot_->info().DoF, kMaxJointVelocity);
-    std::vector<double> max_acc(robot_->info().DoF, kMaxJointAcceleration);
+    // Initialize target vectors to hold position
+    std::vector<double> target_pos(dof);
+    std::vector<double> target_vel(dof);
+
+    std::vector<double> max_vel(dof, kMaxJointVelocity);
+    std::vector<double> max_acc(dof, kMaxJointAcceleration);
 
     bool is_pos_nan = false;
     bool is_vel_nan = false;
     bool is_eff_nan = false;
-    for (std::size_t i = 0; i < robot_->info().DoF; i++) {
+    for (std::size_t i = 0; i < dof; i++) {
         if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
             is_pos_nan = true;
         }
@@ -385,36 +523,110 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     }
 
     if (position_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_pos_nan) {
+        auto states_by_group = robot_->states();
+        auto active_groups = determine_active_groups(states_by_group, dof);
+        if (active_groups.empty()) {
+            RCLCPP_ERROR(getLogger(),
+                "Cannot resolve joint groups for position command (groups=%ld, expected_dof=%ld)",
+                states_by_group.size(), dof);
+            return hardware_interface::return_type::ERROR;
+        }
+
         // Map ROS commands to RDK targets
-        for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
+        for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
             size_t ros_idx = rdk_to_ros_map_[rdk_idx];
             target_pos[rdk_idx] = hw_commands_joint_positions_[ros_idx];
         }
+
         std::map<flexiv::rdk::JointGroup, flexiv::rdk::NrtJointPositionCmd> cmds;
-        cmds[flexiv::rdk::JointGroup::ARMS]
-            = flexiv::rdk::NrtJointPositionCmd(target_pos, target_vel, max_vel, max_acc);
+        if (active_groups.size() == 1 && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
+            cmds[flexiv::rdk::JointGroup::ARMS]
+                = flexiv::rdk::NrtJointPositionCmd(target_pos, target_vel, max_vel, max_acc);
+        } else {
+            size_t offset = 0;
+            for (const auto& [group, group_dof] : active_groups) {
+                const auto begin = static_cast<std::ptrdiff_t>(offset);
+                const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
+                cmds[group] = flexiv::rdk::NrtJointPositionCmd(
+                    std::vector<double>(target_pos.begin() + begin, target_pos.begin() + end),
+                    std::vector<double>(target_vel.begin() + begin, target_vel.begin() + end),
+                    std::vector<double>(max_vel.begin() + begin, max_vel.begin() + end),
+                    std::vector<double>(max_acc.begin() + begin, max_acc.begin() + end));
+                offset += group_dof;
+            }
+        }
+
         robot_->SendJointPosition(cmds);
     } else if (velocity_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_vel_nan) {
+        auto states_by_group = robot_->states();
+        auto active_groups = determine_active_groups(states_by_group, dof);
+        if (active_groups.empty()) {
+            RCLCPP_ERROR(getLogger(),
+                "Cannot resolve joint groups for velocity command (groups=%ld, expected_dof=%ld)",
+                states_by_group.size(), dof);
+            return hardware_interface::return_type::ERROR;
+        }
+
         // Map ROS commands/states to RDK targets
-        for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
+        for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
             size_t ros_idx = rdk_to_ros_map_[rdk_idx];
             target_pos[rdk_idx] = hw_states_joint_positions_[ros_idx];
             target_vel[rdk_idx] = hw_commands_joint_velocities_[ros_idx];
         }
+
         std::map<flexiv::rdk::JointGroup, flexiv::rdk::NrtJointPositionCmd> cmds;
-        cmds[flexiv::rdk::JointGroup::ARMS]
-            = flexiv::rdk::NrtJointPositionCmd(target_pos, target_vel, max_vel, max_acc);
+        if (active_groups.size() == 1 && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
+            cmds[flexiv::rdk::JointGroup::ARMS]
+                = flexiv::rdk::NrtJointPositionCmd(target_pos, target_vel, max_vel, max_acc);
+        } else {
+            size_t offset = 0;
+            for (const auto& [group, group_dof] : active_groups) {
+                const auto begin = static_cast<std::ptrdiff_t>(offset);
+                const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
+                cmds[group] = flexiv::rdk::NrtJointPositionCmd(
+                    std::vector<double>(target_pos.begin() + begin, target_pos.begin() + end),
+                    std::vector<double>(target_vel.begin() + begin, target_vel.begin() + end),
+                    std::vector<double>(max_vel.begin() + begin, max_vel.begin() + end),
+                    std::vector<double>(max_acc.begin() + begin, max_acc.begin() + end));
+                offset += group_dof;
+            }
+        }
+
         robot_->SendJointPosition(cmds);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
                && !is_eff_nan) {
-        std::vector<double> target_torque(robot_->info().DoF);
+        auto states_by_group = robot_->states();
+        auto active_groups = determine_active_groups(states_by_group, dof);
+        if (active_groups.empty()) {
+            RCLCPP_ERROR(getLogger(),
+                "Cannot resolve joint groups for torque command (groups=%ld, expected_dof=%ld)",
+                states_by_group.size(), dof);
+            return hardware_interface::return_type::ERROR;
+        }
+
+        std::vector<double> target_torque(dof);
         // Map ROS commands to RDK targets
-        for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
+        for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
             size_t ros_idx = rdk_to_ros_map_[rdk_idx];
             target_torque[rdk_idx] = hw_commands_joint_efforts_[ros_idx];
         }
+
         std::map<flexiv::rdk::JointGroup, flexiv::rdk::RtJointTorqueCmd> cmds;
-        cmds[flexiv::rdk::JointGroup::ARMS] = flexiv::rdk::RtJointTorqueCmd(target_torque, true, true);
+        if (active_groups.size() == 1 && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
+            cmds[flexiv::rdk::JointGroup::ARMS]
+                = flexiv::rdk::RtJointTorqueCmd(target_torque, true, true);
+        } else {
+            size_t offset = 0;
+            for (const auto& [group, group_dof] : active_groups) {
+                const auto begin = static_cast<std::ptrdiff_t>(offset);
+                const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
+                cmds[group] = flexiv::rdk::RtJointTorqueCmd(
+                    std::vector<double>(target_torque.begin() + begin, target_torque.begin() + end),
+                    true, true);
+                offset += group_dof;
+            }
+        }
+
         robot_->StreamJointTorque(cmds);
     }
 
