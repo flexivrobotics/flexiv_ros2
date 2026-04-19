@@ -94,42 +94,6 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    source install/setup.bash
    ```
 
-### Flexiv DRDK Installation (Optional)
-
-If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as well.
-
-1. Clone `flexiv_drdk` into the workspace source directory and ignore it from colcon build:
-
-   ```bash
-   cd ~/flexiv_ros2_ws/src
-   git clone --branch v1.2 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
-   touch flexiv_drdk/COLCON_IGNORE
-   ```
-
-2. Install dependencies and build `flexiv_drdk` by choosing an installation directory, e.g., `~/flexiv_install`:
-
-   ```bash
-   cd ~/flexiv_ros2_ws/src/flexiv_drdk/thirdparty
-   source /opt/ros/jazzy/setup.bash
-   bash build_and_install_dependencies.sh ~/flexiv_install 8 --skip-rdk
-   ```
-
-3. Configure and install `flexiv_drdk`:
-
-   ```bash
-   cd ~/flexiv_ros2_ws/src/flexiv_drdk
-   rm -rf build && mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DDRDK_SUPPORT_ROS2_JAZZY=ON
-   make install
-   ```
-
-4. Rebuild the workspace with `flexiv_drdk` included:
-
-   ```bash
-   cd ~/flexiv_ros2_ws
-   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/flexiv_install
-   ```
-
 > [!IMPORTANT]
 > Remember to source the setup file and the workspace whenever a new terminal is opened:
 >
