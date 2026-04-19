@@ -19,6 +19,7 @@ jobs:
       fail-fast: false
     env:
       ROS_DISTRO: jazzy
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -38,6 +39,7 @@ jobs:
           ros-jazzy-robot-state-publisher \
           ros-jazzy-ros2-control \
           ros-jazzy-ros2-controllers \
+          ros-jazzy-rmw-cyclonedds-cpp \
           ros-jazzy-test-msgs \
           ros-jazzy-tinyxml2-vendor \
           ros-jazzy-xacro

@@ -26,6 +26,13 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 
 This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
 
+This project uses CycloneDDS middleware (`rmw_cyclonedds_cpp`) for ROS 2 communication.
+
+> [!WARNING]
+> Fast DDS middleware (`rmw_fastrtps_cpp`) is not supported in this project.
+> It causes a compilation conflict with `flexiv_rdk` (conflicting DDS/CMake targets).
+> This guide uses CycloneDDS (`rmw_cyclonedds_cpp`) in all setup and runtime examples.
+
 1. Install [ROS 2 Jazzy via Debian Packages](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debians.html)
 
 2. Install `colcon` and additional ROS packages:
@@ -46,7 +53,8 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    ros-jazzy-joint-state-publisher \
    ros-jazzy-joint-state-publisher-gui \
    ros-jazzy-robot-state-publisher \
-   ros-jazzy-rviz2
+   ros-jazzy-rviz2 \
+   ros-jazzy-rmw-cyclonedds-cpp
    ```
 
 3. Setup workspace:
@@ -90,6 +98,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    ```bash
    cd ~/flexiv_ros2_ws
    source /opt/ros/jazzy/setup.bash
+   export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
    colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/flexiv_install
    source install/setup.bash
    ```
@@ -99,6 +108,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
 >
 > ```bash
 > source /opt/ros/jazzy/setup.bash
+> export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 > source ~/flexiv_ros2_ws/install/setup.bash
 > ```
 
@@ -108,6 +118,12 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
 > The instruction below is only a quick reference, see the [Flexiv ROS 2 Documentation](https://www.flexiv.com/software/rdk/manual/ros2_bridge.html) for more information.
 
 The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://www.flexiv.com/software/rdk/manual/activate_rdk_server.html) and [establish connection](https://www.flexiv.com/software/rdk/manual/establish_connection.html) between the workstation PC and the robot.
+
+Before running any `ros2 launch` command below, make sure CycloneDDS is selected:
+
+```bash
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+```
 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
