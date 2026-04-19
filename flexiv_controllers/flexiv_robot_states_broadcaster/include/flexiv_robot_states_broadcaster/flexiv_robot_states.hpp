@@ -65,13 +65,13 @@ public:
     void init_robot_states_message(flexiv_msgs::msg::RobotStates& message)
     {
         message.tcp_pose.header.frame_id = kWorldFrameId;
-        message.tcp_vel.header.frame_id = kWorldFrameId;
+        message.tcp_twist.header.frame_id = kWorldFrameId;
         message.flange_pose.header.frame_id = kWorldFrameId;
-        message.ft_sensor_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_tcp.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_world.header.frame_id = kWorldFrameId;
-        message.ext_wrench_in_tcp_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_world_raw.header.frame_id = kWorldFrameId;
+        message.raw_ft_sensor.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.tcp_wrench_local.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.tcp_wrench.header.frame_id = kWorldFrameId;
+        message.raw_tcp_wrench_local.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.raw_tcp_wrench.header.frame_id = kWorldFrameId;
     }
 
     /// Return RobotStates message
@@ -97,13 +97,13 @@ public:
 
         // Update timestamps
         message.tcp_pose.header.stamp = message.header.stamp;
-        message.tcp_vel.header.stamp = message.header.stamp;
+        message.tcp_twist.header.stamp = message.header.stamp;
         message.flange_pose.header.stamp = message.header.stamp;
-        message.ft_sensor_raw.header.stamp = message.header.stamp;
-        message.ext_wrench_in_tcp.header.stamp = message.header.stamp;
-        message.ext_wrench_in_world.header.stamp = message.header.stamp;
-        message.ext_wrench_in_tcp_raw.header.stamp = message.header.stamp;
-        message.ext_wrench_in_world_raw.header.stamp = message.header.stamp;
+        message.raw_ft_sensor.header.stamp = message.header.stamp;
+        message.tcp_wrench_local.header.stamp = message.header.stamp;
+        message.tcp_wrench.header.stamp = message.header.stamp;
+        message.raw_tcp_wrench_local.header.stamp = message.header.stamp;
+        message.raw_tcp_wrench.header.stamp = message.header.stamp;
 
         // Fill the RobotStates message
         message.robot_timestamp.sec = flexiv_robot_states_ptr->timestamp.first;
@@ -121,16 +121,16 @@ public:
         message.temperature = flexiv_robot_states_ptr->temperature;
 
         message.tcp_pose.pose = toPoseMsg(flexiv_robot_states_ptr->tcp_pose);
-        message.tcp_vel.accel = toAccelMsg(flexiv_robot_states_ptr->tcp_vel);
+        message.tcp_twist.accel = toAccelMsg(flexiv_robot_states_ptr->tcp_twist);
         message.flange_pose.pose = toPoseMsg(flexiv_robot_states_ptr->flange_pose);
-        message.ft_sensor_raw.wrench = toWrenchMsg(flexiv_robot_states_ptr->ft_sensor_raw);
-        message.ext_wrench_in_tcp.wrench = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_tcp);
-        message.ext_wrench_in_world.wrench
-            = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_world);
-        message.ext_wrench_in_tcp_raw.wrench
-            = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_tcp_raw);
-        message.ext_wrench_in_world_raw.wrench
-            = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_world_raw);
+        message.raw_ft_sensor.wrench = toWrenchMsg(flexiv_robot_states_ptr->raw_ft_sensor);
+        message.tcp_wrench_local.wrench = toWrenchMsg(flexiv_robot_states_ptr->tcp_wrench_local);
+        message.tcp_wrench.wrench
+            = toWrenchMsg(flexiv_robot_states_ptr->tcp_wrench);
+        message.raw_tcp_wrench_local.wrench
+            = toWrenchMsg(flexiv_robot_states_ptr->raw_tcp_wrench_local);
+        message.raw_tcp_wrench.wrench
+            = toWrenchMsg(flexiv_robot_states_ptr->raw_tcp_wrench);
 
         return true;
     }

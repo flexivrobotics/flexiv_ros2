@@ -199,8 +199,8 @@ class RobotStatesPublisher(Node):
             # TCP pose: [x, y, z, q_w, q_x, q_y, q_z]
             msg.tcp_pose = self.create_pose_stamped(robot_states.tcp_pose, "world")
 
-            # TCP velocity: [v_x, v_y, v_z, w_x, w_y, w_z]
-            msg.tcp_vel = self.create_accel_stamped(robot_states.tcp_vel, "world")
+            # TCP twist: [v_x, v_y, v_z, w_x, w_y, w_z]
+            msg.tcp_twist = self.create_accel_stamped(robot_states.tcp_twist, "world")
 
             # Flange pose: [x, y, z, q_w, q_x, q_y, q_z]
             msg.flange_pose = self.create_pose_stamped(
@@ -208,28 +208,28 @@ class RobotStatesPublisher(Node):
             )
 
             # Force-torque sensor reading: [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ft_sensor_raw = self.create_wrench_stamped(
-                robot_states.ft_sensor_raw, "flange"
+            msg.raw_ft_sensor = self.create_wrench_stamped(
+                robot_states.raw_ft_sensor, "flange"
             )
 
             # External wrench in TCP frame: [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ext_wrench_in_tcp = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_tcp, "flange"
+            msg.tcp_wrench_local = self.create_wrench_stamped(
+                robot_states.tcp_wrench_local, "flange"
             )
 
             # External wrench in world frame: [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ext_wrench_in_world = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_world, "world"
+            msg.tcp_wrench = self.create_wrench_stamped(
+                robot_states.tcp_wrench, "world"
             )
 
             # External wrench in TCP frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ext_wrench_in_tcp_raw = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_tcp_raw, "flange"
+            msg.raw_tcp_wrench_local = self.create_wrench_stamped(
+                robot_states.raw_tcp_wrench_local, "flange"
             )
 
             # External wrench in world frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ext_wrench_in_world_raw = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_world_raw, "world"
+            msg.raw_tcp_wrench = self.create_wrench_stamped(
+                robot_states.raw_tcp_wrench, "world"
             )
 
             # Publish the message
