@@ -79,8 +79,7 @@ This project uses CycloneDDS middleware (`rmw_cyclonedds_cpp`) for ROS 2 communi
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk/thirdparty
-   source /opt/ros/jazzy/setup.bash
-   bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
+   bash build_and_install_dependencies.sh ~/flexiv_install
    ```
 
 6. Configure and install `flexiv_rdk`:
@@ -88,8 +87,7 @@ This project uses CycloneDDS middleware (`rmw_cyclonedds_cpp`) for ROS 2 communi
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk
    rm -rf build && mkdir build && cd build
-   source /opt/ros/jazzy/setup.bash
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DRDK_SUPPORT_ROS2_JAZZY=ON
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
    make install
    ```
 
@@ -138,8 +136,7 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 
 There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual robot setups. *(Details about other launch files can be found in [`flexiv_bringup`](/flexiv_bringup))*
 
-- `robot_sn_left` (*required for dual robot setup*) - Serial number of the left robot to connect to. Remove any space, for example: Rizon4-123456
-- `robot_sn_right` (*required for dual robot setup*) - Serial number of the right robot to connect to. Remove any space, for example: Rizon4R-654321
+- `robot_sn` (*required for dual-arm and AICO2 setup*) - Serial number of the shared dual-arm robot/controller to connect to. Remove any space, for example: DualArms-123456
 - `external_axis_type` (default: *AICO1-4-V1*) - type of the Flexiv AICO1 robot platform. Options: *AICO1-4-V1* or *AICO1-4-V2*
 
 ### Example Commands
@@ -182,7 +179,7 @@ ros2 launch flexiv_bringup aico1.launch.py robot_sn:=[robot_sn] rizon_type:=Rizo
 **AICO2-4** robot:
 
 ```bash
-ros2 launch flexiv_bringup aico2.launch.py rizon_type:=Rizon4 robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] external_axis_type:=AICO2-4-V1
+ros2 launch flexiv_bringup aico2.launch.py rizon_type:=Rizon4 robot_sn:=[robot_sn] external_axis_type:=AICO2-4-V1
 ```
 
 ### Using MoveIt
@@ -202,7 +199,7 @@ ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=Rizon4-123456 use_fa
 With dual robot setup:
 
 ```bash
-ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right]
+ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn:=[robot_sn]
 ```
 
 With AICO1-4 setup:
@@ -214,7 +211,7 @@ ros2 launch flexiv_bringup aico1_moveit.launch.py robot_sn:=[robot_sn] rizon_typ
 With AICO2-4 setup:
 
 ```bash
-ros2 launch flexiv_bringup aico2_moveit.launch.py rizon_type:=Rizon4 robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] external_axis_type:=AICO2-4-V1
+ros2 launch flexiv_bringup aico2_moveit.launch.py rizon_type:=Rizon4 robot_sn:=[robot_sn] external_axis_type:=AICO2-4-V1
 ```
 
 ### Robot States
@@ -226,6 +223,8 @@ The robot driver (`rizon.launch.py`) publishes the following feedback states to 
 - `/${robot_sn}/tcp_pose`: Measured TCP pose expressed in world frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
 - `/${robot_sn}/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 - `/${robot_sn}/external_wrench_in_world`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
+
+For dual-arm and AICO2 launch files, the existing left/right naming is preserved for compatibility with controller and broadcaster configs. The robot-state topics therefore remain under `left_${robot_sn}` and `right_${robot_sn}` rather than a single shared dual-arm namespace.
 
 ### GPIO
 
