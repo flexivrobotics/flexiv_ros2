@@ -29,7 +29,9 @@ FlexivRobotStatesBroadcaster::state_interface_configuration() const
 {
     controller_interface::InterfaceConfiguration state_interfaces_config;
     state_interfaces_config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
-    state_interfaces_config.names = flexiv_robot_states_->get_state_interface_names();
+    if (!params_.robot_sn.empty()) {
+        state_interfaces_config.names = {params_.robot_sn + "/flexiv_robot_states"};
+    }
     return state_interfaces_config;
 }
 
@@ -74,12 +76,10 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
         "/" + robot_sn + kFlangePoseTopic, rclcpp::SystemDefaultsQoS());
     raw_ft_sensor_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
         "/" + robot_sn + kRawFTSensorTopic, rclcpp::SystemDefaultsQoS());
-    tcp_wrench_local_publisher_
-        = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
-            "/" + robot_sn + kTcpWrenchLocalTopic, rclcpp::SystemDefaultsQoS());
-    tcp_wrench_publisher_
-        = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
-            "/" + robot_sn + kTcpWrenchTopic, rclcpp::SystemDefaultsQoS());
+    tcp_wrench_local_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
+        "/" + robot_sn + kTcpWrenchLocalTopic, rclcpp::SystemDefaultsQoS());
+    tcp_wrench_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
+        "/" + robot_sn + kTcpWrenchTopic, rclcpp::SystemDefaultsQoS());
 
     try {
         flexiv_robot_states_publisher_
@@ -109,7 +109,7 @@ controller_interface::return_type FlexivRobotStatesBroadcaster::update(
         if (!flexiv_robot_states_->get_values_as_message(
                 realtime_flexiv_robot_states_publisher_->msg_)) {
             RCLCPP_ERROR(get_node()->get_logger(),
-                "Failed to get fleixv robot states via flexiv robot states interface.");
+                "Failed to get flexiv robot states via flexiv robot states interface.");
             realtime_flexiv_robot_states_publisher_->unlock();
             return controller_interface::return_type::ERROR;
         }

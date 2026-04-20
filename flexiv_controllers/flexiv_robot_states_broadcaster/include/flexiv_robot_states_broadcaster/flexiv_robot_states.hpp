@@ -7,8 +7,10 @@
 #ifndef SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 #define SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 
+#include <cstring>
 #include <limits>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
@@ -85,13 +87,25 @@ public:
                     return state_interface.get().get_name() == flexiv_robot_states_interface_name;
                 });
 
-        if (flexiv_robot_states_interface != state_interfaces_.end()) {
-            // Get the robot states pointer via bit_cast
-            flexiv_robot_states_ptr = bit_cast<flexiv::rdk::RobotStates*>(
-                (*flexiv_robot_states_interface).get().get_optional().value());
-        } else {
+        if (flexiv_robot_states_interface == state_interfaces_.end()) {
             RCLCPP_ERROR(
                 rclcpp::get_logger("FlexivRobotStates"), "Robot states interface not found.");
+            return false;
+        }
+
+        const auto encoded_handle = (*flexiv_robot_states_interface).get().get_optional();
+        if (!encoded_handle.has_value()) {
+            RCLCPP_ERROR(rclcpp::get_logger("FlexivRobotStates"),
+                "Robot states interface '%s' has no value.",
+                flexiv_robot_states_interface_name.c_str());
+            return false;
+        }
+
+        auto* flexiv_robot_states_ptr = bit_cast<flexiv::rdk::RobotStates*>(encoded_handle.value());
+        if (flexiv_robot_states_ptr == nullptr) {
+            RCLCPP_ERROR(rclcpp::get_logger("FlexivRobotStates"),
+                "Robot states interface '%s' resolved to a null pointer.",
+                flexiv_robot_states_interface_name.c_str());
             return false;
         }
 
@@ -125,19 +139,15 @@ public:
         message.flange_pose.pose = toPoseMsg(flexiv_robot_states_ptr->flange_pose);
         message.raw_ft_sensor.wrench = toWrenchMsg(flexiv_robot_states_ptr->raw_ft_sensor);
         message.tcp_wrench_local.wrench = toWrenchMsg(flexiv_robot_states_ptr->tcp_wrench_local);
-        message.tcp_wrench.wrench
-            = toWrenchMsg(flexiv_robot_states_ptr->tcp_wrench);
+        message.tcp_wrench.wrench = toWrenchMsg(flexiv_robot_states_ptr->tcp_wrench);
         message.raw_tcp_wrench_local.wrench
             = toWrenchMsg(flexiv_robot_states_ptr->raw_tcp_wrench_local);
-        message.raw_tcp_wrench.wrench
-            = toWrenchMsg(flexiv_robot_states_ptr->raw_tcp_wrench);
+        message.raw_tcp_wrench.wrench = toWrenchMsg(flexiv_robot_states_ptr->raw_tcp_wrench);
 
         return true;
     }
 
 protected:
-    flexiv::rdk::RobotStates* flexiv_robot_states_ptr;
-
     const std::string state_interface_name_ {"flexiv_robot_states"};
 
     // Convert std::array to geometry_msgs::msg::Pose

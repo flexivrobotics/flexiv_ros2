@@ -93,6 +93,7 @@ private:
 
     // Robot states exported per active joint group.
     std::map<flexiv::rdk::JointGroup, flexiv::rdk::RobotStates> hw_flexiv_robot_states_by_group_;
+    std::map<flexiv::rdk::JointGroup, double> hw_flexiv_robot_state_handles_by_group_;
 
     // GPIO commands and states
     std::vector<double> hw_commands_gpio_out_;

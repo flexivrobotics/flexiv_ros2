@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <cstring>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -27,6 +28,17 @@ constexpr double kMaxJointVelocity = 2.0;
 constexpr double kMaxJointAcceleration = 3.0;
 
 using GroupDofList = std::vector<std::pair<flexiv::rdk::JointGroup, size_t>>;
+
+template <typename PointerType>
+double encode_pointer_handle(PointerType* ptr)
+{
+    static_assert(sizeof(PointerType*) == sizeof(double),
+        "Encoded pointer handle requires pointer and double to have identical size");
+
+    double handle = 0.0;
+    std::memcpy(&handle, &ptr, sizeof(handle));
+    return handle;
+}
 
 std::string get_optional_hardware_parameter(
     const hardware_interface::HardwareInfo& info, const std::string& key)
@@ -418,6 +430,7 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
     }
 
     hw_flexiv_robot_states_by_group_.clear();
+    hw_flexiv_robot_state_handles_by_group_.clear();
     std::string robot_sn = info_.hardware_parameters.at("robot_sn");
 
     std::vector<flexiv::rdk::JointGroup> groups;
@@ -446,8 +459,16 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
                 = hw_flexiv_robot_states_by_group_.emplace(group, flexiv::rdk::RobotStates {})
                       .first;
         }
-        state_interfaces.emplace_back(hardware_interface::StateInterface(robot_state_name,
-            "flexiv_robot_states", reinterpret_cast<double*>(&state_storage->second)));
+        auto handle_storage = hw_flexiv_robot_state_handles_by_group_.find(group);
+        if (handle_storage == hw_flexiv_robot_state_handles_by_group_.end()) {
+            handle_storage = hw_flexiv_robot_state_handles_by_group_
+                                 .emplace(group, encode_pointer_handle(&state_storage->second))
+                                 .first;
+        } else {
+            handle_storage->second = encode_pointer_handle(&state_storage->second);
+        }
+        state_interfaces.emplace_back(hardware_interface::StateInterface(
+            robot_state_name, "flexiv_robot_states", &handle_storage->second));
     }
 
     const std::string gpio_interface_name = robot_sn + "_gpio";
