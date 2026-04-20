@@ -1,8 +1,11 @@
+import os
+
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
@@ -12,6 +15,7 @@ from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
+    EnvironmentVariable,
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
@@ -33,6 +37,7 @@ def generate_launch_description():
     gripper_name_right_param_name = "gripper_name_right"
     load_mounted_ft_sensor_left_param_name = "load_mounted_ft_sensor_left"
     load_mounted_ft_sensor_right_param_name = "load_mounted_ft_sensor_right"
+    rdk_install_prefix_param_name = "rdk_install_prefix"
 
     # Declare arguments
     declared_arguments = []
@@ -143,6 +148,14 @@ def generate_launch_description():
         )
     )
 
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            rdk_install_prefix_param_name,
+            default_value=os.path.expanduser("~/rdk_install"),
+            description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
+        )
+    )
+
     # Initialize Arguments
     rizon_type_left = LaunchConfiguration(rizon_type_left_param_name)
     rizon_type_right = LaunchConfiguration(rizon_type_right_param_name)
@@ -160,6 +173,16 @@ def generate_launch_description():
     )
     load_mounted_ft_sensor_right = LaunchConfiguration(
         load_mounted_ft_sensor_right_param_name
+    )
+    rdk_install_prefix = LaunchConfiguration(rdk_install_prefix_param_name)
+
+    set_rdk_ld_library_path = SetEnvironmentVariable(
+        name="LD_LIBRARY_PATH",
+        value=[
+            PathJoinSubstitution([rdk_install_prefix, "lib"]),
+            ":",
+            EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+        ],
     )
 
     # Construct prefixes
@@ -355,6 +378,7 @@ def generate_launch_description():
             "robot_sn": robot_sn,
             "gripper_name": gripper_name_left,
             "use_fake_hardware": use_fake_hardware,
+            "rdk_install_prefix": rdk_install_prefix,
         }.items(),
         condition=IfCondition(load_gripper_left),
     )
@@ -373,6 +397,7 @@ def generate_launch_description():
             "robot_sn": robot_sn,
             "gripper_name": gripper_name_right,
             "use_fake_hardware": use_fake_hardware,
+            "rdk_install_prefix": rdk_install_prefix,
         }.items(),
         condition=IfCondition(load_gripper_right),
     )
@@ -430,4 +455,4 @@ def generate_launch_description():
         delay_rviz_after_right_controller,
     ]
 
-    return LaunchDescription(declared_arguments + nodes)
+    return LaunchDescription(declared_arguments + [set_rdk_ld_library_path] + nodes)

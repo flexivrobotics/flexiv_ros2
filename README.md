@@ -75,11 +75,11 @@ This project uses CycloneDDS middleware (`rmw_cyclonedds_cpp`) for ROS 2 communi
    rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
    ```
 
-5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `flexiv_install` under the home directory: `~/flexiv_install`. Compile and install to the installation directory:
+5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`. Compile and install to the installation directory:
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk/thirdparty
-   bash build_and_install_dependencies.sh ~/flexiv_install
+   bash build_and_install_dependencies.sh ~/rdk_install
    ```
 
 6. Configure and install `flexiv_rdk`:
@@ -87,7 +87,7 @@ This project uses CycloneDDS middleware (`rmw_cyclonedds_cpp`) for ROS 2 communi
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk
    rm -rf build && mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
    make install
    ```
 
@@ -97,7 +97,7 @@ This project uses CycloneDDS middleware (`rmw_cyclonedds_cpp`) for ROS 2 communi
    cd ~/flexiv_ros2_ws
    source /opt/ros/jazzy/setup.bash
    export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/flexiv_install
+   colcon build --symlink-install --cmake-args -DCMAKE_PREFIX_PATH=~/rdk_install
    source install/setup.bash
    ```
 
@@ -122,6 +122,8 @@ Before running any `ros2 launch` command below, make sure CycloneDDS is selected
 ```bash
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ```
+
+All provided launch files prepend `${rdk_install_prefix}/lib` to `LD_LIBRARY_PATH` before starting Flexiv-backed nodes. The default launch argument assumes `flexiv_rdk` was installed to `~/rdk_install`, matching the build steps above. If you installed `flexiv_rdk` to a different prefix, pass `rdk_install_prefix:=/path/to/prefix` to the launch command.
 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
@@ -228,7 +230,7 @@ For dual-arm and AICO2 launch files, the existing left/right naming is preserved
 
 ### GPIO
 
-All digital inputs on the robot control box can be accessed via the ROS topic `/{robot_sn}/gpio_inputs`, which publishes the current state of all the 18 *(16 on control box + 2 inside the wrist connector)* digital input ports *(True: port high, false: port low)*.
+All digital inputs can be accessed via the ROS topic `/{robot_sn}/gpio_inputs`, which publishes the current state of all 24 digital input ports exposed through the Flexiv control interface *(True: port high, false: port low)*.
 
 The digital output ports on the control box can be set by publishing to the topic `/{robot_sn}/gpio_outputs`. For example:
 
