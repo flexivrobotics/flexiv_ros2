@@ -9,6 +9,8 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <set>
+#include <sstream>
 #include <stdexcept>
 
 #include <rclcpp/rclcpp.hpp>
@@ -26,6 +28,38 @@ constexpr double kMaxJointAcceleration = 3.0;
 
 using GroupDofList = std::vector<std::pair<flexiv::rdk::JointGroup, size_t>>;
 
+std::string get_optional_hardware_parameter(
+    const hardware_interface::HardwareInfo& info, const std::string& key)
+{
+    const auto it = info.hardware_parameters.find(key);
+    return it != info.hardware_parameters.end() ? it->second : "";
+}
+
+std::string joint_group_name_string(flexiv::rdk::JointGroup group)
+{
+    const auto name_it = flexiv::rdk::kJointGroupNames.find(group);
+    if (name_it != flexiv::rdk::kJointGroupNames.end()) {
+        return name_it->second;
+    }
+    return "GROUP_" + std::to_string(static_cast<int>(group));
+}
+
+std::string describe_group_layout(
+    const std::map<flexiv::rdk::JointGroup, flexiv::rdk::RobotStates>& states_by_group)
+{
+    std::ostringstream stream;
+    bool first = true;
+    for (const auto& [group, states] : states_by_group) {
+        if (!first) {
+            stream << ", ";
+        }
+        first = false;
+        stream << joint_group_name_string(group) << "(q=" << states.q.size()
+               << ", dtheta=" << states.dtheta.size() << ", tau=" << states.tau.size() << ")";
+    }
+    return stream.str();
+}
+
 /**
  * Resolve active joint groups from Robot::states() for this interface.
  *
@@ -40,7 +74,7 @@ using GroupDofList = std::vector<std::pair<flexiv::rdk::JointGroup, size_t>>;
  */
 GroupDofList determine_active_groups(
     const std::map<flexiv::rdk::JointGroup, flexiv::rdk::RobotStates>& states_by_group,
-    size_t expected_dof)
+    size_t expected_dof, const rclcpp::Logger& logger)
 {
     GroupDofList active_groups;
 
@@ -49,6 +83,13 @@ GroupDofList determine_active_groups(
     if (states_by_group.size() == 1 && arms_it != states_by_group.end()
         && arms_it->second.q.size() == expected_dof) {
         active_groups.emplace_back(flexiv::rdk::JointGroup::ARMS, expected_dof);
+        return active_groups;
+    }
+    if (states_by_group.size() == 1 && arms_it != states_by_group.end()) {
+        RCLCPP_ERROR(logger,
+            "Robot reported ARMS group with %zu joints, but hardware interface expects %zu. "
+            "Layout: %s",
+            arms_it->second.q.size(), expected_dof, describe_group_layout(states_by_group).c_str());
         return active_groups;
     }
 
@@ -65,10 +106,57 @@ GroupDofList determine_active_groups(
             return active_groups;
         }
     }
+    if (states_by_group.size() == 2 && arm1_it != states_by_group.end()
+        && arm2_it != states_by_group.end()) {
+        RCLCPP_ERROR(logger,
+            "Robot reported ARM_1 with %zu joints and ARM_2 with %zu joints, but hardware "
+            "interface expects %zu total joints. Layout: %s",
+            arm1_it->second.q.size(), arm2_it->second.q.size(), expected_dof,
+            describe_group_layout(states_by_group).c_str());
+        return active_groups;
+    }
+
+    for (const auto& [group, states] : states_by_group) {
+        if (group == flexiv::rdk::JointGroup::ARMS || group == flexiv::rdk::JointGroup::ARM_1
+            || group == flexiv::rdk::JointGroup::ARM_2) {
+            continue;
+        }
+
+        RCLCPP_WARN(logger,
+            "Robot reported unsupported joint group '%s' while resolving active groups "
+            "(q=%zu, dtheta=%zu, tau=%zu)",
+            joint_group_name_string(group).c_str(), states.q.size(), states.dtheta.size(),
+            states.tau.size());
+    }
+
+    RCLCPP_ERROR(logger,
+        "Unsupported joint-group combination returned by robot states: %s. Supported layouts "
+        "are [ARMS] or [ARM_1, ARM_2] with expected total DoF %zu.",
+        describe_group_layout(states_by_group).c_str(), expected_dof);
 
     // Any other group combination is unsupported in this interface.
     active_groups.clear();
     return active_groups;
+}
+
+std::vector<double> slice_vector(const std::vector<double>& values, size_t offset, size_t size)
+{
+    const auto begin = values.begin() + static_cast<std::vector<double>::difference_type>(offset);
+    const auto end = begin + static_cast<std::vector<double>::difference_type>(size);
+    return std::vector<double>(begin, end);
+}
+
+template <typename CommandType, typename BuildCommandFn>
+std::map<flexiv::rdk::JointGroup, CommandType> build_group_command_map(
+    const GroupDofList& active_groups, BuildCommandFn build_command)
+{
+    std::map<flexiv::rdk::JointGroup, CommandType> cmds;
+    size_t offset = 0;
+    for (const auto& [group, group_dof] : active_groups) {
+        cmds[group] = build_command(offset, group_dof);
+        offset += group_dof;
+    }
+    return cmds;
 }
 
 }
@@ -111,12 +199,26 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
-    // Get prefix for joint mapping
-    std::string prefix;
-    try {
-        prefix = info_.hardware_parameters.at("prefix");
-    } catch (const std::out_of_range& ex) {
-        RCLCPP_FATAL(getLogger(), "Parameter 'prefix' not set");
+    const auto prefix = get_optional_hardware_parameter(info_, "prefix");
+    const auto prefix_left = get_optional_hardware_parameter(info_, "prefix_left");
+    const auto prefix_right = get_optional_hardware_parameter(info_, "prefix_right");
+
+    std::vector<std::string> arm_prefixes;
+    if (!prefix.empty()) {
+        if (!prefix_left.empty() || !prefix_right.empty()) {
+            RCLCPP_FATAL(getLogger(),
+                "Parameters 'prefix' and 'prefix_left'/'prefix_right' are mutually exclusive");
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+        arm_prefixes.push_back(prefix);
+    } else if (!prefix_left.empty() && !prefix_right.empty()) {
+        arm_prefixes.push_back(prefix_left);
+        arm_prefixes.push_back(prefix_right);
+    } else {
+        RCLCPP_FATAL(getLogger(),
+            "Expected hardware parameter 'prefix' for a single-arm setup (generated from "
+            "robot_sn by the single-arm xacro), or both 'prefix_left' and 'prefix_right' for "
+            "a dual-arm setup");
         return hardware_interface::CallbackReturn::ERROR;
     }
 
@@ -124,79 +226,74 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     std::vector<size_t> arm_indices;
     std::vector<size_t> ext_indices;
 
-    // Find arm joints in standard numeric order: <prefix>joint1 ... <prefix>jointN.
-    std::vector<std::pair<int, size_t>> indexed_arm_joints;
-    const std::string arm_joint_prefix = prefix + "joint";
-    indexed_arm_joints.reserve(info_.joints.size());
+    std::set<size_t> arm_joint_index_set;
+    for (const auto& arm_prefix : arm_prefixes) {
+        std::vector<std::pair<int, size_t>> indexed_arm_joints;
+        const std::string arm_joint_prefix = arm_prefix + "joint";
+        indexed_arm_joints.reserve(info_.joints.size());
 
-    for (size_t i = 0; i < info_.joints.size(); ++i) {
-        const std::string& joint_name = info_.joints[i].name;
-        if (joint_name.rfind(arm_joint_prefix, 0) != 0) {
-            continue;
-        }
-
-        const std::string suffix = joint_name.substr(arm_joint_prefix.size());
-        if (suffix.empty()) {
-            continue;
-        }
-
-        try {
-            size_t parsed_chars = 0;
-            int joint_index = std::stoi(suffix, &parsed_chars);
-            if (parsed_chars == suffix.size() && joint_index > 0) {
-                indexed_arm_joints.emplace_back(joint_index, i);
+        for (size_t i = 0; i < info_.joints.size(); ++i) {
+            if (arm_joint_index_set.count(i) > 0) {
+                continue;
             }
-        } catch (const std::exception&) {
-            continue;
+
+            const std::string& joint_name = info_.joints[i].name;
+            if (joint_name.rfind(arm_joint_prefix, 0) != 0) {
+                continue;
+            }
+
+            const std::string suffix = joint_name.substr(arm_joint_prefix.size());
+            if (suffix.empty()) {
+                continue;
+            }
+
+            try {
+                size_t parsed_chars = 0;
+                int joint_index = std::stoi(suffix, &parsed_chars);
+                if (parsed_chars == suffix.size() && joint_index > 0) {
+                    indexed_arm_joints.emplace_back(joint_index, i);
+                }
+            } catch (const std::exception&) {
+                continue;
+            }
         }
-    }
 
-    if (indexed_arm_joints.size() < 7) {
-        RCLCPP_FATAL(getLogger(), "Expected at least 7 arm joints named '%sjointN', found %ld",
-            prefix.c_str(), indexed_arm_joints.size());
-        return hardware_interface::CallbackReturn::ERROR;
-    }
-
-    std::sort(indexed_arm_joints.begin(), indexed_arm_joints.end(),
-        [](const auto& a, const auto& b) { return a.first < b.first; });
-
-    if (indexed_arm_joints.front().first != 1) {
-        RCLCPP_FATAL(getLogger(), "Arm joint numbering must start at 1 ('%sjoint1')",
-            prefix.c_str());
-        return hardware_interface::CallbackReturn::ERROR;
-    }
-
-    for (size_t i = 1; i < indexed_arm_joints.size(); ++i) {
-        if (indexed_arm_joints[i].first != indexed_arm_joints[i - 1].first + 1) {
+        if (indexed_arm_joints.size() != flexiv::rdk::kSerialJointDoF) {
             RCLCPP_FATAL(getLogger(),
-                "Arm joints must be contiguous '%sjoint1' ... '%sjointN' without gaps/duplicates",
-                prefix.c_str(), prefix.c_str());
+                "Arm prefix '%s' resolved to %ld joints. Expected exactly %zu", arm_prefix.c_str(),
+                indexed_arm_joints.size(), flexiv::rdk::kSerialJointDoF);
             return hardware_interface::CallbackReturn::ERROR;
         }
-    }
 
-    for (const auto& [joint_number, joint_pos] : indexed_arm_joints) {
-        (void)joint_number;
-        arm_indices.push_back(joint_pos);
-    }
+        std::sort(indexed_arm_joints.begin(), indexed_arm_joints.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
 
-    if (arm_indices.size() % 7 != 0) {
-        RCLCPP_FATAL(getLogger(),
-            "Arm joint count (%ld) is invalid: each joint group must contain 7 arm joints",
-            arm_indices.size());
-        return hardware_interface::CallbackReturn::ERROR;
+        if (indexed_arm_joints.front().first != 1) {
+            RCLCPP_FATAL(getLogger(), "Arm joint numbering must start at 1 ('%sjoint1')",
+                arm_prefix.c_str());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
+        for (size_t i = 1; i < indexed_arm_joints.size(); ++i) {
+            if (indexed_arm_joints[i].first != indexed_arm_joints[i - 1].first + 1) {
+                RCLCPP_FATAL(getLogger(),
+                    "Arm joints must be contiguous '%sjoint1' ... '%sjointN' without "
+                    "gaps/duplicates",
+                    arm_prefix.c_str(), arm_prefix.c_str());
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+        }
+
+        for (const auto& [joint_number, joint_pos] : indexed_arm_joints) {
+            (void)joint_number;
+            arm_indices.push_back(joint_pos);
+            arm_joint_index_set.insert(joint_pos);
+        }
     }
 
     // Find external axis joints (any joint that is not an arm joint)
     for (size_t i = 0; i < info_.joints.size(); ++i) {
-        bool is_arm = false;
-        for (size_t arm_idx : arm_indices) {
-            if (i == arm_idx) {
-                is_arm = true;
-                break;
-            }
-        }
-        if (!is_arm) {
+        if (arm_joint_index_set.count(i) == 0) {
             ext_indices.push_back(i);
         }
     }
@@ -205,6 +302,14 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     rdk_to_ros_map_.clear();
     rdk_to_ros_map_.insert(rdk_to_ros_map_.end(), ext_indices.begin(), ext_indices.end());
     rdk_to_ros_map_.insert(rdk_to_ros_map_.end(), arm_indices.begin(), arm_indices.end());
+
+    std::string robot_sn;
+    try {
+        robot_sn = info_.hardware_parameters["robot_sn"];
+    } catch (const std::out_of_range& ex) {
+        RCLCPP_FATAL(getLogger(), "Parameter 'robot_sn' not set");
+        return hardware_interface::CallbackReturn::ERROR;
+    }
 
     for (const hardware_interface::ComponentInfo& joint : info_.joints) {
         if (joint.command_interfaces.size() != 3) {
@@ -262,14 +367,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         }
     }
 
-    std::string robot_sn;
-    try {
-        robot_sn = info_.hardware_parameters["robot_sn"];
-    } catch (const std::out_of_range& ex) {
-        RCLCPP_FATAL(getLogger(), "Parameter 'robot_sn' not set");
-        return hardware_interface::CallbackReturn::ERROR;
-    }
-
     try {
         auto rdk_control_mode_str = info_.hardware_parameters.at("rdk_control_mode");
         if (rdk_control_mode_str == "joint_position") {
@@ -320,14 +417,43 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
             info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_states_joint_efforts_[i]));
     }
 
+    hw_flexiv_robot_states_by_group_.clear();
     std::string robot_sn = info_.hardware_parameters.at("robot_sn");
-    state_interfaces.emplace_back(hardware_interface::StateInterface(
-        robot_sn, "flexiv_robot_states", reinterpret_cast<double*>(&hw_flexiv_robot_states_addr_)));
 
-    const std::string prefix = info_.hardware_parameters.at("prefix");
+    std::vector<flexiv::rdk::JointGroup> groups;
+    if (robot_) {
+        groups = robot_->groups();
+    }
+    if (groups.empty()) {
+        groups.push_back(flexiv::rdk::JointGroup::ARMS);
+        RCLCPP_WARN(getLogger(),
+            "Robot reported no joint groups during state interface export; defaulting to ARMS");
+    }
+
+    for (const auto& group : groups) {
+        std::string robot_state_name = robot_sn;
+        if (group == flexiv::rdk::JointGroup::ARM_1) {
+            robot_state_name = "left_" + robot_sn;
+        } else if (group == flexiv::rdk::JointGroup::ARM_2) {
+            robot_state_name = "right_" + robot_sn;
+        } else if (group != flexiv::rdk::JointGroup::ARMS) {
+            robot_state_name = robot_sn + "_" + joint_group_name_string(group);
+        }
+
+        auto state_storage = hw_flexiv_robot_states_by_group_.find(group);
+        if (state_storage == hw_flexiv_robot_states_by_group_.end()) {
+            state_storage
+                = hw_flexiv_robot_states_by_group_.emplace(group, flexiv::rdk::RobotStates {})
+                      .first;
+        }
+        state_interfaces.emplace_back(hardware_interface::StateInterface(robot_state_name,
+            "flexiv_robot_states", reinterpret_cast<double*>(&state_storage->second)));
+    }
+
+    const std::string gpio_interface_name = robot_sn + "_gpio";
     for (std::size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
         state_interfaces.emplace_back(hardware_interface::StateInterface(
-            prefix + "gpio", "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i]));
+            gpio_interface_name, "digital_input_" + std::to_string(i), &hw_states_gpio_in_[i]));
     }
 
     return state_interfaces;
@@ -348,10 +474,11 @@ FlexivHardwareInterface::export_command_interfaces()
             hardware_interface::HW_IF_EFFORT, &hw_commands_joint_efforts_[i]));
     }
 
-    const std::string prefix = info_.hardware_parameters.at("prefix");
+    std::string robot_sn = info_.hardware_parameters.at("robot_sn");
+    const std::string gpio_interface_name = robot_sn + "_gpio";
     for (size_t i = 0; i < flexiv::rdk::kIOPorts; i++) {
         command_interfaces.emplace_back(hardware_interface::CommandInterface(
-            prefix + "gpio", "digital_output_" + std::to_string(i), &hw_commands_gpio_out_[i]));
+            gpio_interface_name, "digital_output_" + std::to_string(i), &hw_commands_gpio_out_[i]));
     }
 
     return command_interfaces;
@@ -428,11 +555,8 @@ hardware_interface::return_type FlexivHardwareInterface::read(
             return hardware_interface::return_type::OK;
         }
 
-        auto active_groups = determine_active_groups(states_by_group, dof);
+        auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
         if (active_groups.empty()) {
-            RCLCPP_ERROR(getLogger(),
-                "Cannot resolve joint groups from robot states (groups=%ld, expected_dof=%ld)",
-                states_by_group.size(), dof);
             return hardware_interface::return_type::ERROR;
         }
 
@@ -443,11 +567,9 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         dtheta.reserve(dof);
         tau.reserve(dof);
 
-        const auto& first_group_states = states_by_group.at(active_groups.front().first);
-        hw_flexiv_robot_states_ = first_group_states;
-
         for (const auto& [group, group_dof] : active_groups) {
             const auto& group_states = states_by_group.at(group);
+            hw_flexiv_robot_states_by_group_[group] = group_states;
             if (group_states.q.size() < group_dof || group_states.dtheta.size() < group_dof
                 || group_states.tau.size() < group_dof) {
                 RCLCPP_ERROR(getLogger(),
@@ -469,10 +591,6 @@ hardware_interface::return_type FlexivHardwareInterface::read(
                 q.size(), dtheta.size(), tau.size(), dof);
             return hardware_interface::return_type::ERROR;
         }
-
-        hw_flexiv_robot_states_.q = q;
-        hw_flexiv_robot_states_.dtheta = dtheta;
-        hw_flexiv_robot_states_.tau = tau;
 
         // Read joint states
         // Map RDK states (RDK order) to Hardware Interface states (ROS order)
@@ -524,11 +642,8 @@ hardware_interface::return_type FlexivHardwareInterface::write(
 
     if (position_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_pos_nan) {
         auto states_by_group = robot_->states();
-        auto active_groups = determine_active_groups(states_by_group, dof);
+        auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
         if (active_groups.empty()) {
-            RCLCPP_ERROR(getLogger(),
-                "Cannot resolve joint groups for position command (groups=%ld, expected_dof=%ld)",
-                states_by_group.size(), dof);
             return hardware_interface::return_type::ERROR;
         }
 
@@ -538,32 +653,19 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             target_pos[rdk_idx] = hw_commands_joint_positions_[ros_idx];
         }
 
-        std::map<flexiv::rdk::JointGroup, flexiv::rdk::NrtJointPositionCmd> cmds;
-        if (active_groups.size() == 1 && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
-            cmds[flexiv::rdk::JointGroup::ARMS]
-                = flexiv::rdk::NrtJointPositionCmd(target_pos, target_vel, max_vel, max_acc);
-        } else {
-            size_t offset = 0;
-            for (const auto& [group, group_dof] : active_groups) {
-                const auto begin = static_cast<std::ptrdiff_t>(offset);
-                const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
-                cmds[group] = flexiv::rdk::NrtJointPositionCmd(
-                    std::vector<double>(target_pos.begin() + begin, target_pos.begin() + end),
-                    std::vector<double>(target_vel.begin() + begin, target_vel.begin() + end),
-                    std::vector<double>(max_vel.begin() + begin, max_vel.begin() + end),
-                    std::vector<double>(max_acc.begin() + begin, max_acc.begin() + end));
-                offset += group_dof;
-            }
-        }
+        auto cmds = build_group_command_map<flexiv::rdk::NrtJointPositionCmd>(
+            active_groups, [&](size_t offset, size_t group_dof) {
+                return flexiv::rdk::NrtJointPositionCmd(slice_vector(target_pos, offset, group_dof),
+                    slice_vector(target_vel, offset, group_dof),
+                    slice_vector(max_vel, offset, group_dof),
+                    slice_vector(max_acc, offset, group_dof));
+            });
 
         robot_->SendJointPosition(cmds);
     } else if (velocity_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_vel_nan) {
         auto states_by_group = robot_->states();
-        auto active_groups = determine_active_groups(states_by_group, dof);
+        auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
         if (active_groups.empty()) {
-            RCLCPP_ERROR(getLogger(),
-                "Cannot resolve joint groups for velocity command (groups=%ld, expected_dof=%ld)",
-                states_by_group.size(), dof);
             return hardware_interface::return_type::ERROR;
         }
 
@@ -574,33 +676,20 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             target_vel[rdk_idx] = hw_commands_joint_velocities_[ros_idx];
         }
 
-        std::map<flexiv::rdk::JointGroup, flexiv::rdk::NrtJointPositionCmd> cmds;
-        if (active_groups.size() == 1 && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
-            cmds[flexiv::rdk::JointGroup::ARMS]
-                = flexiv::rdk::NrtJointPositionCmd(target_pos, target_vel, max_vel, max_acc);
-        } else {
-            size_t offset = 0;
-            for (const auto& [group, group_dof] : active_groups) {
-                const auto begin = static_cast<std::ptrdiff_t>(offset);
-                const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
-                cmds[group] = flexiv::rdk::NrtJointPositionCmd(
-                    std::vector<double>(target_pos.begin() + begin, target_pos.begin() + end),
-                    std::vector<double>(target_vel.begin() + begin, target_vel.begin() + end),
-                    std::vector<double>(max_vel.begin() + begin, max_vel.begin() + end),
-                    std::vector<double>(max_acc.begin() + begin, max_acc.begin() + end));
-                offset += group_dof;
-            }
-        }
+        auto cmds = build_group_command_map<flexiv::rdk::NrtJointPositionCmd>(
+            active_groups, [&](size_t offset, size_t group_dof) {
+                return flexiv::rdk::NrtJointPositionCmd(slice_vector(target_pos, offset, group_dof),
+                    slice_vector(target_vel, offset, group_dof),
+                    slice_vector(max_vel, offset, group_dof),
+                    slice_vector(max_acc, offset, group_dof));
+            });
 
         robot_->SendJointPosition(cmds);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
                && !is_eff_nan) {
         auto states_by_group = robot_->states();
-        auto active_groups = determine_active_groups(states_by_group, dof);
+        auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
         if (active_groups.empty()) {
-            RCLCPP_ERROR(getLogger(),
-                "Cannot resolve joint groups for torque command (groups=%ld, expected_dof=%ld)",
-                states_by_group.size(), dof);
             return hardware_interface::return_type::ERROR;
         }
 
@@ -611,21 +700,11 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             target_torque[rdk_idx] = hw_commands_joint_efforts_[ros_idx];
         }
 
-        std::map<flexiv::rdk::JointGroup, flexiv::rdk::RtJointTorqueCmd> cmds;
-        if (active_groups.size() == 1 && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
-            cmds[flexiv::rdk::JointGroup::ARMS]
-                = flexiv::rdk::RtJointTorqueCmd(target_torque, true, true);
-        } else {
-            size_t offset = 0;
-            for (const auto& [group, group_dof] : active_groups) {
-                const auto begin = static_cast<std::ptrdiff_t>(offset);
-                const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
-                cmds[group] = flexiv::rdk::RtJointTorqueCmd(
-                    std::vector<double>(target_torque.begin() + begin, target_torque.begin() + end),
-                    true, true);
-                offset += group_dof;
-            }
-        }
+        auto cmds = build_group_command_map<flexiv::rdk::RtJointTorqueCmd>(
+            active_groups, [&](size_t offset, size_t group_dof) {
+                return flexiv::rdk::RtJointTorqueCmd(
+                    slice_vector(target_torque, offset, group_dof), true, true);
+            });
 
         robot_->StreamJointTorque(cmds);
     }
@@ -638,18 +717,8 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         }
         digital_outputs[i] = static_cast<bool>(hw_commands_gpio_out_[i]);
     }
-    // Check if there are changes in the digital output values
-    bool digital_outputs_changed = false;
-    for (const auto& [index, value] : digital_outputs) {
-        if (current_digital_outputs_[index] != value) {
-            current_digital_outputs_[index] = value;
-            digital_outputs_changed = true;
-        }
-    }
-    current_digital_outputs_.clear();
-    for (const auto& [index, value] : digital_outputs) {
-        current_digital_outputs_[index] = value;
-    }
+    const bool digital_outputs_changed = digital_outputs != current_digital_outputs_;
+    current_digital_outputs_ = digital_outputs;
 
     // Set digital outputs
     if (digital_outputs_changed && !digital_outputs.empty()) {
