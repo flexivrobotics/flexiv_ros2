@@ -38,7 +38,7 @@ float64[] temperature
 geometry_msgs/PoseStamped tcp_pose
 
 # Measured TCP twist expressed in world frame
-geometry_msgs/AccelStamped tcp_twist
+geometry_msgs/TwistStamped tcp_twist
 
 # Measured flange pose expressed in world frame
 geometry_msgs/PoseStamped flange_pose

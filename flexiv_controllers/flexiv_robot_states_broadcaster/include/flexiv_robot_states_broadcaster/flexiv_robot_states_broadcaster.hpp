@@ -65,8 +65,8 @@ protected:
     std::shared_ptr<PoseStampedPublisher> tcp_pose_publisher_;
     std::shared_ptr<PoseStampedPublisher> flange_pose_publisher_;
 
-    using AccelStampedPublisher = rclcpp::Publisher<geometry_msgs::msg::AccelStamped>;
-    std::shared_ptr<AccelStampedPublisher> tcp_twist_publisher_;
+    using TwistStampedPublisher = rclcpp::Publisher<geometry_msgs::msg::TwistStamped>;
+    std::shared_ptr<TwistStampedPublisher> tcp_twist_publisher_;
 
     using WrenchStampedPublisher = rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>;
     std::shared_ptr<WrenchStampedPublisher> raw_ft_sensor_publisher_;

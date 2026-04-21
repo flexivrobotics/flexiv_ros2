@@ -70,7 +70,7 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
     // Create the publishers for the robot states
     tcp_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
         "/" + robot_sn + kTcpPoseTopic, rclcpp::SystemDefaultsQoS());
-    tcp_twist_publisher_ = get_node()->create_publisher<geometry_msgs::msg::AccelStamped>(
+    tcp_twist_publisher_ = get_node()->create_publisher<geometry_msgs::msg::TwistStamped>(
         "/" + robot_sn + kTcpTwistTopic, rclcpp::SystemDefaultsQoS());
     flange_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
         "/" + robot_sn + kFlangePoseTopic, rclcpp::SystemDefaultsQoS());
