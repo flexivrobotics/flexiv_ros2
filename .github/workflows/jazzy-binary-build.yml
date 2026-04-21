@@ -49,16 +49,20 @@ jobs:
         run: |
           git clone --branch release/v2.0 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
-          source /opt/ros/${ROS_DISTRO}/setup.bash
           bash build_and_install_dependencies.sh "${RDK_INSTALL_PREFIX}"
           cd ..
           mkdir -p build && cd build
           cmake .. -DCMAKE_INSTALL_PREFIX="${RDK_INSTALL_PREFIX}"
           make install
+      - name: Verify flexiv_rdk install
+        shell: bash
+        run: |
+          test -f "${RDK_INSTALL_PREFIX}/lib/cmake/flexiv_rdk/flexiv_rdk-config.cmake"
       - name: Build workspace
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.4
         env:
+          CMAKE_PREFIX_PATH: ${{ env.RDK_INSTALL_PREFIX }}
           RMW_IMPLEMENTATION: ${{ env.RMW_IMPLEMENTATION }}
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
@@ -72,13 +76,5 @@ jobs:
             flexiv_robot_states_broadcaster
             flexiv_test_nodes
             gpio_controller
-          colcon-defaults: |
-            {
-              "build": {
-                "symlink-install": true,
-                "cmake-args": [
-                    "-DCMAKE_PREFIX_PATH=${{ env.RDK_INSTALL_PREFIX }}"
-                ]
-              }
-            }
+          extra-cmake-args: -DCMAKE_PREFIX_PATH=${{ env.RDK_INSTALL_PREFIX }}
           skip-tests: true
