@@ -91,6 +91,14 @@ private:
     std::vector<double> hw_states_joint_velocities_;
     std::vector<double> hw_states_joint_efforts_;
 
+    // Reused write-loop buffers to avoid per-cycle allocations.
+    std::vector<double> target_pos_buffer_;
+    std::vector<double> target_vel_buffer_;
+    std::vector<double> target_torque_buffer_;
+
+    std::map<flexiv::rdk::JointGroup, flexiv::rdk::NrtJointPositionCmd> nrt_joint_position_cmds_;
+    std::map<flexiv::rdk::JointGroup, flexiv::rdk::RtJointTorqueCmd> rt_joint_torque_cmds_;
+
     // Robot states exported per active joint group.
     std::map<flexiv::rdk::JointGroup, flexiv::rdk::RobotStates> hw_flexiv_robot_states_by_group_;
     std::map<flexiv::rdk::JointGroup, double> hw_flexiv_robot_state_handles_by_group_;

@@ -7,21 +7,18 @@
 #ifndef SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 #define SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 
-#include <cstring>
-#include <limits>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/logging.hpp>
 
+#include "flexiv_hardware/flexiv_robot_states_handle.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "semantic_components/semantic_component_interface.hpp"
 #include "flexiv/rdk/data.hpp"
 #include "flexiv_msgs/msg/robot_states.hpp"
 
-#include "geometry_msgs/msg/accel.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
@@ -34,21 +31,6 @@ namespace {
 const std::string kWorldFrameId = "world";
 const std::string kFlangeFrameId = "flange";
 
-// Example implementation of bit_cast: https://en.cppreference.com/w/cpp/numeric/bit_cast
-template <class To, class From>
-std::enable_if_t<sizeof(To) == sizeof(From) && std::is_trivially_copyable<From>::value
-                     && std::is_trivially_copyable<To>::value,
-    To>
-bit_cast(const From& src) noexcept
-{
-    static_assert(std::is_trivially_constructible<To>::value,
-        "This implementation additionally requires "
-        "destination type to be trivially constructible");
-
-    To dst;
-    std::memcpy(&dst, &src, sizeof(To));
-    return dst;
-}
 } // namespace
 
 namespace semantic_components {
@@ -101,10 +83,11 @@ public:
             return false;
         }
 
-        auto* flexiv_robot_states_ptr = bit_cast<flexiv::rdk::RobotStates*>(encoded_handle.value());
+        auto* flexiv_robot_states_ptr
+            = flexiv_hardware::resolve_robot_states_handle(encoded_handle.value());
         if (flexiv_robot_states_ptr == nullptr) {
             RCLCPP_ERROR(rclcpp::get_logger("FlexivRobotStates"),
-                "Robot states interface '%s' resolved to a null pointer.",
+                "Robot states interface '%s' resolved to an invalid handle.",
                 flexiv_robot_states_interface_name.c_str());
             return false;
         }
@@ -135,7 +118,7 @@ public:
         message.temperature = flexiv_robot_states_ptr->temperature;
 
         message.tcp_pose.pose = toPoseMsg(flexiv_robot_states_ptr->tcp_pose);
-        message.tcp_twist.accel = toAccelMsg(flexiv_robot_states_ptr->tcp_twist);
+        message.tcp_twist.twist = toTwistMsg(flexiv_robot_states_ptr->tcp_twist);
         message.flange_pose.pose = toPoseMsg(flexiv_robot_states_ptr->flange_pose);
         message.raw_ft_sensor.wrench = toWrenchMsg(flexiv_robot_states_ptr->raw_ft_sensor);
         message.tcp_wrench_local.wrench = toWrenchMsg(flexiv_robot_states_ptr->tcp_wrench_local);
@@ -167,20 +150,20 @@ protected:
         return pose_msg;
     }
 
-    // Convert std::array to geometry_msgs::msg::Accel
-    geometry_msgs::msg::Accel toAccelMsg(
-        const std::array<double, flexiv::rdk::kCartDoF>& accel_values)
+    // Convert std::array to geometry_msgs::msg::Twist
+    geometry_msgs::msg::Twist toTwistMsg(
+        const std::array<double, flexiv::rdk::kCartDoF>& twist_values)
     {
-        geometry_msgs::msg::Accel accel_msg;
-        accel_msg.linear = geometry_msgs::build<geometry_msgs::msg::Vector3>()
-                               .x(accel_values[0])
-                               .y(accel_values[1])
-                               .z(accel_values[2]);
-        accel_msg.angular = geometry_msgs::build<geometry_msgs::msg::Vector3>()
-                                .x(accel_values[3])
-                                .y(accel_values[4])
-                                .z(accel_values[5]);
-        return accel_msg;
+        geometry_msgs::msg::Twist twist_msg;
+        twist_msg.linear = geometry_msgs::build<geometry_msgs::msg::Vector3>()
+                               .x(twist_values[0])
+                               .y(twist_values[1])
+                               .z(twist_values[2]);
+        twist_msg.angular = geometry_msgs::build<geometry_msgs::msg::Vector3>()
+                                .x(twist_values[3])
+                                .y(twist_values[4])
+                                .z(twist_values[5]);
+        return twist_msg;
     }
 
     // Convert std::array to geometry_msgs::msg::Wrench

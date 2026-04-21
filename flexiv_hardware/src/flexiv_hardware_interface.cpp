@@ -6,10 +6,14 @@
  * @author Flexiv
  */
 
-#include <vector>
+#include <atomic>
+#include <cmath>
+#include <limits>
+#include <mutex>
 #include <string>
+#include <unordered_map>
+#include <vector>
 #include <algorithm>
-#include <cstring>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -21,23 +25,29 @@
 
 #include "flexiv/rdk/robot.hpp"
 #include "flexiv_hardware/flexiv_hardware_interface.hpp"
+#include "flexiv_hardware/flexiv_robot_states_handle.hpp"
 
 namespace {
 
 constexpr double kMaxJointVelocity = 2.0;
 constexpr double kMaxJointAcceleration = 3.0;
+constexpr uint64_t kMaxExactRobotStatesHandle = 1ULL << 53;
 
 using GroupDofList = std::vector<std::pair<flexiv::rdk::JointGroup, size_t>>;
 
-template <typename PointerType>
-double encode_pointer_handle(PointerType* ptr)
-{
-    static_assert(sizeof(PointerType*) == sizeof(double),
-        "Encoded pointer handle requires pointer and double to have identical size");
+std::atomic<uint64_t> g_next_robot_states_handle {1};
+std::mutex g_robot_states_handle_mutex;
+std::unordered_map<uint64_t, flexiv::rdk::RobotStates*> g_robot_states_handle_registry;
 
-    double handle = 0.0;
-    std::memcpy(&handle, &ptr, sizeof(handle));
-    return handle;
+bool decode_robot_states_handle(double encoded_handle, uint64_t& handle)
+{
+    if (!std::isfinite(encoded_handle) || encoded_handle < 1.0
+        || encoded_handle > static_cast<double>(kMaxExactRobotStatesHandle)) {
+        return false;
+    }
+
+    handle = static_cast<uint64_t>(encoded_handle);
+    return encoded_handle == static_cast<double>(handle);
 }
 
 std::string get_optional_hardware_parameter(
@@ -151,29 +161,48 @@ GroupDofList determine_active_groups(
     return active_groups;
 }
 
-std::vector<double> slice_vector(const std::vector<double>& values, size_t offset, size_t size)
-{
-    const auto begin = values.begin() + static_cast<std::vector<double>::difference_type>(offset);
-    const auto end = begin + static_cast<std::vector<double>::difference_type>(size);
-    return std::vector<double>(begin, end);
-}
-
-template <typename CommandType, typename BuildCommandFn>
-std::map<flexiv::rdk::JointGroup, CommandType> build_group_command_map(
-    const GroupDofList& active_groups, BuildCommandFn build_command)
-{
-    std::map<flexiv::rdk::JointGroup, CommandType> cmds;
-    size_t offset = 0;
-    for (const auto& [group, group_dof] : active_groups) {
-        cmds[group] = build_command(offset, group_dof);
-        offset += group_dof;
-    }
-    return cmds;
-}
-
 }
 
 namespace flexiv_hardware {
+
+double register_robot_states_handle(flexiv::rdk::RobotStates* robot_states)
+{
+    if (robot_states == nullptr) {
+        return 0.0;
+    }
+
+    const auto handle = g_next_robot_states_handle.fetch_add(1);
+    if (handle > kMaxExactRobotStatesHandle) {
+        throw std::overflow_error("Exhausted exact robot-state handles");
+    }
+
+    std::lock_guard<std::mutex> lock(g_robot_states_handle_mutex);
+    g_robot_states_handle_registry[handle] = robot_states;
+    return static_cast<double>(handle);
+}
+
+void unregister_robot_states_handle(double encoded_handle)
+{
+    uint64_t handle = 0;
+    if (!decode_robot_states_handle(encoded_handle, handle)) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(g_robot_states_handle_mutex);
+    g_robot_states_handle_registry.erase(handle);
+}
+
+flexiv::rdk::RobotStates* resolve_robot_states_handle(double encoded_handle)
+{
+    uint64_t handle = 0;
+    if (!decode_robot_states_handle(encoded_handle, handle)) {
+        return nullptr;
+    }
+
+    std::lock_guard<std::mutex> lock(g_robot_states_handle_mutex);
+    const auto it = g_robot_states_handle_registry.find(handle);
+    return it != g_robot_states_handle_registry.end() ? it->second : nullptr;
+}
 
 hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     const hardware_interface::HardwareComponentInterfaceParams& params)
@@ -197,8 +226,13 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     hw_commands_joint_efforts_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+    target_pos_buffer_.resize(info_.joints.size(), 0.0);
+    target_vel_buffer_.resize(info_.joints.size(), 0.0);
+    target_torque_buffer_.resize(info_.joints.size(), 0.0);
     hw_states_gpio_in_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
     hw_commands_gpio_out_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
+    nrt_joint_position_cmds_.clear();
+    rt_joint_torque_cmds_.clear();
     stop_modes_ = {};
     start_modes_ = {};
     position_controller_running_ = false;
@@ -429,6 +463,11 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
             info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_states_joint_efforts_[i]));
     }
 
+    for (const auto& [group, encoded_handle] : hw_flexiv_robot_state_handles_by_group_) {
+        (void)group;
+        unregister_robot_states_handle(encoded_handle);
+    }
+
     hw_flexiv_robot_states_by_group_.clear();
     hw_flexiv_robot_state_handles_by_group_.clear();
     std::string robot_sn = info_.hardware_parameters.at("robot_sn");
@@ -453,20 +492,12 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
             robot_state_name = robot_sn + "_" + joint_group_name_string(group);
         }
 
-        auto state_storage = hw_flexiv_robot_states_by_group_.find(group);
-        if (state_storage == hw_flexiv_robot_states_by_group_.end()) {
-            state_storage
-                = hw_flexiv_robot_states_by_group_.emplace(group, flexiv::rdk::RobotStates {})
-                      .first;
-        }
-        auto handle_storage = hw_flexiv_robot_state_handles_by_group_.find(group);
-        if (handle_storage == hw_flexiv_robot_state_handles_by_group_.end()) {
-            handle_storage = hw_flexiv_robot_state_handles_by_group_
-                                 .emplace(group, encode_pointer_handle(&state_storage->second))
-                                 .first;
-        } else {
-            handle_storage->second = encode_pointer_handle(&state_storage->second);
-        }
+        auto state_storage
+            = hw_flexiv_robot_states_by_group_.emplace(group, flexiv::rdk::RobotStates {}).first;
+        auto handle_storage
+            = hw_flexiv_robot_state_handles_by_group_
+                  .emplace(group, register_robot_states_handle(&state_storage->second))
+                  .first;
         state_interfaces.emplace_back(hardware_interface::StateInterface(
             robot_state_name, "flexiv_robot_states", &handle_storage->second));
     }
@@ -639,12 +670,10 @@ hardware_interface::return_type FlexivHardwareInterface::write(
 {
     const size_t dof = rdk_to_ros_map_.size();
 
-    // Initialize target vectors to hold position
-    std::vector<double> target_pos(dof);
-    std::vector<double> target_vel(dof);
-
-    std::vector<double> max_vel(dof, kMaxJointVelocity);
-    std::vector<double> max_acc(dof, kMaxJointAcceleration);
+    // Reuse preallocated target buffers to keep the control loop allocation-free.
+    auto& target_pos = target_pos_buffer_;
+    auto& target_vel = target_vel_buffer_;
+    auto& target_torque = target_torque_buffer_;
 
     bool is_pos_nan = false;
     bool is_vel_nan = false;
@@ -661,51 +690,77 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         }
     }
 
-    if (position_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_pos_nan) {
+    if (robot_->mode() == rdk_control_mode_
+        && ((position_controller_running_ && !is_pos_nan)
+            || (velocity_controller_running_ && !is_vel_nan))) {
         auto states_by_group = robot_->states();
         auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
         if (active_groups.empty()) {
             return hardware_interface::return_type::ERROR;
         }
 
-        // Map ROS commands to RDK targets
-        for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
-            size_t ros_idx = rdk_to_ros_map_[rdk_idx];
-            target_pos[rdk_idx] = hw_commands_joint_positions_[ros_idx];
+        if (position_controller_running_ && !is_pos_nan) {
+            std::fill(target_vel.begin(), target_vel.end(), 0.0);
+
+            // Map ROS commands to RDK targets.
+            for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
+                size_t ros_idx = rdk_to_ros_map_[rdk_idx];
+                target_pos[rdk_idx] = hw_commands_joint_positions_[ros_idx];
+            }
+        } else {
+            // Map ROS commands/states to RDK targets.
+            for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
+                size_t ros_idx = rdk_to_ros_map_[rdk_idx];
+                target_pos[rdk_idx] = hw_states_joint_positions_[ros_idx];
+                target_vel[rdk_idx] = hw_commands_joint_velocities_[ros_idx];
+            }
         }
 
-        auto cmds = build_group_command_map<flexiv::rdk::NrtJointPositionCmd>(
-            active_groups, [&](size_t offset, size_t group_dof) {
-                return flexiv::rdk::NrtJointPositionCmd(slice_vector(target_pos, offset, group_dof),
-                    slice_vector(target_vel, offset, group_dof),
-                    slice_vector(max_vel, offset, group_dof),
-                    slice_vector(max_acc, offset, group_dof));
-            });
-
-        robot_->SendJointPosition(cmds);
-    } else if (velocity_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_vel_nan) {
-        auto states_by_group = robot_->states();
-        auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
-        if (active_groups.empty()) {
-            return hardware_interface::return_type::ERROR;
+        bool rebuild_nrt_joint_position_cmds
+            = nrt_joint_position_cmds_.size() != active_groups.size();
+        if (!rebuild_nrt_joint_position_cmds) {
+            auto cmd_it = nrt_joint_position_cmds_.begin();
+            for (const auto& [group, group_dof] : active_groups) {
+                if (cmd_it == nrt_joint_position_cmds_.end() || cmd_it->first != group
+                    || cmd_it->second.q_d.size() != group_dof
+                    || cmd_it->second.dq_d.size() != group_dof
+                    || cmd_it->second.dq_max.size() != group_dof
+                    || cmd_it->second.ddq_max.size() != group_dof) {
+                    rebuild_nrt_joint_position_cmds = true;
+                    break;
+                }
+                ++cmd_it;
+            }
         }
 
-        // Map ROS commands/states to RDK targets
-        for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
-            size_t ros_idx = rdk_to_ros_map_[rdk_idx];
-            target_pos[rdk_idx] = hw_states_joint_positions_[ros_idx];
-            target_vel[rdk_idx] = hw_commands_joint_velocities_[ros_idx];
+        if (rebuild_nrt_joint_position_cmds) {
+            nrt_joint_position_cmds_.clear();
+            for (const auto& [group, group_dof] : active_groups) {
+                auto& cmd = nrt_joint_position_cmds_[group];
+                cmd.q_d.resize(group_dof);
+                cmd.dq_d.resize(group_dof);
+                cmd.dq_max.assign(group_dof, kMaxJointVelocity);
+                cmd.ddq_max.assign(group_dof, kMaxJointAcceleration);
+            }
         }
 
-        auto cmds = build_group_command_map<flexiv::rdk::NrtJointPositionCmd>(
-            active_groups, [&](size_t offset, size_t group_dof) {
-                return flexiv::rdk::NrtJointPositionCmd(slice_vector(target_pos, offset, group_dof),
-                    slice_vector(target_vel, offset, group_dof),
-                    slice_vector(max_vel, offset, group_dof),
-                    slice_vector(max_acc, offset, group_dof));
-            });
+        if (active_groups.size() == 1
+            && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
+            auto& cmd = nrt_joint_position_cmds_.at(flexiv::rdk::JointGroup::ARMS);
+            std::copy(target_pos.begin(), target_pos.end(), cmd.q_d.begin());
+            std::copy(target_vel.begin(), target_vel.end(), cmd.dq_d.begin());
+        } else {
+            size_t offset = 0;
+            for (const auto& [group, group_dof] : active_groups) {
+                auto& cmd = nrt_joint_position_cmds_.at(group);
+                const auto begin = static_cast<std::vector<double>::difference_type>(offset);
+                std::copy_n(target_pos.begin() + begin, group_dof, cmd.q_d.begin());
+                std::copy_n(target_vel.begin() + begin, group_dof, cmd.dq_d.begin());
+                offset += group_dof;
+            }
+        }
 
-        robot_->SendJointPosition(cmds);
+        robot_->SendJointPosition(nrt_joint_position_cmds_);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
                && !is_eff_nan) {
         auto states_by_group = robot_->states();
@@ -714,20 +769,50 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             return hardware_interface::return_type::ERROR;
         }
 
-        std::vector<double> target_torque(dof);
-        // Map ROS commands to RDK targets
+        // Map ROS commands to RDK targets.
         for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
             size_t ros_idx = rdk_to_ros_map_[rdk_idx];
             target_torque[rdk_idx] = hw_commands_joint_efforts_[ros_idx];
         }
 
-        auto cmds = build_group_command_map<flexiv::rdk::RtJointTorqueCmd>(
-            active_groups, [&](size_t offset, size_t group_dof) {
-                return flexiv::rdk::RtJointTorqueCmd(
-                    slice_vector(target_torque, offset, group_dof), true, true);
-            });
+        bool rebuild_rt_joint_torque_cmds = rt_joint_torque_cmds_.size() != active_groups.size();
+        if (!rebuild_rt_joint_torque_cmds) {
+            auto cmd_it = rt_joint_torque_cmds_.begin();
+            for (const auto& [group, group_dof] : active_groups) {
+                if (cmd_it == rt_joint_torque_cmds_.end() || cmd_it->first != group
+                    || cmd_it->second.tau_d.size() != group_dof) {
+                    rebuild_rt_joint_torque_cmds = true;
+                    break;
+                }
+                ++cmd_it;
+            }
+        }
 
-        robot_->StreamJointTorque(cmds);
+        if (rebuild_rt_joint_torque_cmds) {
+            rt_joint_torque_cmds_.clear();
+            for (const auto& [group, group_dof] : active_groups) {
+                auto& cmd = rt_joint_torque_cmds_[group];
+                cmd.tau_d.resize(group_dof);
+                cmd.enable_gravity_comp = true;
+                cmd.enable_soft_limits = true;
+            }
+        }
+
+        if (active_groups.size() == 1
+            && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
+            auto& cmd = rt_joint_torque_cmds_.at(flexiv::rdk::JointGroup::ARMS);
+            std::copy(target_torque.begin(), target_torque.end(), cmd.tau_d.begin());
+        } else {
+            size_t offset = 0;
+            for (const auto& [group, group_dof] : active_groups) {
+                auto& cmd = rt_joint_torque_cmds_.at(group);
+                const auto begin = static_cast<std::vector<double>::difference_type>(offset);
+                std::copy_n(target_torque.begin() + begin, group_dof, cmd.tau_d.begin());
+                offset += group_dof;
+            }
+        }
+
+        robot_->StreamJointTorque(rt_joint_torque_cmds_);
     }
 
     // Write digital output
