@@ -19,6 +19,7 @@ jobs:
       fail-fast: false
     env:
       ROS_DISTRO: jazzy
+      RDK_INSTALL_PREFIX: ${{ github.workspace }}/rdk_install
       RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
     steps:
       - name: Checkout
@@ -46,17 +47,19 @@ jobs:
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
-          git clone --branch v1.9 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
+          git clone --branch release/v2.0 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
-          source /opt/ros/jazzy/setup.bash
-          bash build_and_install_dependencies_not_in_ros2.sh ~/rdk_install 8
+          source /opt/ros/${ROS_DISTRO}/setup.bash
+          bash build_and_install_dependencies.sh "${RDK_INSTALL_PREFIX}"
           cd ..
           mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install -DRDK_SUPPORT_ROS2_JAZZY=ON
+          cmake .. -DCMAKE_INSTALL_PREFIX="${RDK_INSTALL_PREFIX}"
           make install
-      - name: Build and run tests
+      - name: Build workspace
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.4
+        env:
+          RMW_IMPLEMENTATION: ${{ env.RMW_IMPLEMENTATION }}
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.jazzy.repos
@@ -72,8 +75,9 @@ jobs:
           colcon-defaults: |
             {
               "build": {
+                "symlink-install": true,
                 "cmake-args": [
-                    "-DCMAKE_PREFIX_PATH=~/rdk_install"
+                    "-DCMAKE_PREFIX_PATH=${{ env.RDK_INSTALL_PREFIX }}"
                 ]
               }
             }
