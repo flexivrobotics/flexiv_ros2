@@ -22,6 +22,7 @@ from launch.substitutions import (
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
+    PythonExpression,
 )
 
 
@@ -508,7 +509,13 @@ def generate_launch_description():
         name="LD_LIBRARY_PATH",
         value=[
             PathJoinSubstitution([rdk_install_prefix, "lib"]),
-            ":",
+            PythonExpression(
+                [
+                    "':' if '",
+                    EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+                    "' else ''",
+                ]
+            ),
             EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
         ],
     )
