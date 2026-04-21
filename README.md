@@ -138,7 +138,7 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 
 There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual robot setups. *(Details about other launch files can be found in [`flexiv_bringup`](/flexiv_bringup))*
 
-- `robot_sn` (*required for dual-arm and AICO2 setup*) - Serial number of the shared dual-arm robot/controller to connect to. Remove any space, for example: DualArms-123456
+- `robot_sn` (*required for dual-arm and AICO2 setup*) - Serial number of the shared dual-arm robot/controller to connect to. Remove any space, for example: MICO-123456
 - `external_axis_type` (default: *AICO1-4-V1*) - type of the Flexiv AICO1 robot platform. Options: *AICO1-4-V1* or *AICO1-4-V2*
 
 ### Example Commands
