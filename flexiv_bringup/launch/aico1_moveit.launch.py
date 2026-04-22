@@ -389,6 +389,7 @@ def launch_setup(context):
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
             "use_fake_hardware": use_fake_hardware,
+            "use_lite_rdk": "true",
         }.items(),
         condition=IfCondition(load_gripper),
     )
@@ -413,6 +414,14 @@ def launch_setup(context):
         )
     )
 
+    # Start gripper only after ros2_control has activated and the joint state broadcaster is up.
+    delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_state_broadcaster_spawner,
+            on_exit=[load_gripper_launch],
+        )
+    )
+
     # Delay rviz start after controller
     delay_rviz_after_controller = RegisterEventHandler(
         event_handler=OnProcessExit(
@@ -428,8 +437,8 @@ def launch_setup(context):
         joint_state_publisher_node,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
-        load_gripper_launch,
         gpio_controller_spawner,
+        delay_gripper_launch_after_joint_state_broadcaster_spawner,
         delay_controller_after_jsb,
         delay_rviz_after_controller,
     ]

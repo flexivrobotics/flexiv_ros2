@@ -459,6 +459,7 @@ def launch_setup(context):
             "gripper_name": gripper_name_left,
             "use_fake_hardware": use_fake_hardware,
             "gripper_node_name": "left_gripper_node",
+            "use_lite_rdk": "true",
         }.items(),
         condition=IfCondition(load_gripper_left),
     )
@@ -478,6 +479,7 @@ def launch_setup(context):
             "gripper_name": gripper_name_right,
             "use_fake_hardware": use_fake_hardware,
             "gripper_node_name": "right_gripper_node",
+            "use_lite_rdk": "true",
         }.items(),
         condition=IfCondition(load_gripper_right),
     )
@@ -512,6 +514,14 @@ def launch_setup(context):
         )
     )
 
+    # Start grippers only after ros2_control has activated and the joint state broadcaster is up.
+    delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_state_broadcaster_spawner,
+            on_exit=[load_gripper_left_launch, load_gripper_right_launch],
+        )
+    )
+
     # Delay right controller start after left controller
     delay_right_controller_after_left_controller = RegisterEventHandler(
         event_handler=OnProcessExit(
@@ -538,10 +548,9 @@ def launch_setup(context):
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_left_spawner,
         flexiv_robot_states_broadcaster_right_spawner,
-        load_gripper_left_launch,
-        load_gripper_right_launch,
         gpio_controller_left_spawner,
         gpio_controller_right_spawner,
+        delay_gripper_launch_after_joint_state_broadcaster_spawner,
         delay_left_controller_after_jsb,
         delay_right_controller_after_left_controller,
         delay_rviz_after_right_controller,
