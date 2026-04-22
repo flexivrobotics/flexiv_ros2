@@ -24,7 +24,17 @@ from launch.substitutions import (
 
 
 def generate_launch_description():
+    single_arm_robot_types = [
+        "Enlight",
+        "Rizon4",
+        "Rizon4M",
+        "Rizon4R",
+        "Rizon4s",
+        "Rizon10",
+        "Rizon10s",
+    ]
     rizon_type_param_name = "rizon_type"
+    robot_type_param_name = "robot_type"
     robot_sn_param_name = "robot_sn"
     rdk_control_mode_param_name = "rdk_control_mode"
     start_rviz_param_name = "start_rviz"
@@ -34,9 +44,6 @@ def generate_launch_description():
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
     robot_controller_param_name = "robot_controller"
-    external_axis_type_param_name = "external_axis_type"
-    external_axis_prefix_param_name = "external_axis_prefix"
-    arm_prefix_param_name = "arm_prefix"
     rdk_install_prefix_param_name = "rdk_install_prefix"
 
     # Declare arguments
@@ -45,9 +52,18 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             rizon_type_param_name,
-            description="Type of the Flexiv Rizon robot.",
+            description="Deprecated alias for robot_type. Kept for compatibility with existing single-arm launch commands.",
             default_value="Rizon4",
-            choices=["Rizon4", "Rizon4s"],
+            choices=single_arm_robot_types,
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            robot_type_param_name,
+            description="Type of the Flexiv single-arm robot.",
+            default_value=LaunchConfiguration(rizon_type_param_name),
+            choices=single_arm_robot_types,
         )
     )
 
@@ -126,31 +142,6 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            external_axis_type_param_name,
-            default_value="AICO1-4-V1",
-            description="Type of the AICO1 platform.",
-            choices=["AICO1-4-V1", "AICO1-4-V2"],
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            external_axis_prefix_param_name,
-            default_value="",
-            description="Prefix for the external axis links and joints.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            arm_prefix_param_name,
-            default_value="",
-            description="Prefix for the arm links and joints.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
             rdk_install_prefix_param_name,
             default_value=os.path.expanduser("~/rdk_install"),
             description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
@@ -158,7 +149,7 @@ def generate_launch_description():
     )
 
     # Initialize Arguments
-    rizon_type = LaunchConfiguration(rizon_type_param_name)
+    robot_type = LaunchConfiguration(robot_type_param_name)
     robot_sn = LaunchConfiguration(robot_sn_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
@@ -168,9 +159,6 @@ def generate_launch_description():
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
     robot_controller = LaunchConfiguration(robot_controller_param_name)
-    external_axis_type = LaunchConfiguration(external_axis_type_param_name)
-    external_axis_prefix = LaunchConfiguration(external_axis_prefix_param_name)
-    arm_prefix = LaunchConfiguration(arm_prefix_param_name)
     rdk_install_prefix = LaunchConfiguration(rdk_install_prefix_param_name)
 
     set_rdk_ld_library_path = SetEnvironmentVariable(
@@ -190,7 +178,7 @@ def generate_launch_description():
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "aico1.urdf.xacro"]
+        [FindPackageShare("flexiv_description"), "urdf", "flexiv.urdf.xacro"]
     )
 
     # Get URDF via xacro
@@ -204,8 +192,8 @@ def generate_launch_description():
                 "robot_sn:=",
                 robot_sn,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "robot_type:=",
+                robot_type,
                 " ",
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
@@ -225,17 +213,6 @@ def generate_launch_description():
                 " ",
                 "fake_sensor_commands:=",
                 fake_sensor_commands,
-                " ",
-                "external_axis_type:=",
-                PythonExpression(
-                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
-                ),
-                " ",
-                "external_axis_prefix:=",
-                external_axis_prefix,
-                " ",
-                "arm_prefix:=",
-                arm_prefix,
             ]
         ),
         value_type=str,
@@ -258,19 +235,8 @@ def generate_launch_description():
     )
 
     # Robot controllers
-    controller_file_name = PythonExpression(
-        [
-            "'aico1_4_v2_controllers.yaml' if '",
-            external_axis_type,
-            "' == 'AICO1-4-V2' else 'aico1_4_v1_controllers.yaml'",
-        ]
-    )
     robot_controllers = PathJoinSubstitution(
-        [
-            FindPackageShare("flexiv_bringup"),
-            "config",
-            controller_file_name,
-        ]
+        [FindPackageShare("flexiv_bringup"), "config", "rizon_controllers.yaml"]
     )
 
     # Controller Manager
@@ -282,7 +248,6 @@ def generate_launch_description():
             ParameterFile(robot_controllers, allow_substs=True),
             {"robot_sn": robot_sn},
             {"rdk_control_mode": rdk_control_mode},
-            {"external_axis_prefix": external_axis_prefix},
         ],
         remappings=[("joint_states", "flexiv_rizon_arm/joint_states")],
         output="both",
