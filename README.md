@@ -263,13 +263,21 @@ ros2 topic pub /Rizon4_123456/gpio_outputs flexiv_msgs/msg/GPIOStates "{states: 
 
 The gripper control is implemented in the `flexiv_gripper` package to interface with the gripper that is connected to the robot.
 
-Start the `flexiv_gripper_node` with the following launch file, the default gripper is Flexiv Grav (Flexiv-GN01):
+Start the `flexiv_gripper_node` with the following launch file, the default gripper is Flexiv Grav (Flexiv-GN01). This standalone launch uses a normal RDK instance by default, so it can run without the ROS 2 robot driver:
 
 ```bash
 ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01
 ```
 
-Or, you can also start the gripper control with the robot driver if the gripper is Flexiv Grav:
+If the robot driver is already running and you want to avoid creating another normal RDK instance, launch the gripper separately with a lite instance:
+
+```bash
+ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01 use_lite_rdk:=true
+```
+
+The lite instance requires another normal RDK instance to already be connected to the robot, for example the one created by the ROS 2 robot driver.
+
+Or, you can also start the gripper control with the robot driver if the gripper is Flexiv Grav. In this path the gripper launch is configured to use a lite RDK instance automatically:
 
 ```bash
 ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] load_gripper:=true
