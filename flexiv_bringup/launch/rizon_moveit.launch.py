@@ -8,6 +8,7 @@ from launch.actions import (
     IncludeLaunchDescription,
     OpaqueFunction,
     RegisterEventHandler,
+    SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
@@ -17,13 +18,15 @@ from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
+    EnvironmentVariable,
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
+    PythonExpression,
 )
 
 
-def load_yaml(package_name, file_path, robot_sn=""):
+def load_yaml(package_name, file_path, replacements=None):
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
 
@@ -31,9 +34,9 @@ def load_yaml(package_name, file_path, robot_sn=""):
         with open(absolute_file_path, "r") as file:
             yaml_content = file.read()
 
-        if robot_sn:
-            # Replace variable placeholder with actual robot_sn
-            yaml_content = yaml_content.replace("$(var robot_sn)", robot_sn)
+        if replacements:
+            for placeholder, replacement in replacements.items():
+                yaml_content = yaml_content.replace(placeholder, replacement)
 
         return yaml.safe_load(yaml_content)
     except (
@@ -133,9 +136,14 @@ def launch_setup(context):
 
     publish_robot_description_semantic = {"publish_robot_description_semantic": True}
 
-    robot_description_kinematics = PathJoinSubstitution(
-        [FindPackageShare("flexiv_moveit_config"), "config", "kinematics.yaml"]
+    replacements = {"$(var robot_sn)": robot_sn_str}
+
+    robot_description_kinematics_yaml = load_yaml(
+        "flexiv_moveit_config", "config/kinematics.yaml", replacements
     )
+    robot_description_kinematics = {
+        "robot_description_kinematics": robot_description_kinematics_yaml
+    }
 
     # Planning Configuration
     ompl_planning_pipeline_config = {
@@ -155,12 +163,14 @@ def launch_setup(context):
             "start_state_max_bounds_error": 0.1,
         }
     }
-    ompl_planning_yaml = load_yaml("flexiv_moveit_config", "config/ompl_planning.yaml")
+    ompl_planning_yaml = load_yaml(
+        "flexiv_moveit_config", "config/ompl_planning.yaml", replacements
+    )
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
     # Trajectory Execution Configuration
     moveit_simple_controllers_yaml = load_yaml(
-        "flexiv_moveit_config", "config/moveit_controllers.yaml", robot_sn_str
+        "flexiv_moveit_config", "config/moveit_controllers.yaml", replacements
     )
 
     moveit_controllers = {
@@ -184,7 +194,7 @@ def launch_setup(context):
 
     joint_limits_yaml = {
         "robot_description_planning": load_yaml(
-            "flexiv_moveit_config", "config/joint_limits.yaml", robot_sn_str
+            "flexiv_moveit_config", "config/joint_limits.yaml", replacements
         )
     }
 
@@ -324,13 +334,16 @@ def launch_setup(context):
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
             "use_fake_hardware": use_fake_hardware,
+            "rdk_install_prefix": LaunchConfiguration("rdk_install_prefix"),
         }.items(),
         condition=IfCondition(load_gripper),
     )
 
     # Servo node for realtime control
     servo_yaml = load_yaml(
-        "flexiv_moveit_config", "config/rizon_moveit_servo_config.yaml", robot_sn_str
+        "flexiv_moveit_config",
+        "config/rizon_moveit_servo_config.yaml",
+        replacements,
     )
     servo_params = {"moveit_servo": servo_yaml}
     servo_node = Node(
@@ -492,6 +505,31 @@ def generate_launch_description():
         )
     )
 
+    rdk_install_prefix = LaunchConfiguration("rdk_install_prefix")
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rdk_install_prefix",
+            default_value=os.path.expanduser("~/rdk_install"),
+            description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
+        )
+    )
+
+    set_rdk_ld_library_path = SetEnvironmentVariable(
+        name="LD_LIBRARY_PATH",
+        value=[
+            PathJoinSubstitution([rdk_install_prefix, "lib"]),
+            PythonExpression(
+                [
+                    "':' if '",
+                    EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+                    "' else ''",
+                ]
+            ),
+            EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+        ],
+    )
+
     return LaunchDescription(
-        declared_arguments + [OpaqueFunction(function=launch_setup)]
+        declared_arguments
+        + [set_rdk_ld_library_path, OpaqueFunction(function=launch_setup)]
     )

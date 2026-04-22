@@ -3,8 +3,7 @@
     <!-- parameters -->
     <xacro:arg name="external_axis_type" default="aico2_4_v1" />
     <xacro:arg name="external_axis_prefix" default="" />
-    <xacro:arg name="robot_sn_left" default="" />
-    <xacro:arg name="robot_sn_right" default="" />
+    <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper_left" default="false" />
     <xacro:arg name="load_gripper_right" default="false" />
     <xacro:arg name="load_mounted_ft_sensor_left" default="false" />
@@ -15,16 +14,16 @@
     <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
 
     <!-- Left Arm -->
-    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix_left)" robot_sn="$(arg robot_sn_left)"
+    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix_left)" robot_sn="$(arg robot_sn)"
         load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_left)" use_virtual_joint="false" />
 
     <!-- Right Arm -->
-    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix_right)" robot_sn="$(arg robot_sn_right)"
+    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix_right)" robot_sn="$(arg robot_sn)"
         load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" use_virtual_joint="false" />
 
     <!-- Prefixes -->
-    <xacro:property name="prefix_left" value="$(arg arm_prefix_left)$(arg robot_sn_left)_" />
-    <xacro:property name="prefix_right" value="$(arg arm_prefix_right)$(arg robot_sn_right)_" />
+    <xacro:property name="prefix_left" value="$(arg arm_prefix_left)$(arg robot_sn)_" />
+    <xacro:property name="prefix_right" value="$(arg arm_prefix_right)$(arg robot_sn)_" />
     <xacro:property name="external_axis_prefix" value="$(arg external_axis_prefix)" />
 
     <!-- Virtual Joint and External Axis Group -->
@@ -135,13 +134,13 @@
     <!-- Load grippers -->
     <xacro:if value="$(arg load_gripper_left)">
         <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf arm_prefix="$(arg prefix_left)" robot_sn="$(arg robot_sn_left)"
+        <xacro:grav_srdf arm_prefix="$(arg arm_prefix_left)" robot_sn="$(arg robot_sn)"
             load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_left)" />
     </xacro:if>
 
     <xacro:if value="$(arg load_gripper_right)">
         <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf arm_prefix="$(arg prefix_right)" robot_sn="$(arg robot_sn_right)"
+        <xacro:grav_srdf arm_prefix="$(arg arm_prefix_right)" robot_sn="$(arg robot_sn)"
             load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" />
     </xacro:if>
 

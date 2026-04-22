@@ -1,8 +1,11 @@
+import os
+
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
@@ -12,6 +15,7 @@ from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
+    EnvironmentVariable,
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
@@ -22,8 +26,7 @@ from launch.substitutions import (
 def generate_launch_description():
     rizon_type_left_param_name = "rizon_type_left"
     rizon_type_right_param_name = "rizon_type_right"
-    robot_sn_left_param_name = "robot_sn_left"
-    robot_sn_right_param_name = "robot_sn_right"
+    robot_sn_param_name = "robot_sn"
     rdk_control_mode_param_name = "rdk_control_mode"
     start_rviz_param_name = "start_rviz"
     use_fake_hardware_param_name = "use_fake_hardware"
@@ -34,6 +37,7 @@ def generate_launch_description():
     gripper_name_right_param_name = "gripper_name_right"
     load_mounted_ft_sensor_left_param_name = "load_mounted_ft_sensor_left"
     load_mounted_ft_sensor_right_param_name = "load_mounted_ft_sensor_right"
+    rdk_install_prefix_param_name = "rdk_install_prefix"
 
     # Declare arguments
     declared_arguments = []
@@ -58,15 +62,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            robot_sn_left_param_name,
-            description="Serial number of the left robot.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            robot_sn_right_param_name,
-            description="Serial number of the right robot.",
+            robot_sn_param_name,
+            description="Serial number of the dual-arm robot/controller.",
         )
     )
 
@@ -151,11 +148,18 @@ def generate_launch_description():
         )
     )
 
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            rdk_install_prefix_param_name,
+            default_value=os.path.expanduser("~/rdk_install"),
+            description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
+        )
+    )
+
     # Initialize Arguments
     rizon_type_left = LaunchConfiguration(rizon_type_left_param_name)
     rizon_type_right = LaunchConfiguration(rizon_type_right_param_name)
-    robot_sn_left = LaunchConfiguration(robot_sn_left_param_name)
-    robot_sn_right = LaunchConfiguration(robot_sn_right_param_name)
+    robot_sn = LaunchConfiguration(robot_sn_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
@@ -170,17 +174,33 @@ def generate_launch_description():
     load_mounted_ft_sensor_right = LaunchConfiguration(
         load_mounted_ft_sensor_right_param_name
     )
+    rdk_install_prefix = LaunchConfiguration(rdk_install_prefix_param_name)
+
+    set_rdk_ld_library_path = SetEnvironmentVariable(
+        name="LD_LIBRARY_PATH",
+        value=[
+            PathJoinSubstitution([rdk_install_prefix, "lib"]),
+            PythonExpression(
+                [
+                    "':' if '",
+                    EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+                    "' else ''",
+                ]
+            ),
+            EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+        ],
+    )
 
     # Construct prefixes
     from launch.actions import SetLaunchConfiguration
 
     set_prefix_left = SetLaunchConfiguration(
         name="prefix_left",
-        value=PythonExpression(["'left_' + '", robot_sn_left, "' + '_'"]),
+        value=PythonExpression(["'left_' + '", robot_sn, "' + '_'"]),
     )
     set_prefix_right = SetLaunchConfiguration(
         name="prefix_right",
-        value=PythonExpression(["'right_' + '", robot_sn_right, "' + '_'"]),
+        value=PythonExpression(["'right_' + '", robot_sn, "' + '_'"]),
     )
 
     # Get URDF via xacro
@@ -195,11 +215,8 @@ def generate_launch_description():
                 " ",
                 flexiv_urdf_xacro,
                 " ",
-                "robot_sn_left:=",
-                robot_sn_left,
-                " ",
-                "robot_sn_right:=",
-                robot_sn_right,
+                "robot_sn:=",
+                robot_sn,
                 " ",
                 "rizon_type_left:=",
                 rizon_type_left,
@@ -267,8 +284,7 @@ def generate_launch_description():
         parameters=[
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
-            {"robot_sn_left": robot_sn_left},
-            {"robot_sn_right": robot_sn_right},
+            {"robot_sn": robot_sn},
             {"prefix_left": LaunchConfiguration("prefix_left")},
             {"prefix_right": LaunchConfiguration("prefix_right")},
             {"rdk_control_mode": rdk_control_mode},
@@ -365,9 +381,10 @@ def generate_launch_description():
         ),
         launch_arguments={
             "gripper_node_name": "left_gripper_node",
-            "robot_sn": robot_sn_left,
+            "robot_sn": robot_sn,
             "gripper_name": gripper_name_left,
             "use_fake_hardware": use_fake_hardware,
+            "rdk_install_prefix": rdk_install_prefix,
         }.items(),
         condition=IfCondition(load_gripper_left),
     )
@@ -383,29 +400,20 @@ def generate_launch_description():
         ),
         launch_arguments={
             "gripper_node_name": "right_gripper_node",
-            "robot_sn": robot_sn_right,
+            "robot_sn": robot_sn,
             "gripper_name": gripper_name_right,
             "use_fake_hardware": use_fake_hardware,
+            "rdk_install_prefix": rdk_install_prefix,
         }.items(),
         condition=IfCondition(load_gripper_right),
     )
 
     # Run gpio controllers
-    gpio_controller_left_spawner = Node(
+    gpio_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=[
-            "gpio_controller_left",
-            "--controller-manager",
-            "/controller_manager",
-        ],
-        condition=UnlessCondition(use_fake_hardware),
-    )
-    gpio_controller_right_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "gpio_controller_right",
+            "gpio_controller",
             "--controller-manager",
             "/controller_manager",
         ],
@@ -447,11 +455,10 @@ def generate_launch_description():
         flexiv_robot_states_broadcaster_right_spawner,
         load_gripper_left_launch,
         load_gripper_right_launch,
-        gpio_controller_left_spawner,
-        gpio_controller_right_spawner,
+        gpio_controller_spawner,
         delay_left_controller_after_jsb,
         delay_right_controller_after_left_controller,
         delay_rviz_after_right_controller,
     ]
 
-    return LaunchDescription(declared_arguments + nodes)
+    return LaunchDescription(declared_arguments + [set_rdk_ld_library_path] + nodes)

@@ -37,23 +37,23 @@ float64[] temperature
 # Measured TCP pose expressed in world frame
 geometry_msgs/PoseStamped tcp_pose
 
-# Measured TCP velocity expressed in world frame
-geometry_msgs/AccelStamped tcp_vel
+# Measured TCP twist expressed in world frame
+geometry_msgs/TwistStamped tcp_twist
 
 # Measured flange pose expressed in world frame
 geometry_msgs/PoseStamped flange_pose
 
-# Force-torque (FT) sensor raw reading in flange frame
-geometry_msgs/WrenchStamped ft_sensor_raw
+# Raw force-torque (FT) sensor reading in flange frame
+geometry_msgs/WrenchStamped raw_ft_sensor
 
 # Estimated external wrench applied on TCP and expressed in TCP frame
-geometry_msgs/WrenchStamped ext_wrench_in_tcp
+geometry_msgs/WrenchStamped tcp_wrench_local
 
 # Estimated external wrench applied on TCP and expressed in world frame
-geometry_msgs/WrenchStamped ext_wrench_in_world
+geometry_msgs/WrenchStamped tcp_wrench
 
 # Unfiltered external wrench applied on TCP and expressed in TCP frame
-geometry_msgs/WrenchStamped ext_wrench_in_tcp_raw
+geometry_msgs/WrenchStamped raw_tcp_wrench_local
 
 # Unfiltered external wrench applied on TCP and expressed in world frame
-geometry_msgs/WrenchStamped ext_wrench_in_world_raw
+geometry_msgs/WrenchStamped raw_tcp_wrench

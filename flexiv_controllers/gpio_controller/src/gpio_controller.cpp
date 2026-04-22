@@ -105,8 +105,8 @@ controller_interface::CallbackReturn GPIOController::on_configure(
                     for (size_t i = 0; i < msg->states.size(); ++i) {
                         if (msg->states[i].pin >= kIOPorts) {
                             RCLCPP_WARN(get_node()->get_logger(),
-                                "Received command for pin %d, but only pins 0-15 are supported.",
-                                msg->states[i].pin);
+                                "Received command for pin %u, but only pins 0-%zu are supported.",
+                                static_cast<unsigned int>(msg->states[i].pin), kIOPorts - 1);
                             continue;
                         } else {
                             digital_outputs_cmd_[msg->states[i].pin]

@@ -9,6 +9,7 @@ from launch.actions import (
     OpaqueFunction,
     RegisterEventHandler,
     SetLaunchConfiguration,
+    SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
@@ -18,9 +19,11 @@ from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
+    EnvironmentVariable,
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
+    PythonExpression,
 )
 
 
@@ -47,11 +50,9 @@ def launch_setup(context):
     # Initialize Arguments
     rizon_type_left = LaunchConfiguration("rizon_type_left")
     rizon_type_right = LaunchConfiguration("rizon_type_right")
-    robot_sn_left = LaunchConfiguration("robot_sn_left")
-    robot_sn_right = LaunchConfiguration("robot_sn_right")
+    robot_sn = LaunchConfiguration("robot_sn")
 
-    robot_sn_left_str = robot_sn_left.perform(context)
-    robot_sn_right_str = robot_sn_right.perform(context)
+    robot_sn_str = robot_sn.perform(context)
 
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
     start_rviz = LaunchConfiguration("start_rviz")
@@ -69,8 +70,8 @@ def launch_setup(context):
     warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
 
     # Construct prefixes
-    prefix_left_str = "left_" + robot_sn_left_str + "_"
-    prefix_right_str = "right_" + robot_sn_right_str + "_"
+    prefix_left_str = "left_" + robot_sn_str + "_"
+    prefix_right_str = "right_" + robot_sn_str + "_"
 
     set_prefix_left = SetLaunchConfiguration(name="prefix_left", value=prefix_left_str)
     set_prefix_right = SetLaunchConfiguration(
@@ -89,11 +90,8 @@ def launch_setup(context):
                 " ",
                 flexiv_urdf_xacro,
                 " ",
-                "robot_sn_left:=",
-                robot_sn_left,
-                " ",
-                "robot_sn_right:=",
-                robot_sn_right,
+                "robot_sn:=",
+                robot_sn,
                 " ",
                 "rizon_type_left:=",
                 rizon_type_left,
@@ -147,11 +145,8 @@ def launch_setup(context):
                 " ",
                 flexiv_srdf_xacro,
                 " ",
-                "robot_sn_left:=",
-                robot_sn_left,
-                " ",
-                "robot_sn_right:=",
-                robot_sn_right,
+                "robot_sn:=",
+                robot_sn,
                 " ",
                 "load_gripper_left:=",
                 load_gripper_left,
@@ -332,8 +327,7 @@ def launch_setup(context):
         parameters=[
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
-            {"robot_sn_left": robot_sn_left},
-            {"robot_sn_right": robot_sn_right},
+            {"robot_sn": robot_sn},
             {"prefix_left": prefix_left_str},
             {"prefix_right": prefix_right_str},
             {"rdk_control_mode": rdk_control_mode},
@@ -417,10 +411,11 @@ def launch_setup(context):
             )
         ),
         launch_arguments={
-            "robot_sn": robot_sn_left,
+            "robot_sn": robot_sn,
             "gripper_name": gripper_name_left,
             "use_fake_hardware": use_fake_hardware,
             "gripper_node_name": "left_gripper_node",
+            "rdk_install_prefix": LaunchConfiguration("rdk_install_prefix"),
         }.items(),
         condition=IfCondition(load_gripper_left),
     )
@@ -436,30 +431,21 @@ def launch_setup(context):
             )
         ),
         launch_arguments={
-            "robot_sn": robot_sn_right,
+            "robot_sn": robot_sn,
             "gripper_name": gripper_name_right,
             "use_fake_hardware": use_fake_hardware,
             "gripper_node_name": "right_gripper_node",
+            "rdk_install_prefix": LaunchConfiguration("rdk_install_prefix"),
         }.items(),
         condition=IfCondition(load_gripper_right),
     )
 
     # Run gpio controllers
-    gpio_controller_left_spawner = Node(
+    gpio_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=[
-            "gpio_controller_left",
-            "--controller-manager",
-            "/controller_manager",
-        ],
-        condition=UnlessCondition(use_fake_hardware),
-    )
-    gpio_controller_right_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "gpio_controller_right",
+            "gpio_controller",
             "--controller-manager",
             "/controller_manager",
         ],
@@ -502,8 +488,7 @@ def launch_setup(context):
         flexiv_robot_states_broadcaster_right_spawner,
         load_gripper_left_launch,
         load_gripper_right_launch,
-        gpio_controller_left_spawner,
-        gpio_controller_right_spawner,
+        gpio_controller_spawner,
         delay_left_controller_after_jsb,
         delay_right_controller_after_left_controller,
         delay_rviz_after_right_controller,
@@ -535,15 +520,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "robot_sn_left",
-            description="Serial number of the left robot.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            "robot_sn_right",
-            description="Serial number of the right robot.",
+            "robot_sn",
+            description="Serial number of the dual-arm robot/controller.",
         )
     )
 
@@ -636,6 +614,31 @@ def generate_launch_description():
         )
     )
 
+    rdk_install_prefix = LaunchConfiguration("rdk_install_prefix")
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rdk_install_prefix",
+            default_value=os.path.expanduser("~/rdk_install"),
+            description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
+        )
+    )
+
+    set_rdk_ld_library_path = SetEnvironmentVariable(
+        name="LD_LIBRARY_PATH",
+        value=[
+            PathJoinSubstitution([rdk_install_prefix, "lib"]),
+            PythonExpression(
+                [
+                    "':' if '",
+                    EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+                    "' else ''",
+                ]
+            ),
+            EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+        ],
+    )
+
     return LaunchDescription(
-        declared_arguments + [OpaqueFunction(function=launch_setup)]
+        declared_arguments
+        + [set_rdk_ld_library_path, OpaqueFunction(function=launch_setup)]
     )

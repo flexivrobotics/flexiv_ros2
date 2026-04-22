@@ -11,10 +11,7 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    gpio_controller_left:
-      type: gpio_controller/GPIOController
-
-    gpio_controller_right:
+    gpio_controller:
       type: gpio_controller/GPIOController
 
     flexiv_robot_states_broadcaster_left:
@@ -69,16 +66,12 @@ right_rizon_arm_controller:
 
 flexiv_robot_states_broadcaster_left:
   ros__parameters:
-    robot_sn: left_$(var robot_sn_left)
+    robot_sn: left_$(var robot_sn)
 
 flexiv_robot_states_broadcaster_right:
   ros__parameters:
-    robot_sn: right_$(var robot_sn_right)
+    robot_sn: right_$(var robot_sn)
 
-gpio_controller_left:
+gpio_controller:
   ros__parameters:
-    robot_sn: left_$(var robot_sn_left)
-
-gpio_controller_right:
-  ros__parameters:
-    robot_sn: right_$(var robot_sn_right)
+    robot_sn: $(var robot_sn)

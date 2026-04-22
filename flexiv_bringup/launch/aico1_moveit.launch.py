@@ -8,6 +8,7 @@ from launch.actions import (
     OpaqueFunction,
     RegisterEventHandler,
     SetLaunchConfiguration,
+    SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
@@ -17,6 +18,7 @@ from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
+    EnvironmentVariable,
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
@@ -394,6 +396,7 @@ def launch_setup(context):
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
             "use_fake_hardware": use_fake_hardware,
+            "rdk_install_prefix": LaunchConfiguration("rdk_install_prefix"),
         }.items(),
         condition=IfCondition(load_gripper),
     )
@@ -560,6 +563,31 @@ def generate_launch_description():
         )
     )
 
+    rdk_install_prefix = LaunchConfiguration("rdk_install_prefix")
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rdk_install_prefix",
+            default_value=os.path.expanduser("~/rdk_install"),
+            description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
+        )
+    )
+
+    set_rdk_ld_library_path = SetEnvironmentVariable(
+        name="LD_LIBRARY_PATH",
+        value=[
+            PathJoinSubstitution([rdk_install_prefix, "lib"]),
+            PythonExpression(
+                [
+                    "':' if '",
+                    EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+                    "' else ''",
+                ]
+            ),
+            EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+        ],
+    )
+
     return LaunchDescription(
-        declared_arguments + [OpaqueFunction(function=launch_setup)]
+        declared_arguments
+        + [set_rdk_ld_library_path, OpaqueFunction(function=launch_setup)]
     )

@@ -18,17 +18,12 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(flexiv_rdk REQUIRED)
-find_package(flexiv_drdk QUIET)
 
 add_library(
   ${PROJECT_NAME}
   SHARED
   src/flexiv_hardware_interface.cpp
 )
-
-if(flexiv_drdk_FOUND)
-  target_sources(${PROJECT_NAME} PRIVATE src/flexiv_dual_hardware_interface.cpp)
-endif()
 
 target_include_directories(
   ${PROJECT_NAME}
@@ -39,14 +34,6 @@ target_include_directories(
 target_link_libraries(${PROJECT_NAME}
   flexiv::flexiv_rdk
 )
-
-if(flexiv_drdk_FOUND)
-  target_link_libraries(${PROJECT_NAME}
-    flexiv::flexiv_drdk
-  )
-  target_compile_definitions(${PROJECT_NAME} PRIVATE FLEXIV_DRDK_AVAILABLE)
-  message(STATUS "Flexiv DRDK library found and linked.")
-endif()
 
 # Link ROS packages
 ament_target_dependencies(

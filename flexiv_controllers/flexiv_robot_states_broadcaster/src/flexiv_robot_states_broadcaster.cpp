@@ -29,7 +29,9 @@ FlexivRobotStatesBroadcaster::state_interface_configuration() const
 {
     controller_interface::InterfaceConfiguration state_interfaces_config;
     state_interfaces_config.type = controller_interface::interface_configuration_type::INDIVIDUAL;
-    state_interfaces_config.names = flexiv_robot_states_->get_state_interface_names();
+    if (!params_.robot_sn.empty()) {
+        state_interfaces_config.names = {params_.robot_sn + "/flexiv_robot_states"};
+    }
     return state_interfaces_config;
 }
 
@@ -68,18 +70,16 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
     // Create the publishers for the robot states
     tcp_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
         "/" + robot_sn + kTcpPoseTopic, rclcpp::SystemDefaultsQoS());
-    tcp_velocity_publisher_ = get_node()->create_publisher<geometry_msgs::msg::AccelStamped>(
-        "/" + robot_sn + kTcpVelocityTopic, rclcpp::SystemDefaultsQoS());
+    tcp_twist_publisher_ = get_node()->create_publisher<geometry_msgs::msg::TwistStamped>(
+        "/" + robot_sn + kTcpTwistTopic, rclcpp::SystemDefaultsQoS());
     flange_pose_publisher_ = get_node()->create_publisher<geometry_msgs::msg::PoseStamped>(
         "/" + robot_sn + kFlangePoseTopic, rclcpp::SystemDefaultsQoS());
-    ft_sensor_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
-        "/" + robot_sn + kFTSensorTopic, rclcpp::SystemDefaultsQoS());
-    external_wrench_in_tcp_publisher_
-        = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
-            "/" + robot_sn + kExternalWrenchInTcpFrameTopic, rclcpp::SystemDefaultsQoS());
-    external_wrench_in_world_publisher_
-        = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
-            "/" + robot_sn + kExternalWrenchInWorldFrameTopic, rclcpp::SystemDefaultsQoS());
+    raw_ft_sensor_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
+        "/" + robot_sn + kRawFTSensorTopic, rclcpp::SystemDefaultsQoS());
+    tcp_wrench_local_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
+        "/" + robot_sn + kTcpWrenchLocalTopic, rclcpp::SystemDefaultsQoS());
+    tcp_wrench_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
+        "/" + robot_sn + kTcpWrenchTopic, rclcpp::SystemDefaultsQoS());
 
     try {
         flexiv_robot_states_publisher_
@@ -109,7 +109,7 @@ controller_interface::return_type FlexivRobotStatesBroadcaster::update(
         if (!flexiv_robot_states_->get_values_as_message(
                 realtime_flexiv_robot_states_publisher_->msg_)) {
             RCLCPP_ERROR(get_node()->get_logger(),
-                "Failed to get fleixv robot states via flexiv robot states interface.");
+                "Failed to get flexiv robot states via flexiv robot states interface.");
             realtime_flexiv_robot_states_publisher_->unlock();
             return controller_interface::return_type::ERROR;
         }
@@ -118,11 +118,11 @@ controller_interface::return_type FlexivRobotStatesBroadcaster::update(
 
         const auto& flexiv_robot_states_msg = realtime_flexiv_robot_states_publisher_->msg_;
         tcp_pose_publisher_->publish(flexiv_robot_states_msg.tcp_pose);
-        tcp_velocity_publisher_->publish(flexiv_robot_states_msg.tcp_vel);
+        tcp_twist_publisher_->publish(flexiv_robot_states_msg.tcp_twist);
         flange_pose_publisher_->publish(flexiv_robot_states_msg.flange_pose);
-        ft_sensor_publisher_->publish(flexiv_robot_states_msg.ft_sensor_raw);
-        external_wrench_in_tcp_publisher_->publish(flexiv_robot_states_msg.ext_wrench_in_tcp);
-        external_wrench_in_world_publisher_->publish(flexiv_robot_states_msg.ext_wrench_in_world);
+        raw_ft_sensor_publisher_->publish(flexiv_robot_states_msg.raw_ft_sensor);
+        tcp_wrench_local_publisher_->publish(flexiv_robot_states_msg.tcp_wrench_local);
+        tcp_wrench_publisher_->publish(flexiv_robot_states_msg.tcp_wrench);
     }
     // TODO: Enable the error message when the realtime_publisher is updated in ROS 2
     // else {

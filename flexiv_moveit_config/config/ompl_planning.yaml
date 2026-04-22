@@ -122,7 +122,7 @@ planner_configs:
     max_failures: 5000 # maximum consecutive failure limit. default: 5000
   TrajOptDefault:
     type: geometric::TrajOpt
-rizon_arm:
+$(var robot_sn)_arm:
   planner_configs:
     - SBLkConfigDefault
     - ESTkConfigDefault
@@ -148,7 +148,7 @@ rizon_arm:
     - SPARSkConfigDefault
     - SPARStwokConfigDefault
     - TrajOptDefault
-grav_gripper:
+$(var robot_sn)_grav_gripper:
   planner_configs:
     - SBLkConfigDefault
     - ESTkConfigDefault
