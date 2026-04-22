@@ -125,10 +125,11 @@ export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
 All provided launch files prepend `${rdk_install_prefix}/lib` to `LD_LIBRARY_PATH` before starting Flexiv-backed nodes. The default launch argument assumes `flexiv_rdk` was installed to `~/rdk_install`, matching the build steps above. If you installed `flexiv_rdk` to a different prefix, pass `rdk_install_prefix:=/path/to/prefix` to the launch command.
 
-The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
+The preferred launch file to start the single-arm robot driver is the `flexiv.launch.py` alias - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The legacy `rizon.launch.py` name is still available for compatibility. The arguments for the launch file are as follows:
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
-- `rizon_type` (default: *Rizon4*) - type of the Flexiv Rizon robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10 or Rizon10s)
+- `robot_type` (default: *Rizon4*) - type of the Flexiv single-arm robot. Supported values: *Enlight*, *Rizon4*, *Rizon4M*, *Rizon4R*, *Rizon4s*, *Rizon10*, *Rizon10s*
+- `rizon_type` - legacy alias for `robot_type`, kept for compatibility with existing single-arm launch commands.
 - `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
@@ -148,13 +149,19 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
    - Test with real robot:
 
      ```bash
-     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4
+          ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] robot_type:=Rizon4
      ```
+
+    - Enlight:
+
+       ```bash
+      ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] robot_type:=Enlight
+       ```
 
    - Test with fake hardware (`ros2_control` capability):
 
      ```bash
-     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
+   ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
      ```
 
 > [!TIP]
@@ -189,13 +196,13 @@ ros2 launch flexiv_bringup aico2.launch.py rizon_type:=Rizon4 robot_sn:=[robot_s
 You can also run the MoveIt example and use the `MotionPlanning` plugin in RViZ to start planning:
 
 ```bash
-ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=[robot_sn]
+ros2 launch flexiv_bringup flexiv_moveit.launch.py robot_sn:=[robot_sn]
 ```
 
 Test with fake hardware:
 
 ```bash
-ros2 launch flexiv_bringup rizon_moveit.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
+ros2 launch flexiv_bringup flexiv_moveit.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
 ```
 
 With dual robot setup:
@@ -218,7 +225,7 @@ ros2 launch flexiv_bringup aico2_moveit.launch.py rizon_type:=Rizon4 robot_sn:=[
 
 ### Robot States
 
-The robot driver (`rizon.launch.py`) publishes the following feedback states to the respective ROS topics:
+The robot driver (`flexiv.launch.py`, with legacy alias `rizon.launch.py`) publishes the following feedback states to the respective ROS topics:
 
 - `/${robot_sn}/flexiv_robot_states`: [Flexiv robot states](https://www.flexiv.com/software/rdk/api/structflexiv_1_1rdk_1_1_robot_states.html) including the joint- and Cartesian-space robot states. [[`flexiv_msgs/msg/RobotStates.msg`](flexiv_msgs/msg/RobotStates.msg)]
 - `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/JointState.msg`](https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/JointState.html)]
@@ -232,6 +239,8 @@ The robot driver (`rizon.launch.py`) publishes the following feedback states to 
 The aggregated `/${robot_sn}/flexiv_robot_states` message also includes the unfiltered wrench fields `raw_tcp_wrench_local` and `raw_tcp_wrench`, which are not published as separate topics.
 
 For dual-arm and AICO2 launch files, the existing left/right naming is preserved for compatibility with controller and broadcaster configs. The robot-state topics therefore remain under `left_${robot_sn}` and `right_${robot_sn}` rather than a single shared dual-arm namespace.
+
+For single-arm launch files, `robot_type` is now the preferred model selector. AICO and dual-arm launch files remain Rizon-specific and still use the existing `rizon_type` arguments.
 
 ### GPIO
 
@@ -256,7 +265,7 @@ ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper
 Or, you can also start the gripper control with the robot driver if the gripper is Flexiv Grav:
 
 ```bash
-ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] load_gripper:=true
+ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] load_gripper:=true
 ```
 
 #### Gripper Actions
