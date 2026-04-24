@@ -44,6 +44,8 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
     const double kFeedbackPublishRate
         = static_cast<double>(this->get_parameter("feedback_publish_rate").as_int());
     this->future_wait_timeout_ = rclcpp::WallRate(kFeedbackPublishRate).period();
+    this->gripper_ready_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
+        "~/ready", rclcpp::QoS(1).reliable().transient_local());
 
     try {
         RCLCPP_INFO(this->get_logger(), "Connecting to robot %s with a %s RDK instance ...",
@@ -152,6 +154,11 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         = this->create_publisher<sensor_msgs::msg::JointState>("~/gripper_joint_states", 1);
     this->state_publish_timer_ = this->create_wall_timer(
         rclcpp::WallRate(kStatePublishRate).period(), [this]() { return PublishGripperStates(); });
+
+    auto ready_msg = std_msgs::msg::Bool();
+    ready_msg.data = true;
+    this->gripper_ready_publisher_->publish(ready_msg);
+    RCLCPP_INFO(this->get_logger(), "Published gripper readiness on ~/ready");
 }
 
 rclcpp_action::CancelResponse GripperActionServer::HandleCancel(GripperAction action)
