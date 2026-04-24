@@ -25,7 +25,7 @@ from launch.substitutions import (
 
 def generate_launch_description():
     single_arm_robot_types = [
-        "Enlight",
+        "EnlightL",
         "Rizon4",
         "Rizon4M",
         "Rizon4R",

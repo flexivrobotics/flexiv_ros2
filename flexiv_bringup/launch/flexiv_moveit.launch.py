@@ -415,7 +415,7 @@ def generate_launch_description():
     # Declare command-line arguments
     declared_arguments = []
     single_arm_robot_types = [
-        "Enlight",
+        "EnlightL",
         "Rizon4",
         "Rizon4M",
         "Rizon4R",

@@ -128,7 +128,7 @@ All provided launch files prepend `${rdk_install_prefix}/lib` to `LD_LIBRARY_PAT
 The preferred launch file to start the single-arm robot driver is the `flexiv.launch.py` alias - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The legacy `rizon.launch.py` name is still available for compatibility. The arguments for the launch file are as follows:
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
-- `robot_type` (default: *Rizon4*) - type of the Flexiv single-arm robot. Supported values: *Enlight*, *Rizon4*, *Rizon4M*, *Rizon4R*, *Rizon4s*, *Rizon10*, *Rizon10s*
+- `robot_type` (default: *Rizon4*) - type of the Flexiv single-arm robot. Supported values: *EnlightL*, *Rizon4*, *Rizon4M*, *Rizon4R*, *Rizon4s*, *Rizon10*, *Rizon10s*
 - `rizon_type` - legacy alias for `robot_type`, kept for compatibility with existing single-arm launch commands.
 - `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
@@ -148,21 +148,21 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
 
    - Test with real robot:
 
-     ```bash
-          ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] robot_type:=Rizon4
-     ```
+      ```bash
+      ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] robot_type:=Rizon4
+      ```
 
-    - Enlight:
+   - EnlightL:
 
-       ```bash
-      ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] robot_type:=Enlight
-       ```
+      ```bash
+      ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] robot_type:=EnlightL
+      ```
 
    - Test with fake hardware (`ros2_control` capability):
 
-     ```bash
-   ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
-     ```
+      ```bash
+      ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=Rizon4-123456 use_fake_hardware:=true
+      ```
 
 > [!TIP]
 > To test whether the connection between ROS and the robot is established, you could disable the starting of RViz first by setting the `start_rviz` launch argument to false.

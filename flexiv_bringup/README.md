@@ -2,10 +2,10 @@
 
 This package contains launch files: the main driver launcher, the MoveIt launch file and demo examples:
 
-- `flexiv.launch.py` - preferred generic alias for the main single-arm launcher.
-- `flexiv_moveit.launch.py` - preferred generic alias for the single-arm MoveIt launcher.
-- `rizon.launch.py` - the main single-arm launcher: starts *ros2_control* node including hardware interface, runs joint states, Flexiv robot states broadcaster, and a controller, and visualizes the current robot pose in RViZ. The default controller is `rizon_arm_controller`, a joint trajectory controller. Single-arm model selection now uses the `robot_type` argument and supports Enlight and the existing Rizon variants.
-- `rizon_moveit.launch.py` - runs MoveIt together with the main driver. The controller for robot joints started in this launch file is *rizon_arm_controller*. Single-arm model selection now uses the `robot_type` argument and supports Enlight and the existing Rizon variants.
+- `flexiv.launch.py` - the main single-arm launcher: starts *ros2_control* node including hardware interface, runs joint states, Flexiv robot states broadcaster, and a controller, and visualizes the current robot pose in RViZ. The default controller is `rizon_arm_controller`, a joint trajectory controller. Single-arm model selection now uses the `robot_type` argument and supports Enlight and the existing Rizon variants.
+- `flexiv_moveit.launch.py` - runs MoveIt together with the main driver. The controller for robot joints started in this launch file is *rizon_arm_controller*. Single-arm model selection now uses the `robot_type` argument and supports Enlight and the existing Rizon variants.
+- `rizon.launch.py` - compatibility alias for `flexiv.launch.py`.
+- `rizon_moveit.launch.py` - compatibility alias for `flexiv_moveit.launch.py`.
 - `test_joint_trajectory_controller.launch` - sends joint trajectory goals to the *rizon_arm_controller*.
 
 The `rizon.launch.py` and `rizon_moveit.launch.py` filenames are kept as compatibility aliases for existing commands and scripts.
