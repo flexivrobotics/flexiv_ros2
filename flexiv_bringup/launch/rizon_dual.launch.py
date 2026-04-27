@@ -260,7 +260,7 @@ def generate_launch_description():
 
     # RViZ
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "rviz", "view_rizon.rviz"]
+        [FindPackageShare("flexiv_description"), "rviz", "view_flexiv.rviz"]
     )
 
     rviz_node = Node(
