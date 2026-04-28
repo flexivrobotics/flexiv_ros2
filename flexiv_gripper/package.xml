@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>flexiv_gripper</name>
-  <version>1.9.0</version>
+  <version>1.9.1</version>
   <description>Package implementing the action server of Flexiv gripper control</description>
   <maintainer email="munseng.phoon@flexiv.com">Mun Seng Phoon</maintainer>
   <license>Apache License 2.0</license>
@@ -17,6 +17,7 @@
   <depend>rclcpp_action</depend>
   <depend>rclcpp_components</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>std_srvs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
