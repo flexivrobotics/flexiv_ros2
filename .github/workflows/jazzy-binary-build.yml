@@ -18,10 +18,11 @@ jobs:
     strategy:
       fail-fast: false
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       ROS_DISTRO: jazzy
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       - name: Install dependencies
@@ -44,7 +45,7 @@ jobs:
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
-          git clone --branch v1.9 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
+          git clone --branch v1.9.1 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
           source /opt/ros/jazzy/setup.bash
           bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install 8
