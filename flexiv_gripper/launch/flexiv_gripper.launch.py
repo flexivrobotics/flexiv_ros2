@@ -14,6 +14,7 @@ def generate_launch_description():
     robot_sn_param_name = "robot_sn"
     gripper_name_param_name = "gripper_name"
     use_fake_hardware_param_name = "use_fake_hardware"
+    use_lite_rdk_param_name = "use_lite_rdk"
     gripper_joint_names_param_name = "gripper_joint_names"
 
     # Declare arguments
@@ -52,6 +53,14 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            use_lite_rdk_param_name,
+            default_value="false",
+            description="Use a lite RDK instance. Requires another normal RDK instance, such as the robot driver, to already be connected.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             gripper_joint_names_param_name,
             description="Control joint names of the mounted gripper.",
             default_value="[finger_width_joint]",
@@ -63,6 +72,7 @@ def generate_launch_description():
     robot_sn = LaunchConfiguration(robot_sn_param_name)
     gripper_name = LaunchConfiguration(gripper_name_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
+    use_lite_rdk = LaunchConfiguration(use_lite_rdk_param_name)
     gripper_joint_names = LaunchConfiguration(gripper_joint_names_param_name)
 
     gripper_config_file = PathJoinSubstitution(
@@ -79,6 +89,7 @@ def generate_launch_description():
                 "robot_sn": robot_sn,
                 "gripper_name": gripper_name,
                 "gripper_joint_names": gripper_joint_names,
+                "use_lite_rdk": use_lite_rdk,
             },
             gripper_config_file,
         ],

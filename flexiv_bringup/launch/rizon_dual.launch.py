@@ -1,10 +1,12 @@
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    EmitEvent,
     IncludeLaunchDescription,
     RegisterEventHandler,
 )
 from launch.conditions import IfCondition, UnlessCondition
+from launch.events import Shutdown
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
@@ -169,6 +171,24 @@ def generate_launch_description():
     )
     load_mounted_ft_sensor_right = LaunchConfiguration(
         load_mounted_ft_sensor_right_param_name
+    )
+    left_gripper_ready_gate_condition = PythonExpression(
+        [
+            "'",
+            load_gripper_left,
+            "'.lower() in ['true', '1'] and '",
+            use_fake_hardware,
+            "'.lower() not in ['true', '1']",
+        ]
+    )
+    right_gripper_ready_gate_condition = PythonExpression(
+        [
+            "'",
+            load_gripper_right,
+            "'.lower() in ['true', '1'] and '",
+            use_fake_hardware,
+            "'.lower() not in ['true', '1']",
+        ]
     )
 
     # Construct prefixes
@@ -368,6 +388,7 @@ def generate_launch_description():
             "robot_sn": robot_sn_left,
             "gripper_name": gripper_name_left,
             "use_fake_hardware": use_fake_hardware,
+            "use_lite_rdk": "true",
         }.items(),
         condition=IfCondition(load_gripper_left),
     )
@@ -386,9 +407,40 @@ def generate_launch_description():
             "robot_sn": robot_sn_right,
             "gripper_name": gripper_name_right,
             "use_fake_hardware": use_fake_hardware,
+            "use_lite_rdk": "true",
         }.items(),
         condition=IfCondition(load_gripper_right),
     )
+
+    left_gripper_ready_waiter = Node(
+        package="flexiv_gripper",
+        executable="wait_for_gripper_ready",
+        name="wait_for_left_gripper_ready",
+        parameters=[{"ready_topic": "/left_gripper_node/ready"}],
+        output="screen",
+        condition=IfCondition(left_gripper_ready_gate_condition),
+    )
+
+    right_gripper_ready_waiter = Node(
+        package="flexiv_gripper",
+        executable="wait_for_gripper_ready",
+        name="wait_for_right_gripper_ready",
+        parameters=[{"ready_topic": "/right_gripper_node/ready"}],
+        output="screen",
+        condition=IfCondition(right_gripper_ready_gate_condition),
+    )
+
+    def launch_controller_after_gripper_ready(controller_spawner, gripper_node_name):
+        def handle_gripper_ready(event, context):
+            if event.returncode == 0:
+                return [controller_spawner]
+            return [
+                EmitEvent(
+                    event=Shutdown(reason=f"{gripper_node_name} did not report ready")
+                )
+            ]
+
+        return handle_gripper_ready
 
     # Run gpio controllers
     gpio_controller_left_spawner = Node(
@@ -417,7 +469,38 @@ def generate_launch_description():
         event_handler=OnProcessExit(
             target_action=joint_state_broadcaster_spawner,
             on_exit=[left_rizon_arm_controller_spawner],
+        ),
+        condition=UnlessCondition(left_gripper_ready_gate_condition),
+    )
+
+    delay_left_gripper_launch_after_joint_state_broadcaster_spawner = (
+        RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=joint_state_broadcaster_spawner,
+                on_exit=[load_gripper_left_launch, left_gripper_ready_waiter],
+            ),
+            condition=IfCondition(left_gripper_ready_gate_condition),
         )
+    )
+
+    delay_right_gripper_launch_after_joint_state_broadcaster_spawner = (
+        RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=joint_state_broadcaster_spawner,
+                on_exit=[load_gripper_right_launch],
+            ),
+            condition=IfCondition(right_gripper_ready_gate_condition),
+        )
+    )
+
+    delay_left_controller_after_gripper_ready = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=left_gripper_ready_waiter,
+            on_exit=launch_controller_after_gripper_ready(
+                left_rizon_arm_controller_spawner, "left_gripper_node"
+            ),
+        ),
+        condition=IfCondition(left_gripper_ready_gate_condition),
     )
 
     # Delay right controller start after left controller
@@ -425,7 +508,26 @@ def generate_launch_description():
         event_handler=OnProcessExit(
             target_action=left_rizon_arm_controller_spawner,
             on_exit=[right_rizon_arm_controller_spawner],
-        )
+        ),
+        condition=UnlessCondition(right_gripper_ready_gate_condition),
+    )
+
+    delay_right_gripper_ready_waiter_after_left_controller = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=left_rizon_arm_controller_spawner,
+            on_exit=[right_gripper_ready_waiter],
+        ),
+        condition=IfCondition(right_gripper_ready_gate_condition),
+    )
+
+    delay_right_controller_after_gripper_ready = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=right_gripper_ready_waiter,
+            on_exit=launch_controller_after_gripper_ready(
+                right_rizon_arm_controller_spawner, "right_gripper_node"
+            ),
+        ),
+        condition=IfCondition(right_gripper_ready_gate_condition),
     )
 
     # Delay rviz start after right controller
@@ -445,12 +547,15 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_left_spawner,
         flexiv_robot_states_broadcaster_right_spawner,
-        load_gripper_left_launch,
-        load_gripper_right_launch,
         gpio_controller_left_spawner,
         gpio_controller_right_spawner,
+        delay_left_gripper_launch_after_joint_state_broadcaster_spawner,
+        delay_right_gripper_launch_after_joint_state_broadcaster_spawner,
         delay_left_controller_after_jsb,
+        delay_left_controller_after_gripper_ready,
         delay_right_controller_after_left_controller,
+        delay_right_gripper_ready_waiter_after_left_controller,
+        delay_right_controller_after_gripper_ready,
         delay_rviz_after_right_controller,
     ]
 

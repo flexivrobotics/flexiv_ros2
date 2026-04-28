@@ -5,11 +5,13 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    EmitEvent,
     IncludeLaunchDescription,
     OpaqueFunction,
     RegisterEventHandler,
 )
 from launch.conditions import IfCondition, UnlessCondition
+from launch.events import Shutdown
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
@@ -20,10 +22,11 @@ from launch.substitutions import (
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
+    PythonExpression,
 )
 
 
-def load_yaml(package_name, file_path, robot_sn=""):
+def load_yaml(package_name, file_path, replacements=None):
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
 
@@ -31,9 +34,9 @@ def load_yaml(package_name, file_path, robot_sn=""):
         with open(absolute_file_path, "r") as file:
             yaml_content = file.read()
 
-        if robot_sn:
-            # Replace variable placeholder with actual robot_sn
-            yaml_content = yaml_content.replace("$(var robot_sn)", robot_sn)
+        if replacements:
+            for placeholder, replacement in replacements.items():
+                yaml_content = yaml_content.replace(placeholder, replacement)
 
         return yaml.safe_load(yaml_content)
     except (
@@ -56,6 +59,15 @@ def launch_setup(context):
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
     warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
     start_servo = LaunchConfiguration("start_servo")
+    gripper_ready_gate_condition = PythonExpression(
+        [
+            "'",
+            load_gripper,
+            "'.lower() in ['true', '1'] and '",
+            use_fake_hardware,
+            "'.lower() not in ['true', '1']",
+        ]
+    )
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
@@ -133,9 +145,14 @@ def launch_setup(context):
 
     publish_robot_description_semantic = {"publish_robot_description_semantic": True}
 
-    robot_description_kinematics = PathJoinSubstitution(
-        [FindPackageShare("flexiv_moveit_config"), "config", "kinematics.yaml"]
+    replacements = {"$(var robot_sn)": robot_sn_str}
+
+    robot_description_kinematics_yaml = load_yaml(
+        "flexiv_moveit_config", "config/kinematics.yaml", replacements
     )
+    robot_description_kinematics = {
+        "robot_description_kinematics": robot_description_kinematics_yaml
+    }
 
     # Planning Configuration
     ompl_planning_pipeline_config = {
@@ -155,12 +172,14 @@ def launch_setup(context):
             "start_state_max_bounds_error": 0.1,
         }
     }
-    ompl_planning_yaml = load_yaml("flexiv_moveit_config", "config/ompl_planning.yaml")
+    ompl_planning_yaml = load_yaml(
+        "flexiv_moveit_config", "config/ompl_planning.yaml", replacements
+    )
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
     # Trajectory Execution Configuration
     moveit_simple_controllers_yaml = load_yaml(
-        "flexiv_moveit_config", "config/moveit_controllers.yaml", robot_sn_str
+        "flexiv_moveit_config", "config/moveit_controllers.yaml", replacements
     )
 
     moveit_controllers = {
@@ -184,7 +203,7 @@ def launch_setup(context):
 
     joint_limits_yaml = {
         "robot_description_planning": load_yaml(
-            "flexiv_moveit_config", "config/joint_limits.yaml", robot_sn_str
+            "flexiv_moveit_config", "config/joint_limits.yaml", replacements
         )
     }
 
@@ -324,13 +343,32 @@ def launch_setup(context):
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
             "use_fake_hardware": use_fake_hardware,
+            "use_lite_rdk": "true",
         }.items(),
         condition=IfCondition(load_gripper),
     )
 
+    gripper_ready_waiter = Node(
+        package="flexiv_gripper",
+        executable="wait_for_gripper_ready",
+        name="wait_for_gripper_ready",
+        parameters=[{"ready_topic": "/flexiv_gripper_node/ready"}],
+        output="screen",
+        condition=IfCondition(gripper_ready_gate_condition),
+    )
+
+    def launch_robot_controller_after_gripper_ready(event, context):
+        if event.returncode == 0:
+            return [robot_controller_spawner]
+        return [
+            EmitEvent(event=Shutdown(reason="flexiv_gripper_node did not report ready"))
+        ]
+
     # Servo node for realtime control
     servo_yaml = load_yaml(
-        "flexiv_moveit_config", "config/rizon_moveit_servo_config.yaml", robot_sn_str
+        "flexiv_moveit_config",
+        "config/rizon_moveit_servo_config.yaml",
+        replacements,
     )
     servo_params = {"moveit_servo": servo_yaml}
     servo_node = Node(
@@ -355,14 +393,31 @@ def launch_setup(context):
         condition=UnlessCondition(use_fake_hardware),
     )
 
-    # Delay start of robot_controller after `joint_state_broadcaster`
+    # Delay start of robot_controller after `joint_state_broadcaster` when gripper is not loaded
     delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = (
         RegisterEventHandler(
             event_handler=OnProcessExit(
                 target_action=joint_state_broadcaster_spawner,
                 on_exit=[robot_controller_spawner],
-            )
+            ),
+            condition=UnlessCondition(gripper_ready_gate_condition),
         )
+    )
+
+    delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_state_broadcaster_spawner,
+            on_exit=[load_gripper_launch],
+        ),
+        condition=IfCondition(gripper_ready_gate_condition),
+    )
+
+    delay_robot_controller_spawner_after_gripper_ready = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=gripper_ready_waiter,
+            on_exit=launch_robot_controller_after_gripper_ready,
+        ),
+        condition=IfCondition(gripper_ready_gate_condition),
     )
 
     # Delay move_group start after `robot_controller_spawner`
@@ -385,12 +440,14 @@ def launch_setup(context):
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
+        gripper_ready_waiter,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
-        load_gripper_launch,
         gpio_controller_spawner,
         servo_node,
+        delay_gripper_launch_after_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
+        delay_robot_controller_spawner_after_gripper_ready,
         delay_move_group_after_robot_controller_spawner,
         delay_rviz_after_robot_controller_spawner,
     ]

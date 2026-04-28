@@ -1,10 +1,12 @@
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    EmitEvent,
     IncludeLaunchDescription,
     RegisterEventHandler,
 )
 from launch.conditions import IfCondition, UnlessCondition
+from launch.events import Shutdown
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
@@ -15,6 +17,7 @@ from launch.substitutions import (
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
+    PythonExpression,
 )
 
 
@@ -126,6 +129,15 @@ def generate_launch_description():
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
     robot_controller = LaunchConfiguration(robot_controller_param_name)
+    gripper_ready_gate_condition = PythonExpression(
+        [
+            "'",
+            load_gripper,
+            "'.lower() in ['true', '1'] and '",
+            use_fake_hardware,
+            "'.lower() not in ['true', '1']",
+        ]
+    )
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
@@ -271,9 +283,26 @@ def generate_launch_description():
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
             "use_fake_hardware": use_fake_hardware,
+            "use_lite_rdk": "true",
         }.items(),
         condition=IfCondition(load_gripper),
     )
+
+    gripper_ready_waiter = Node(
+        package="flexiv_gripper",
+        executable="wait_for_gripper_ready",
+        name="wait_for_gripper_ready",
+        parameters=[{"ready_topic": "/flexiv_gripper_node/ready"}],
+        output="screen",
+        condition=IfCondition(gripper_ready_gate_condition),
+    )
+
+    def launch_robot_controller_after_gripper_ready(event, context):
+        if event.returncode == 0:
+            return [robot_controller_spawner]
+        return [
+            EmitEvent(event=Shutdown(reason="flexiv_gripper_node did not report ready"))
+        ]
 
     # Run gpio controller
     gpio_controller_spawner = Node(
@@ -290,8 +319,26 @@ def generate_launch_description():
             event_handler=OnProcessExit(
                 target_action=joint_state_broadcaster_spawner,
                 on_exit=[robot_controller_spawner],
-            )
+            ),
+            condition=UnlessCondition(gripper_ready_gate_condition),
         )
+    )
+
+    # Start gripper only after ros2_control has activated and the joint state broadcaster is up.
+    delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_state_broadcaster_spawner,
+            on_exit=[load_gripper_launch],
+        ),
+        condition=IfCondition(gripper_ready_gate_condition),
+    )
+
+    delay_robot_controller_spawner_after_gripper_ready = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=gripper_ready_waiter,
+            on_exit=launch_robot_controller_after_gripper_ready,
+        ),
+        condition=IfCondition(gripper_ready_gate_condition),
     )
 
     # Delay rviz start after `robot_controller_spawner`
@@ -306,11 +353,13 @@ def generate_launch_description():
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
+        gripper_ready_waiter,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
-        load_gripper_launch,
         gpio_controller_spawner,
+        delay_gripper_launch_after_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
+        delay_robot_controller_spawner_after_gripper_ready,
         delay_rviz_after_robot_controller_spawner,
     ]
 

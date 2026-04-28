@@ -20,12 +20,16 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(flexiv_rdk REQUIRED)
 
 add_library(gripper_action_server
   SHARED
   src/gripper_action_server.cpp)
+
+add_executable(wait_for_gripper_ready
+  src/wait_for_gripper_ready.cpp)
 
 target_include_directories(gripper_action_server PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -42,7 +46,12 @@ ament_target_dependencies(gripper_action_server
   rclcpp_action
   rclcpp_components
   sensor_msgs
+  std_msgs
   std_srvs)
+
+ament_target_dependencies(wait_for_gripper_ready
+  rclcpp
+  std_msgs)
 
 rclcpp_components_register_node(gripper_action_server
   PLUGIN "flexiv_gripper::GripperActionServer"
@@ -52,6 +61,9 @@ install(TARGETS gripper_action_server
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+
+install(TARGETS wait_for_gripper_ready
+  DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}/)
