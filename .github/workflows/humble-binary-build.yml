@@ -56,7 +56,7 @@ jobs:
       - name: Build and install flexiv_drdk
         shell: bash
         run: |
-          git clone --branch v1.2 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
+          git clone --branch v1.2.1 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
           cd flexiv_drdk/thirdparty
           source /opt/ros/humble/setup.bash
           bash build_and_install_dependencies.sh ~/flexiv_install
