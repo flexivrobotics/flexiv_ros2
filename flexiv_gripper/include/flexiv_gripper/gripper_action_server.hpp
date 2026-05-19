@@ -21,6 +21,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "std_srvs/srv/trigger.hpp"
 
 // Flexiv
@@ -112,6 +113,7 @@ private:
     std::chrono::nanoseconds future_wait_timeout_ {0};
 
     // Gripper joint states publisher
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr gripper_ready_publisher_;
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr gripper_joint_states_publisher_;
     std::vector<std::string> gripper_joint_names_;
 

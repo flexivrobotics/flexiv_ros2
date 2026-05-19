@@ -16,6 +16,7 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
     this->declare_parameter("default_velocity", kDefaultVelocity);
     this->declare_parameter("default_max_force", kDefaultMaxForce);
     this->declare_parameter("gripper_joint_names", std::vector<std::string>());
+    this->declare_parameter("use_lite_rdk", false);
 
     std::string robot_sn;
     if (!this->get_parameter("robot_sn", robot_sn)) {
@@ -37,39 +38,43 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         this->gripper_joint_names_ = {""};
     }
 
+    const bool use_lite_rdk = this->get_parameter("use_lite_rdk").as_bool();
     const double kStatePublishRate
         = static_cast<double>(this->get_parameter("state_publish_rate").as_int());
     const double kFeedbackPublishRate
         = static_cast<double>(this->get_parameter("feedback_publish_rate").as_int());
     this->future_wait_timeout_ = rclcpp::WallRate(kFeedbackPublishRate).period();
+    this->gripper_ready_publisher_ = this->create_publisher<std_msgs::msg::Bool>(
+        "~/ready", rclcpp::QoS(1).reliable().transient_local());
 
     try {
-        RCLCPP_INFO(this->get_logger(), "Connecting to robot %s ...", robot_sn.c_str());
-        robot_ = std::make_unique<flexiv::rdk::Robot>(robot_sn);
+        RCLCPP_INFO(this->get_logger(), "Connecting to robot %s with a %s RDK instance ...",
+            robot_sn.c_str(), use_lite_rdk ? "lite" : "normal");
+        robot_ = std::make_unique<flexiv::rdk::Robot>(
+            robot_sn, std::vector<std::string> {}, true, use_lite_rdk);
 
         RCLCPP_INFO(this->get_logger(), "Successfully connected to robot");
 
-        // Clear fault on robot server if any
-        if (robot_->fault()) {
-            RCLCPP_WARN(this->get_logger(), "Fault occurred on robot server, trying to clear ...");
-            // Try to clear the fault
-            if (!robot_->ClearFault()) {
-                RCLCPP_FATAL(get_logger(), "Fault cannot be cleared, exiting ...");
-                throw std::runtime_error("Fault cannot be cleared");
+        if (!use_lite_rdk) {
+            if (robot_->fault()) {
+                RCLCPP_WARN(
+                    this->get_logger(), "Fault occurred on robot server, trying to clear ...");
+                if (!robot_->ClearFault()) {
+                    RCLCPP_FATAL(get_logger(), "Fault cannot be cleared, exiting ...");
+                    throw std::runtime_error("Fault cannot be cleared");
+                }
+                RCLCPP_INFO(this->get_logger(), "Fault on robot server is cleared");
             }
-            RCLCPP_INFO(this->get_logger(), "Fault on robot server is cleared");
-        }
 
-        // Enable the robot
-        if (!robot_->operational()) {
-            RCLCPP_INFO(this->get_logger(), "Enabling robot ...");
-            robot_->Enable();
+            if (!robot_->operational()) {
+                RCLCPP_INFO(this->get_logger(), "Enabling robot ...");
+                robot_->Enable();
 
-            // Wait for the robot to become operational
-            while (!robot_->operational()) {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                while (!robot_->operational()) {
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                }
+                RCLCPP_INFO(this->get_logger(), "Robot is now operational");
             }
-            RCLCPP_INFO(this->get_logger(), "Robot is now operational");
         }
 
         RCLCPP_INFO(this->get_logger(), "Initializing Flexiv gripper control interface");
@@ -94,8 +99,16 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         // Get the current gripper states
         this->current_gripper_states_ = gripper_->states();
     } catch (const std::exception& e) {
-        RCLCPP_FATAL(this->get_logger(), "%s", e.what());
-        throw e;
+        if (use_lite_rdk) {
+            RCLCPP_FATAL(this->get_logger(),
+                "Failed to start gripper with a lite RDK instance: %s. Ensure the robot driver "
+                "is already running with a normal RDK connection, or relaunch the gripper with "
+                "parameter 'use_lite_rdk:=false' for standalone operation.",
+                e.what());
+        } else {
+            RCLCPP_FATAL(this->get_logger(), "%s", e.what());
+        }
+        throw;
     }
 
     // Create the stop service server
@@ -141,6 +154,11 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         = this->create_publisher<sensor_msgs::msg::JointState>("~/gripper_joint_states", 1);
     this->state_publish_timer_ = this->create_wall_timer(
         rclcpp::WallRate(kStatePublishRate).period(), [this]() { return PublishGripperStates(); });
+
+    auto ready_msg = std_msgs::msg::Bool();
+    ready_msg.data = true;
+    this->gripper_ready_publisher_->publish(ready_msg);
+    RCLCPP_INFO(this->get_logger(), "Published gripper readiness on ~/ready");
 }
 
 rclcpp_action::CancelResponse GripperActionServer::HandleCancel(GripperAction action)
