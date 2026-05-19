@@ -259,7 +259,7 @@ def main(args=None):
         "--robot-sn",
         type=str,
         required=True,
-        help="Robot serial number (e.g., Rizon4s-123456)",
+        help="Robot serial number (e.g., EnlightL-123456)",
     )
     parser.add_argument(
         "--network-interface",

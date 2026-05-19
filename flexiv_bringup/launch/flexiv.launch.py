@@ -28,14 +28,7 @@ from launch.substitutions import (
 def generate_launch_description():
     single_arm_robot_types = [
         "EnlightL",
-        "Rizon4",
-        "Rizon4M",
-        "Rizon4R",
-        "Rizon4s",
-        "Rizon10",
-        "Rizon10s",
     ]
-    rizon_type_param_name = "rizon_type"
     robot_type_param_name = "robot_type"
     robot_sn_param_name = "robot_sn"
     rdk_control_mode_param_name = "rdk_control_mode"
@@ -53,18 +46,9 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            rizon_type_param_name,
-            description="Deprecated alias for robot_type. Kept for compatibility with existing single-arm launch commands.",
-            default_value="Rizon4",
-            choices=single_arm_robot_types,
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
             robot_type_param_name,
             description="Type of the Flexiv single-arm robot.",
-            default_value=LaunchConfiguration(rizon_type_param_name),
+            default_value="EnlightL",
             choices=single_arm_robot_types,
         )
     )
@@ -72,7 +56,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             robot_sn_param_name,
-            description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+            description="Serial number of the robot to connect to. Remove any space, for example: EnlightL-123456",
         )
     )
 
@@ -113,7 +97,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             load_mounted_ft_sensor_param_name,
             default_value="false",
-            description="Flag to load the mounted force torque sensor. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor.",
         )
     )
 
@@ -137,8 +121,8 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             robot_controller_param_name,
-            default_value="rizon_arm_controller",
-            description="Robot controller to start. Available: rizon_arm_controller",
+            default_value="flexiv_arm_controller",
+            description="Robot controller to start. Available: flexiv_arm_controller",
         )
     )
 
@@ -247,7 +231,7 @@ def generate_launch_description():
 
     # Robot controllers
     robot_controllers = PathJoinSubstitution(
-        [FindPackageShare("flexiv_bringup"), "config", "rizon_controllers.yaml"]
+        [FindPackageShare("flexiv_bringup"), "config", "flexiv_controllers.yaml"]
     )
 
     # Controller Manager
@@ -260,7 +244,7 @@ def generate_launch_description():
             {"robot_sn": robot_sn},
             {"rdk_control_mode": rdk_control_mode},
         ],
-        remappings=[("joint_states", "flexiv_rizon_arm/joint_states")],
+        remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
     )
 
@@ -272,7 +256,7 @@ def generate_launch_description():
         parameters=[
             {
                 "source_list": [
-                    "flexiv_rizon_arm/joint_states",
+                    "flexiv_arm/joint_states",
                     "flexiv_gripper_node/gripper_joint_states",
                 ],
                 "rate": 30,
