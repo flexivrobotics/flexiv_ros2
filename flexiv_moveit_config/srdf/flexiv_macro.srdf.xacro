@@ -14,7 +14,7 @@
             <joint name="${prefix}joint3" value="0" />
             <joint name="${prefix}joint4" value="${pi/2}" />
             <joint name="${prefix}joint5" value="0" />
-            <joint name="${prefix}joint6" value="${2*pi/9}" />
+            <joint name="${prefix}joint6" value="${-5*pi/18}" />
             <joint name="${prefix}joint7" value="0" />
         </group_state>
 
