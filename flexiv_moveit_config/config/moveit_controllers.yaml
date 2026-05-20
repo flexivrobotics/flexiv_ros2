@@ -1,8 +1,8 @@
 controller_names:
-  - rizon_arm_controller
+  - flexiv_arm_controller
   - flexiv_gripper_node
 
-rizon_arm_controller:
+flexiv_arm_controller:
   action_ns: follow_joint_trajectory
   type: FollowJointTrajectory
   default: true

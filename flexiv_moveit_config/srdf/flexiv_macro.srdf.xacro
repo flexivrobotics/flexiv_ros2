@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-    <xacro:macro name="rizon_srdf" params="arm_prefix robot_sn load_mounted_ft_sensor use_virtual_joint:=true">
+    <xacro:macro name="flexiv_srdf" params="arm_prefix robot_sn load_mounted_ft_sensor use_virtual_joint:=true">
         <!-- Prefix defaults to 'arm_prefix_robot_sn' -->
         <xacro:property name="prefix" value="${arm_prefix + robot_sn + '_'}" />
 
@@ -46,12 +46,18 @@
 
         <xacro:if value="${load_mounted_ft_sensor}">
             <!-- Disable collisions for FT sensor fixed-link chain -->
-            <disable_collisions link1="${prefix}link7" link2="${prefix}wrist-sensor.base_link" reason="Adjacent" />
-            <disable_collisions link1="${prefix}wrist-sensor.base_link" link2="${prefix}wrist-sensor.proximal_link" reason="Adjacent" />
-            <disable_collisions link1="${prefix}wrist-sensor.proximal_link" link2="${prefix}wrist-sensor.distal_link" reason="Adjacent" />
-            <disable_collisions link1="${prefix}wrist-sensor.distal_link" link2="${prefix}flange" reason="Adjacent" />
-            <disable_collisions link1="${prefix}link7" link2="${prefix}wrist-sensor.proximal_link" reason="Adjacent" />
-            <disable_collisions link1="${prefix}link7" link2="${prefix}wrist-sensor.distal_link" reason="Adjacent" />
+            <disable_collisions link1="${prefix}link7" link2="${prefix}wrist-sensor.base_link"
+                reason="Adjacent" />
+            <disable_collisions link1="${prefix}wrist-sensor.base_link"
+                link2="${prefix}wrist-sensor.proximal_link" reason="Adjacent" />
+            <disable_collisions link1="${prefix}wrist-sensor.proximal_link"
+                link2="${prefix}wrist-sensor.distal_link" reason="Adjacent" />
+            <disable_collisions link1="${prefix}wrist-sensor.distal_link" link2="${prefix}flange"
+                reason="Adjacent" />
+            <disable_collisions link1="${prefix}link7" link2="${prefix}wrist-sensor.proximal_link"
+                reason="Adjacent" />
+            <disable_collisions link1="${prefix}link7" link2="${prefix}wrist-sensor.distal_link"
+                reason="Adjacent" />
         </xacro:if>
     </xacro:macro>
 </robot>

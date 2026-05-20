@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg rizon_type)">
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg robot_type)">
     <!-- parameters -->
-    <xacro:arg name="rizon_type" default="Rizon4" />
+    <xacro:arg name="robot_type" default="EnlightL" />
     <xacro:arg name="arm_prefix" default="" />
     <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper" default="false" />
     <xacro:arg name="load_mounted_ft_sensor" default="false" />
 
-    <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
-    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
+    <xacro:include filename="$(find flexiv_moveit_config)/srdf/flexiv_macro.srdf.xacro" />
+    <xacro:flexiv_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
         load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
 
     <!-- Load gripper -->
