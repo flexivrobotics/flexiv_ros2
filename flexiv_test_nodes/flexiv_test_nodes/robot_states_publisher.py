@@ -15,7 +15,7 @@ import argparse
 
 # Import ROS2 message types
 from flexiv_msgs.msg import RobotStates
-from geometry_msgs.msg import PoseStamped, AccelStamped, WrenchStamped
+from geometry_msgs.msg import PoseStamped, TwistStamped, WrenchStamped
 
 
 class RobotStatesPublisher(Node):
@@ -123,26 +123,24 @@ class RobotStatesPublisher(Node):
 
         return pose_stamped
 
-    def create_accel_stamped(self, vel_data, frame_id="world"):
-        """
-        Convert RDK velocity data [v_x, v_y, v_z, w_x, w_y, w_z] to AccelStamped
-        Note: Using AccelStamped to hold velocity data as per RobotStates.msg
-        """
-        accel_stamped = AccelStamped()
-        accel_stamped.header.stamp = self.get_clock().now().to_msg()
-        accel_stamped.header.frame_id = frame_id
+    def create_twist_stamped(self, vel_data, frame_id="world"):
+        """Convert RDK velocity data [v_x, v_y, v_z, w_x, w_y, w_z] to
+        TwistStamped."""
+        twist_stamped = TwistStamped()
+        twist_stamped.header.stamp = self.get_clock().now().to_msg()
+        twist_stamped.header.frame_id = frame_id
 
         # Linear velocity
-        accel_stamped.accel.linear.x = vel_data[0]
-        accel_stamped.accel.linear.y = vel_data[1]
-        accel_stamped.accel.linear.z = vel_data[2]
+        twist_stamped.twist.linear.x = vel_data[0]
+        twist_stamped.twist.linear.y = vel_data[1]
+        twist_stamped.twist.linear.z = vel_data[2]
 
         # Angular velocity
-        accel_stamped.accel.angular.x = vel_data[3]
-        accel_stamped.accel.angular.y = vel_data[4]
-        accel_stamped.accel.angular.z = vel_data[5]
+        twist_stamped.twist.angular.x = vel_data[3]
+        twist_stamped.twist.angular.y = vel_data[4]
+        twist_stamped.twist.angular.z = vel_data[5]
 
-        return accel_stamped
+        return twist_stamped
 
     def create_wrench_stamped(self, wrench_data, frame_id):
         """Convert RDK wrench data [f_x, f_y, f_z, m_x, m_y, m_z] to
@@ -199,8 +197,8 @@ class RobotStatesPublisher(Node):
             # TCP pose: [x, y, z, q_w, q_x, q_y, q_z]
             msg.tcp_pose = self.create_pose_stamped(robot_states.tcp_pose, "world")
 
-            # TCP velocity: [v_x, v_y, v_z, w_x, w_y, w_z]
-            msg.tcp_vel = self.create_accel_stamped(robot_states.tcp_vel, "world")
+            # TCP twist: [v_x, v_y, v_z, w_x, w_y, w_z]
+            msg.tcp_twist = self.create_twist_stamped(robot_states.tcp_twist, "world")
 
             # Flange pose: [x, y, z, q_w, q_x, q_y, q_z]
             msg.flange_pose = self.create_pose_stamped(
@@ -208,28 +206,28 @@ class RobotStatesPublisher(Node):
             )
 
             # Force-torque sensor reading: [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ft_sensor_raw = self.create_wrench_stamped(
-                robot_states.ft_sensor_raw, "flange"
+            msg.raw_ft_sensor = self.create_wrench_stamped(
+                robot_states.raw_ft_sensor, "flange"
             )
 
             # External wrench in TCP frame: [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ext_wrench_in_tcp = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_tcp, "flange"
+            msg.tcp_wrench_local = self.create_wrench_stamped(
+                robot_states.tcp_wrench_local, "flange"
             )
 
             # External wrench in world frame: [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ext_wrench_in_world = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_world, "world"
+            msg.tcp_wrench = self.create_wrench_stamped(
+                robot_states.tcp_wrench, "world"
             )
 
             # External wrench in TCP frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ext_wrench_in_tcp_raw = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_tcp_raw, "flange"
+            msg.raw_tcp_wrench_local = self.create_wrench_stamped(
+                robot_states.raw_tcp_wrench_local, "flange"
             )
 
             # External wrench in world frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
-            msg.ext_wrench_in_world_raw = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_world_raw, "world"
+            msg.raw_tcp_wrench = self.create_wrench_stamped(
+                robot_states.raw_tcp_wrench, "world"
             )
 
             # Publish the message
@@ -261,7 +259,7 @@ def main(args=None):
         "--robot-sn",
         type=str,
         required=True,
-        help="Robot serial number (e.g., Rizon4s-123456)",
+        help="Robot serial number (e.g., EnlightL-123456)",
     )
     parser.add_argument(
         "--network-interface",

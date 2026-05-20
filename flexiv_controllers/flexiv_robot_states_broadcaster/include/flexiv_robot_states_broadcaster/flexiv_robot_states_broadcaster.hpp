@@ -24,11 +24,11 @@ using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface
 
 const std::string kRobotStatesTopic = "/flexiv_robot_states";
 const std::string kTcpPoseTopic = "/tcp_pose";
-const std::string kTcpVelocityTopic = "/tcp_velocity";
+const std::string kTcpTwistTopic = "/tcp_twist";
 const std::string kFlangePoseTopic = "/flange_pose";
-const std::string kFTSensorTopic = "/ft_sensor_wrench";
-const std::string kExternalWrenchInTcpFrameTopic = "/external_wrench_in_tcp";
-const std::string kExternalWrenchInWorldFrameTopic = "/external_wrench_in_world";
+const std::string kRawFTSensorTopic = "/raw_ft_sensor_wrench";
+const std::string kTcpWrenchLocalTopic = "/tcp_wrench_local";
+const std::string kTcpWrenchTopic = "/tcp_wrench";
 
 class FlexivRobotStatesBroadcaster : public controller_interface::ControllerInterface
 {
@@ -65,13 +65,13 @@ protected:
     std::shared_ptr<PoseStampedPublisher> tcp_pose_publisher_;
     std::shared_ptr<PoseStampedPublisher> flange_pose_publisher_;
 
-    using AccelStampedPublisher = rclcpp::Publisher<geometry_msgs::msg::AccelStamped>;
-    std::shared_ptr<AccelStampedPublisher> tcp_velocity_publisher_;
+    using TwistStampedPublisher = rclcpp::Publisher<geometry_msgs::msg::TwistStamped>;
+    std::shared_ptr<TwistStampedPublisher> tcp_twist_publisher_;
 
     using WrenchStampedPublisher = rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>;
-    std::shared_ptr<WrenchStampedPublisher> ft_sensor_publisher_;
-    std::shared_ptr<WrenchStampedPublisher> external_wrench_in_tcp_publisher_;
-    std::shared_ptr<WrenchStampedPublisher> external_wrench_in_world_publisher_;
+    std::shared_ptr<WrenchStampedPublisher> raw_ft_sensor_publisher_;
+    std::shared_ptr<WrenchStampedPublisher> tcp_wrench_local_publisher_;
+    std::shared_ptr<WrenchStampedPublisher> tcp_wrench_publisher_;
 };
 
 } /* namespace flexiv_robot_states_broadcaster */

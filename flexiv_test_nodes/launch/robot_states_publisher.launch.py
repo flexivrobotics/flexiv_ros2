@@ -3,16 +3,16 @@
 Example usage:
     # Auto-detect network interface:
     ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
-        robot_sn:=Rizon4s-123456
+        robot_sn:=EnlightL-123456
 
     # With specific network interface:
     ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
-        robot_sn:=Rizon4s-123456 \
+        robot_sn:=EnlightL-123456 \
         network_interface:=eth0
 
     # Custom publish rate:
     ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
-        robot_sn:=Rizon4s-123456 \
+        robot_sn:=EnlightL-123456 \
         publish_rate:=200
 
 Author: Flexiv Robotics
@@ -30,7 +30,7 @@ def generate_launch_description():
 
     # Declare launch arguments
     robot_sn_arg = DeclareLaunchArgument(
-        "robot_sn", description="Robot serial number (e.g., Rizon4s-123456)"
+        "robot_sn", description="Robot serial number (e.g., EnlightL-123456)"
     )
 
     network_interface_arg = DeclareLaunchArgument(

@@ -14,13 +14,14 @@
 #include <vector>
 
 #include "controller_interface/controller_interface.hpp"
+#include "flexiv/rdk/data.hpp"
 #include "gpio_controller/gpio_controller_parameters.hpp"
 #include "flexiv_msgs/msg/gpio_states.hpp"
 
 namespace gpio_controller {
 
-/** Number of digital IO ports (16 on control box + 2 inside the wrist connector) */
-constexpr size_t kIOPorts = 18;
+/** Number of digital IO ports exposed by Flexiv RDK. */
+constexpr size_t kIOPorts = flexiv::rdk::kIOPorts;
 
 const std::string kGPIOInputsTopic = "/gpio_inputs";
 const std::string kGPIOOutputsTopic = "/gpio_outputs";

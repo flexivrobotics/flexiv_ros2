@@ -20,7 +20,7 @@ class StateMonitor(Node):
         super().__init__("state_monitor")
 
         # Declare a parameter for the robot serial number
-        self.declare_parameter("robot_sn", "Rizon4-000000")
+        self.declare_parameter("robot_sn", "EnlightL-000000")
         robot_sn = self.get_parameter("robot_sn").get_parameter_value().string_value
 
         # Construct topic name dynamically based on robot SN
@@ -59,7 +59,7 @@ class StateMonitor(Node):
         )
 
         # Access external force magnitude
-        force = msg.ext_wrench_in_tcp.wrench.force
+        force = msg.tcp_wrench_local.wrench.force
         force_mag = math.sqrt(force.x**2 + force.y**2 + force.z**2)
         self.get_logger().info(f"External Force Magnitude: {force_mag:.3f} N")
 

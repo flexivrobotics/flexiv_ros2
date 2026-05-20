@@ -7,19 +7,18 @@
 #ifndef SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 #define SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 
-#include <limits>
 #include <string>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/logging.hpp>
 
+#include "flexiv_hardware/flexiv_robot_states_handle.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "semantic_components/semantic_component_interface.hpp"
 #include "flexiv/rdk/data.hpp"
 #include "flexiv_msgs/msg/robot_states.hpp"
 
-#include "geometry_msgs/msg/accel.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
@@ -32,21 +31,6 @@ namespace {
 const std::string kWorldFrameId = "world";
 const std::string kFlangeFrameId = "flange";
 
-// Example implementation of bit_cast: https://en.cppreference.com/w/cpp/numeric/bit_cast
-template <class To, class From>
-std::enable_if_t<sizeof(To) == sizeof(From) && std::is_trivially_copyable<From>::value
-                     && std::is_trivially_copyable<To>::value,
-    To>
-bit_cast(const From& src) noexcept
-{
-    static_assert(std::is_trivially_constructible<To>::value,
-        "This implementation additionally requires "
-        "destination type to be trivially constructible");
-
-    To dst;
-    std::memcpy(&dst, &src, sizeof(To));
-    return dst;
-}
 } // namespace
 
 namespace semantic_components {
@@ -65,13 +49,13 @@ public:
     void init_robot_states_message(flexiv_msgs::msg::RobotStates& message)
     {
         message.tcp_pose.header.frame_id = kWorldFrameId;
-        message.tcp_vel.header.frame_id = kWorldFrameId;
+        message.tcp_twist.header.frame_id = kWorldFrameId;
         message.flange_pose.header.frame_id = kWorldFrameId;
-        message.ft_sensor_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_tcp.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_world.header.frame_id = kWorldFrameId;
-        message.ext_wrench_in_tcp_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_world_raw.header.frame_id = kWorldFrameId;
+        message.raw_ft_sensor.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.tcp_wrench_local.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.tcp_wrench.header.frame_id = kWorldFrameId;
+        message.raw_tcp_wrench_local.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.raw_tcp_wrench.header.frame_id = kWorldFrameId;
     }
 
     /// Return RobotStates message
@@ -85,25 +69,32 @@ public:
                     return state_interface.get().get_name() == flexiv_robot_states_interface_name;
                 });
 
-        if (flexiv_robot_states_interface != state_interfaces_.end()) {
-            // Get the robot states pointer via bit_cast
-            flexiv_robot_states_ptr = bit_cast<flexiv::rdk::RobotStates*>(
-                (*flexiv_robot_states_interface).get().get_value());
-        } else {
+        if (flexiv_robot_states_interface == state_interfaces_.end()) {
             RCLCPP_ERROR(
                 rclcpp::get_logger("FlexivRobotStates"), "Robot states interface not found.");
             return false;
         }
 
+        const auto encoded_handle = (*flexiv_robot_states_interface).get().get_value();
+
+        auto* flexiv_robot_states_ptr
+            = flexiv_hardware::resolve_robot_states_handle(encoded_handle);
+        if (flexiv_robot_states_ptr == nullptr) {
+            RCLCPP_ERROR(rclcpp::get_logger("FlexivRobotStates"),
+                "Robot states interface '%s' resolved to an invalid handle.",
+                flexiv_robot_states_interface_name.c_str());
+            return false;
+        }
+
         // Update timestamps
         message.tcp_pose.header.stamp = message.header.stamp;
-        message.tcp_vel.header.stamp = message.header.stamp;
+        message.tcp_twist.header.stamp = message.header.stamp;
         message.flange_pose.header.stamp = message.header.stamp;
-        message.ft_sensor_raw.header.stamp = message.header.stamp;
-        message.ext_wrench_in_tcp.header.stamp = message.header.stamp;
-        message.ext_wrench_in_world.header.stamp = message.header.stamp;
-        message.ext_wrench_in_tcp_raw.header.stamp = message.header.stamp;
-        message.ext_wrench_in_world_raw.header.stamp = message.header.stamp;
+        message.raw_ft_sensor.header.stamp = message.header.stamp;
+        message.tcp_wrench_local.header.stamp = message.header.stamp;
+        message.tcp_wrench.header.stamp = message.header.stamp;
+        message.raw_tcp_wrench_local.header.stamp = message.header.stamp;
+        message.raw_tcp_wrench.header.stamp = message.header.stamp;
 
         // Fill the RobotStates message
         message.robot_timestamp.sec = flexiv_robot_states_ptr->timestamp.first;
@@ -121,23 +112,19 @@ public:
         message.temperature = flexiv_robot_states_ptr->temperature;
 
         message.tcp_pose.pose = toPoseMsg(flexiv_robot_states_ptr->tcp_pose);
-        message.tcp_vel.accel = toAccelMsg(flexiv_robot_states_ptr->tcp_vel);
+        message.tcp_twist.twist = toTwistMsg(flexiv_robot_states_ptr->tcp_twist);
         message.flange_pose.pose = toPoseMsg(flexiv_robot_states_ptr->flange_pose);
-        message.ft_sensor_raw.wrench = toWrenchMsg(flexiv_robot_states_ptr->ft_sensor_raw);
-        message.ext_wrench_in_tcp.wrench = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_tcp);
-        message.ext_wrench_in_world.wrench
-            = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_world);
-        message.ext_wrench_in_tcp_raw.wrench
-            = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_tcp_raw);
-        message.ext_wrench_in_world_raw.wrench
-            = toWrenchMsg(flexiv_robot_states_ptr->ext_wrench_in_world_raw);
+        message.raw_ft_sensor.wrench = toWrenchMsg(flexiv_robot_states_ptr->raw_ft_sensor);
+        message.tcp_wrench_local.wrench = toWrenchMsg(flexiv_robot_states_ptr->tcp_wrench_local);
+        message.tcp_wrench.wrench = toWrenchMsg(flexiv_robot_states_ptr->tcp_wrench);
+        message.raw_tcp_wrench_local.wrench
+            = toWrenchMsg(flexiv_robot_states_ptr->raw_tcp_wrench_local);
+        message.raw_tcp_wrench.wrench = toWrenchMsg(flexiv_robot_states_ptr->raw_tcp_wrench);
 
         return true;
     }
 
 protected:
-    flexiv::rdk::RobotStates* flexiv_robot_states_ptr;
-
     const std::string state_interface_name_ {"flexiv_robot_states"};
 
     // Convert std::array to geometry_msgs::msg::Pose
@@ -157,20 +144,20 @@ protected:
         return pose_msg;
     }
 
-    // Convert std::array to geometry_msgs::msg::Accel
-    geometry_msgs::msg::Accel toAccelMsg(
-        const std::array<double, flexiv::rdk::kCartDoF>& accel_values)
+    // Convert std::array to geometry_msgs::msg::Twist
+    geometry_msgs::msg::Twist toTwistMsg(
+        const std::array<double, flexiv::rdk::kCartDoF>& twist_values)
     {
-        geometry_msgs::msg::Accel accel_msg;
-        accel_msg.linear = geometry_msgs::build<geometry_msgs::msg::Vector3>()
-                               .x(accel_values[0])
-                               .y(accel_values[1])
-                               .z(accel_values[2]);
-        accel_msg.angular = geometry_msgs::build<geometry_msgs::msg::Vector3>()
-                                .x(accel_values[3])
-                                .y(accel_values[4])
-                                .z(accel_values[5]);
-        return accel_msg;
+        geometry_msgs::msg::Twist twist_msg;
+        twist_msg.linear = geometry_msgs::build<geometry_msgs::msg::Vector3>()
+                               .x(twist_values[0])
+                               .y(twist_values[1])
+                               .z(twist_values[2]);
+        twist_msg.angular = geometry_msgs::build<geometry_msgs::msg::Vector3>()
+                                .x(twist_values[3])
+                                .y(twist_values[4])
+                                .z(twist_values[5]);
+        return twist_msg;
     }
 
     // Convert std::array to geometry_msgs::msg::Wrench
