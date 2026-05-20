@@ -1,9 +1,12 @@
+import os
+
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     EmitEvent,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.events import Shutdown
@@ -14,6 +17,7 @@ from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
+    EnvironmentVariable,
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
@@ -22,7 +26,10 @@ from launch.substitutions import (
 
 
 def generate_launch_description():
-    rizon_type_param_name = "rizon_type"
+    single_arm_robot_types = [
+        "EnlightL",
+    ]
+    robot_type_param_name = "robot_type"
     robot_sn_param_name = "robot_sn"
     rdk_control_mode_param_name = "rdk_control_mode"
     start_rviz_param_name = "start_rviz"
@@ -32,23 +39,24 @@ def generate_launch_description():
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
     robot_controller_param_name = "robot_controller"
+    rdk_install_prefix_param_name = "rdk_install_prefix"
 
     # Declare arguments
     declared_arguments = []
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            rizon_type_param_name,
-            description="Type of the Flexiv Rizon robot.",
-            default_value="Rizon4",
-            choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
+            robot_type_param_name,
+            description="Type of the Flexiv single-arm robot.",
+            default_value="EnlightL",
+            choices=single_arm_robot_types,
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
             robot_sn_param_name,
-            description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+            description="Serial number of the robot to connect to. Remove any space, for example: EnlightL-123456",
         )
     )
 
@@ -89,7 +97,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             load_mounted_ft_sensor_param_name,
             default_value="false",
-            description="Flag to load the mounted force torque sensor. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor.",
         )
     )
 
@@ -113,13 +121,21 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             robot_controller_param_name,
-            default_value="rizon_arm_controller",
-            description="Robot controller to start. Available: rizon_arm_controller",
+            default_value="flexiv_arm_controller",
+            description="Robot controller to start. Available: flexiv_arm_controller",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            rdk_install_prefix_param_name,
+            default_value=os.path.expanduser("~/rdk_install"),
+            description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
         )
     )
 
     # Initialize Arguments
-    rizon_type = LaunchConfiguration(rizon_type_param_name)
+    robot_type = LaunchConfiguration(robot_type_param_name)
     robot_sn = LaunchConfiguration(robot_sn_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
@@ -129,6 +145,7 @@ def generate_launch_description():
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
     robot_controller = LaunchConfiguration(robot_controller_param_name)
+    rdk_install_prefix = LaunchConfiguration(rdk_install_prefix_param_name)
     gripper_ready_gate_condition = PythonExpression(
         [
             "'",
@@ -139,9 +156,24 @@ def generate_launch_description():
         ]
     )
 
+    set_rdk_ld_library_path = SetEnvironmentVariable(
+        name="LD_LIBRARY_PATH",
+        value=[
+            PathJoinSubstitution([rdk_install_prefix, "lib"]),
+            PythonExpression(
+                [
+                    "':' if '",
+                    EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+                    "' else ''",
+                ]
+            ),
+            EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+        ],
+    )
+
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
+        [FindPackageShare("flexiv_description"), "urdf", "flexiv.urdf.xacro"]
     )
 
     # Get URDF via xacro
@@ -155,8 +187,8 @@ def generate_launch_description():
                 "robot_sn:=",
                 robot_sn,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "robot_type:=",
+                robot_type,
                 " ",
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
@@ -185,7 +217,7 @@ def generate_launch_description():
 
     # RViZ
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "rviz", "view_rizon.rviz"]
+        [FindPackageShare("flexiv_description"), "rviz", "view_flexiv.rviz"]
     )
 
     rviz_node = Node(
@@ -199,7 +231,7 @@ def generate_launch_description():
 
     # Robot controllers
     robot_controllers = PathJoinSubstitution(
-        [FindPackageShare("flexiv_bringup"), "config", "rizon_controllers.yaml"]
+        [FindPackageShare("flexiv_bringup"), "config", "flexiv_controllers.yaml"]
     )
 
     # Controller Manager
@@ -212,7 +244,7 @@ def generate_launch_description():
             {"robot_sn": robot_sn},
             {"rdk_control_mode": rdk_control_mode},
         ],
-        remappings=[("joint_states", "flexiv_rizon_arm/joint_states")],
+        remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
     )
 
@@ -224,7 +256,7 @@ def generate_launch_description():
         parameters=[
             {
                 "source_list": [
-                    "flexiv_rizon_arm/joint_states",
+                    "flexiv_arm/joint_states",
                     "flexiv_gripper_node/gripper_joint_states",
                 ],
                 "rate": 30,
@@ -284,6 +316,7 @@ def generate_launch_description():
             "gripper_name": gripper_name,
             "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
+            "rdk_install_prefix": rdk_install_prefix,
         }.items(),
         condition=IfCondition(load_gripper),
     )
@@ -324,7 +357,6 @@ def generate_launch_description():
         )
     )
 
-    # Start gripper only after ros2_control has activated and the joint state broadcaster is up.
     delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_state_broadcaster_spawner,
@@ -363,4 +395,4 @@ def generate_launch_description():
         delay_rviz_after_robot_controller_spawner,
     ]
 
-    return LaunchDescription(declared_arguments + nodes)
+    return LaunchDescription(declared_arguments + [set_rdk_ld_library_path] + nodes)

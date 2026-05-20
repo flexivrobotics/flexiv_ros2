@@ -9,6 +9,7 @@ from launch.actions import (
     IncludeLaunchDescription,
     OpaqueFunction,
     RegisterEventHandler,
+    SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.events import Shutdown
@@ -19,6 +20,7 @@ from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import (
     Command,
+    EnvironmentVariable,
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
@@ -47,7 +49,7 @@ def load_yaml(package_name, file_path, replacements=None):
 
 def launch_setup(context):
     # Initialize Arguments
-    rizon_type = LaunchConfiguration("rizon_type")
+    robot_type = LaunchConfiguration("robot_type")
     robot_sn = LaunchConfiguration("robot_sn")
     robot_sn_str = robot_sn.perform(context)
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
@@ -71,7 +73,7 @@ def launch_setup(context):
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
+        [FindPackageShare("flexiv_description"), "urdf", "flexiv.urdf.xacro"]
     )
 
     # Get URDF via xacro
@@ -85,8 +87,8 @@ def launch_setup(context):
                 "robot_sn:=",
                 robot_sn,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "robot_type:=",
+                robot_type,
                 " ",
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
@@ -114,7 +116,7 @@ def launch_setup(context):
 
     # MoveIt configuration
     flexiv_srdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_moveit_config"), "srdf", "rizon.srdf.xacro"]
+        [FindPackageShare("flexiv_moveit_config"), "srdf", "flexiv.srdf.xacro"]
     )
 
     robot_description_semantic_content = ParameterValue(
@@ -127,8 +129,8 @@ def launch_setup(context):
                 "robot_sn:=",
                 robot_sn,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "robot_type:=",
+                robot_type,
                 " ",
                 "load_gripper:=",
                 load_gripper,
@@ -259,7 +261,7 @@ def launch_setup(context):
 
     # Robot controllers
     robot_controllers = PathJoinSubstitution(
-        [FindPackageShare("flexiv_bringup"), "config", "rizon_controllers.yaml"]
+        [FindPackageShare("flexiv_bringup"), "config", "flexiv_controllers.yaml"]
     )
 
     # Run controller manager
@@ -272,7 +274,7 @@ def launch_setup(context):
             {"robot_sn": robot_sn},
             {"rdk_control_mode": rdk_control_mode},
         ],
-        remappings=[("joint_states", "flexiv_rizon_arm/joint_states")],
+        remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
     )
 
@@ -284,7 +286,7 @@ def launch_setup(context):
         parameters=[
             {
                 "source_list": [
-                    "flexiv_rizon_arm/joint_states",
+                    "flexiv_arm/joint_states",
                     "flexiv_gripper_node/gripper_joint_states",
                 ],
                 "rate": 30,
@@ -297,7 +299,7 @@ def launch_setup(context):
         package="controller_manager",
         executable="spawner",
         arguments=[
-            "rizon_arm_controller",
+            "flexiv_arm_controller",
             "--controller-manager",
             "/controller_manager",
         ],
@@ -339,6 +341,7 @@ def launch_setup(context):
             "gripper_name": gripper_name,
             "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
+            "rdk_install_prefix": LaunchConfiguration("rdk_install_prefix"),
         }.items(),
         condition=IfCondition(load_gripper),
     )
@@ -362,7 +365,7 @@ def launch_setup(context):
     # Servo node for realtime control
     servo_yaml = load_yaml(
         "flexiv_moveit_config",
-        "config/rizon_moveit_servo_config.yaml",
+        "config/moveit_servo_config.yaml",
         replacements,
     )
     servo_params = {"moveit_servo": servo_yaml}
@@ -388,7 +391,7 @@ def launch_setup(context):
         condition=UnlessCondition(use_fake_hardware),
     )
 
-    # Delay start of robot_controller after `joint_state_broadcaster` when gripper is not loaded
+    # Delay start of robot_controller after `joint_state_broadcaster`
     delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = (
         RegisterEventHandler(
             event_handler=OnProcessExit(
@@ -453,20 +456,23 @@ def launch_setup(context):
 def generate_launch_description():
     # Declare command-line arguments
     declared_arguments = []
+    single_arm_robot_types = [
+        "EnlightL",
+    ]
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "rizon_type",
-            description="Type of the Flexiv Rizon robot.",
-            default_value="Rizon4",
-            choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
+            "robot_type",
+            description="Type of the Flexiv single-arm robot.",
+            default_value="EnlightL",
+            choices=single_arm_robot_types,
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
             "robot_sn",
-            description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+            description="Serial number of the robot to connect to. Remove any space, for example: EnlightL-123456",
         )
     )
 
@@ -507,7 +513,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "load_mounted_ft_sensor",
             default_value="false",
-            description="Flag to load the mounted force torque sensor. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor.",
         )
     )
 
@@ -544,6 +550,31 @@ def generate_launch_description():
         )
     )
 
+    rdk_install_prefix = LaunchConfiguration("rdk_install_prefix")
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rdk_install_prefix",
+            default_value=os.path.expanduser("~/rdk_install"),
+            description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
+        )
+    )
+
+    set_rdk_ld_library_path = SetEnvironmentVariable(
+        name="LD_LIBRARY_PATH",
+        value=[
+            PathJoinSubstitution([rdk_install_prefix, "lib"]),
+            PythonExpression(
+                [
+                    "':' if '",
+                    EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+                    "' else ''",
+                ]
+            ),
+            EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+        ],
+    )
+
     return LaunchDescription(
-        declared_arguments + [OpaqueFunction(function=launch_setup)]
+        declared_arguments
+        + [set_rdk_ld_library_path, OpaqueFunction(function=launch_setup)]
     )

@@ -1,7 +1,10 @@
+import os
+
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import (
+    EnvironmentVariable,
     LaunchConfiguration,
     PathJoinSubstitution,
 )
@@ -16,6 +19,7 @@ def generate_launch_description():
     use_fake_hardware_param_name = "use_fake_hardware"
     use_lite_rdk_param_name = "use_lite_rdk"
     gripper_joint_names_param_name = "gripper_joint_names"
+    rdk_install_prefix_param_name = "rdk_install_prefix"
 
     # Declare arguments
     declared_arguments = []
@@ -31,7 +35,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             robot_sn_param_name,
-            description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+            description="Serial number of the robot to connect to. Remove any space, for example: EnlightL-123456",
         )
     )
 
@@ -67,6 +71,14 @@ def generate_launch_description():
         )
     )
 
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            rdk_install_prefix_param_name,
+            default_value=os.path.expanduser("~/rdk_install"),
+            description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
+        )
+    )
+
     # Initialize arguments
     gripper_node = LaunchConfiguration(gripper_node_param_name)
     robot_sn = LaunchConfiguration(robot_sn_param_name)
@@ -74,6 +86,16 @@ def generate_launch_description():
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     use_lite_rdk = LaunchConfiguration(use_lite_rdk_param_name)
     gripper_joint_names = LaunchConfiguration(gripper_joint_names_param_name)
+    rdk_install_prefix = LaunchConfiguration(rdk_install_prefix_param_name)
+
+    set_rdk_ld_library_path = SetEnvironmentVariable(
+        name="LD_LIBRARY_PATH",
+        value=[
+            PathJoinSubstitution([rdk_install_prefix, "lib"]),
+            ":",
+            EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+        ],
+    )
 
     gripper_config_file = PathJoinSubstitution(
         [FindPackageShare("flexiv_gripper"), "config", "flexiv_gripper_node.yaml"]
@@ -98,4 +120,4 @@ def generate_launch_description():
 
     nodes = [flexiv_gripper_node]
 
-    return LaunchDescription(declared_arguments + nodes)
+    return LaunchDescription(declared_arguments + [set_rdk_ld_library_path] + nodes)
