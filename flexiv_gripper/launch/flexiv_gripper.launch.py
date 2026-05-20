@@ -35,7 +35,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             robot_sn_param_name,
-            description="Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456",
+            description="Serial number of the robot to connect to. Remove any space, for example: EnlightL-123456",
         )
     )
 
