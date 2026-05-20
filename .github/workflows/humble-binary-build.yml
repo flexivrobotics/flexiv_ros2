@@ -18,11 +18,12 @@ jobs:
     strategy:
       fail-fast: false
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       ROS_DISTRO: humble
+      RDK_INSTALL_PREFIX: ${{ github.workspace }}/rdk_install
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Install dependencies
@@ -39,34 +40,30 @@ jobs:
           ros-humble-robot-state-publisher \
           ros-humble-ros2-control \
           ros-humble-ros2-controllers \
+          ros-humble-rmw-cyclonedds-cpp \
           ros-humble-test-msgs \
           ros-humble-tinyxml2-vendor \
           ros-humble-xacro
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
-          git clone --branch v1.9.1 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
+          git clone --branch v2.0 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
-          source /opt/ros/humble/setup.bash
-          bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
+          bash build_and_install_dependencies.sh "${RDK_INSTALL_PREFIX}"
           cd ..
           mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
+          cmake .. -DCMAKE_INSTALL_PREFIX="${RDK_INSTALL_PREFIX}"
           cmake --build . --target install --config Release
-      - name: Build and install flexiv_drdk
+      - name: Verify flexiv_rdk install
         shell: bash
         run: |
-          git clone --branch v1.2.1 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
-          cd flexiv_drdk/thirdparty
-          source /opt/ros/humble/setup.bash
-          bash build_and_install_dependencies.sh ~/flexiv_install
-          cd ..
-          mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
-          cmake --build . --target install --config Release
-      - name: Build and run tests
+          test -f "${RDK_INSTALL_PREFIX}/lib/cmake/flexiv_rdk/flexiv_rdk-config.cmake"
+      - name: Build workspace
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.4
+        env:
+          CMAKE_PREFIX_PATH: ${{ env.RDK_INSTALL_PREFIX }}
+          RMW_IMPLEMENTATION: ${{ env.RMW_IMPLEMENTATION }}
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.humble.repos
@@ -79,12 +76,5 @@ jobs:
             flexiv_robot_states_broadcaster
             flexiv_test_nodes
             gpio_controller
-          colcon-defaults: |
-            {
-              "build": {
-                "cmake-args": [
-                    "-DCMAKE_PREFIX_PATH=~/flexiv_install"
-                ]
-              }
-            }
+          extra-cmake-args: -DCMAKE_PREFIX_PATH=${{ env.RDK_INSTALL_PREFIX }}
           skip-tests: true
