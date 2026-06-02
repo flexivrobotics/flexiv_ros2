@@ -2,7 +2,7 @@ repositories:
   flexiv_description:
     type: git
     url: https://github.com/flexivrobotics/flexiv_description.git
-    version: jazzy-v1
+    version: jazzy-v1.9.1
   flexiv_rdk:
     type: git
     url: https://github.com/flexivrobotics/flexiv_rdk.git
