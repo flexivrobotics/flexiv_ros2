@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - humble-v1
-      - humble-v2
+      - humble
   pull_request:
     branches:
       - humble-v1
-      - humble-v2
+      - humble
       - release/humble-*
 
 jobs:
