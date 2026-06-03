@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - jazzy-v1
-      - jazzy-v2
+      - jazzy
   pull_request:
     branches:
       - jazzy-v1
-      - jazzy-v2
+      - jazzy
       - release/jazzy-*
 
 jobs:
