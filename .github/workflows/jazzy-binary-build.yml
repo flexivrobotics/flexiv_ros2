@@ -3,10 +3,12 @@ name: Jazzy Binary Build
 on:
   push:
     branches:
-      - jazzy
+      - jazzy-v1
+      - jazzy-v2
   pull_request:
     branches:
-      - jazzy
+      - jazzy-v1
+      - jazzy-v2
       - release/jazzy-*
 
 jobs:
