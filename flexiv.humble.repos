@@ -6,4 +6,4 @@ repositories:
   flexiv_rdk:
     type: git
     url: https://github.com/flexivrobotics/flexiv_rdk.git
-    version: v2.0
+    version: release/v2.1

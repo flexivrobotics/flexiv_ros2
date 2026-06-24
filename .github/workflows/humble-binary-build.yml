@@ -22,7 +22,6 @@ jobs:
     env:
       ROS_DISTRO: humble
       RDK_INSTALL_PREFIX: ${{ github.workspace }}/rdk_install
-      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -42,7 +41,6 @@ jobs:
           ros-humble-robot-state-publisher \
           ros-humble-ros2-control \
           ros-humble-ros2-controllers \
-          ros-humble-rmw-cyclonedds-cpp \
           ros-humble-test-msgs \
           ros-humble-tinyxml2-vendor \
           ros-humble-xacro
@@ -65,7 +63,6 @@ jobs:
         uses: ros-tooling/action-ros-ci@v0.4
         env:
           CMAKE_PREFIX_PATH: ${{ env.RDK_INSTALL_PREFIX }}
-          RMW_IMPLEMENTATION: ${{ env.RMW_IMPLEMENTATION }}
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.humble.repos
