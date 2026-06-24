@@ -22,7 +22,6 @@ jobs:
     env:
       ROS_DISTRO: jazzy
       RDK_INSTALL_PREFIX: ${{ github.workspace }}/rdk_install
-      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -42,7 +41,6 @@ jobs:
           ros-jazzy-robot-state-publisher \
           ros-jazzy-ros2-control \
           ros-jazzy-ros2-controllers \
-          ros-jazzy-rmw-cyclonedds-cpp \
           ros-jazzy-test-msgs \
           ros-jazzy-tinyxml2-vendor \
           ros-jazzy-xacro
@@ -65,7 +63,6 @@ jobs:
         uses: ros-tooling/action-ros-ci@v0.4
         env:
           CMAKE_PREFIX_PATH: ${{ env.RDK_INSTALL_PREFIX }}
-          RMW_IMPLEMENTATION: ${{ env.RMW_IMPLEMENTATION }}
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.jazzy.repos
