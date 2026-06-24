@@ -38,8 +38,8 @@ ros2 launch flexiv_test_nodes robot_states_publisher.launch.py robot_sn:=[robot_
 **Parameters:**
 
 - `robot_sn`: Robot serial number (required)
-- `network_interface`: Network interface name (optional, auto-detect if empty)
 - `publish_rate`: Publish rate in Hz (default: 100)
+- `joint_group`: Which RDK joint group's states to publish (default: `ALL`). RDK returns states per joint group; `ALL` is the whole robot (7 joints single-arm, 14 dual-arm). For an individual arm of a dual-arm robot use `ARM_1` (left) or `ARM_2` (right).
 
 ### 2. Robot States Monitor
 

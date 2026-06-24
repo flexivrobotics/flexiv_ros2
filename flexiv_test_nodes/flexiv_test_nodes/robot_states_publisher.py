@@ -21,38 +21,40 @@ from geometry_msgs.msg import PoseStamped, TwistStamped, WrenchStamped
 class RobotStatesPublisher(Node):
     """ROS2 node that publishes Flexiv robot states from RDK to ROS2 topics."""
 
-    def __init__(self, robot_sn: str, network_interface: str = ""):
+    def __init__(self, robot_sn: str):
         super().__init__("rdk_state_publisher")
 
         # Declare parameters
         self.declare_parameter("robot_sn", robot_sn)
-        self.declare_parameter("network_interface", network_interface)
         self.declare_parameter("publish_rate", 100)  # Default 100 Hz
+        # RDK v2.1 robot.states() returns a dict keyed by JointGroup. Select which group's states
+        # to publish on the single topic. "ALL" = the whole robot (7 joints single-arm, 14 dual);
+        # use "ARM_1"/"ARM_2" for an individual arm of a dual-arm robot.
+        self.declare_parameter("joint_group", "ALL")
 
         # Get parameters
         self.robot_sn = self.get_parameter("robot_sn").value
-        self.network_interface = self.get_parameter("network_interface").value
         self.publish_rate = self.get_parameter("publish_rate").value
+        self.joint_group_name = self.get_parameter("joint_group").value
+        try:
+            self.joint_group = getattr(flexivrdk.JointGroup, self.joint_group_name)
+        except AttributeError:
+            self.get_logger().error(
+                f"Invalid joint_group '{self.joint_group_name}', falling back to 'ALL'"
+            )
+            self.joint_group_name = "ALL"
+            self.joint_group = flexivrdk.JointGroup.ALL
 
         self.get_logger().info(
             f"Initializing Robot States Publisher for robot {self.robot_sn}"
         )
-        if self.network_interface:
-            self.get_logger().info(
-                f"Network interface whitelist: [{self.network_interface}]"
-            )
-        else:
-            self.get_logger().info("Using all available network interfaces")
         self.get_logger().info(f"Publish rate: {self.publish_rate} Hz")
+        self.get_logger().info(f"Publishing joint group: {self.joint_group_name}")
 
-        # Initialize RDK Robot instance
+        # Initialize RDK Robot instance. RDK v2.1's Robot constructor is
+        # Robot(robot_sn, verbose=True, lite=False) — network-interface whitelisting was removed.
         try:
-            if self.network_interface:
-                # Use specific network interface
-                self.robot = flexivrdk.Robot(self.robot_sn, [self.network_interface])
-            else:
-                # Use all available network interfaces
-                self.robot = flexivrdk.Robot(self.robot_sn)
+            self.robot = flexivrdk.Robot(self.robot_sn)
             self.get_logger().info("Successfully connected to robot via RDK")
         except Exception as e:
             self.get_logger().error(f"Failed to connect to robot: {str(e)}")
@@ -165,8 +167,17 @@ class RobotStatesPublisher(Node):
         """Main callback function to read robot states and publish as ROS2
         message."""
         try:
-            # Get robot states from RDK
-            robot_states = self.robot.states()
+            # Get robot states from RDK. v2.1 returns a dict keyed by JointGroup; select the
+            # configured group (default ALL = whole robot).
+            all_states = self.robot.states()
+            if self.joint_group not in all_states:
+                self.get_logger().error(
+                    f"Joint group '{self.joint_group_name}' not reported by the robot. "
+                    f"Available: {[str(g) for g in all_states.keys()]}",
+                    throttle_duration_sec=1.0,
+                )
+                return
+            robot_states = all_states[self.joint_group]
 
             # Create ROS2 RobotStates message
             msg = RobotStates()
@@ -179,13 +190,12 @@ class RobotStatesPublisher(Node):
             msg.robot_timestamp.sec = robot_states.timestamp[0]
             msg.robot_timestamp.nanosec = robot_states.timestamp[1]
 
-            # Joint-space states (all arrays are size 7 for Flexiv robots)
+            # Joint-space states (array size = DoF of the selected joint group)
             msg.q = list(robot_states.q)  # Joint positions (link-side)
             msg.theta = list(robot_states.theta)  # Joint positions (motor-side)
             msg.dq = list(robot_states.dq)  # Joint velocities (link-side)
             msg.dtheta = list(robot_states.dtheta)  # Joint velocities (motor-side)
             msg.tau = list(robot_states.tau)  # Joint torques
-            msg.tau_des = list(robot_states.tau_des)  # Desired joint torques
             msg.tau_dot = list(robot_states.tau_dot)  # Joint torque derivatives
             msg.tau_ext = list(robot_states.tau_ext)  # External joint torques
             msg.tau_interact = list(
@@ -259,13 +269,7 @@ def main(args=None):
         "--robot-sn",
         type=str,
         required=True,
-        help="Robot serial number (e.g., EnlightL-123456)",
-    )
-    parser.add_argument(
-        "--network-interface",
-        type=str,
-        default="",
-        help="Network interface name (e.g., eth0, enp0s31f6). Leave empty to use all interfaces.",
+        help="Robot serial number (e.g., Enlight-L-123456)",
     )
 
     # Parse known args (ROS2 args are handled separately)
@@ -276,10 +280,7 @@ def main(args=None):
 
     try:
         # Create and spin the node
-        node = RobotStatesPublisher(
-            robot_sn=parsed_args.robot_sn,
-            network_interface=parsed_args.network_interface,
-        )
+        node = RobotStatesPublisher(robot_sn=parsed_args.robot_sn)
 
         # Spin the node
         rclpy.spin(node)
