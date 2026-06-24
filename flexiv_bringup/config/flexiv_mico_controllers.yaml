@@ -1,0 +1,61 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 1000  # Hz
+
+    flexiv_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    gpio_controller:
+      type: gpio_controller/GPIOController
+
+    left_flexiv_robot_states_broadcaster:
+      type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
+
+    right_flexiv_robot_states_broadcaster:
+      type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
+
+flexiv_arm_controller:
+  ros__parameters:
+    joints:
+      - left_$(var robot_sn)_joint1
+      - left_$(var robot_sn)_joint2
+      - left_$(var robot_sn)_joint3
+      - left_$(var robot_sn)_joint4
+      - left_$(var robot_sn)_joint5
+      - left_$(var robot_sn)_joint6
+      - left_$(var robot_sn)_joint7
+      - right_$(var robot_sn)_joint1
+      - right_$(var robot_sn)_joint2
+      - right_$(var robot_sn)_joint3
+      - right_$(var robot_sn)_joint4
+      - right_$(var robot_sn)_joint5
+      - right_$(var robot_sn)_joint6
+      - right_$(var robot_sn)_joint7
+      # Pan-tilt / waist torso (2-DoF EXT_AXIS group). Folded into the single arm controller so all
+      # actuated joints switch command mode together, as required by FlexivHardwareInterface.
+      - $(var robot_sn)_torso_joint1
+      - $(var robot_sn)_torso_joint2
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    # Allow MoveIt to command a joint subset (e.g. the both_arms / single-arm planning groups)
+    # without the torso joints.
+    allow_partial_joints_goal: true
+    constraints:
+      stopped_velocity_tolerance: 0.01
+      goal_time: 0.0
+
+left_flexiv_robot_states_broadcaster:
+  ros__parameters:
+    robot_sn: left_$(var robot_sn)
+
+right_flexiv_robot_states_broadcaster:
+  ros__parameters:
+    robot_sn: right_$(var robot_sn)

@@ -21,7 +21,7 @@ def generate_launch_description():
         [
             DeclareLaunchArgument(
                 name="robot_sn",
-                description="Serial number of the robot to connect to. Remove any space, for example: EnlightL-123456",
+                description="Serial number of the robot to connect to. Remove any space, for example: Enlight-L-123456",
             ),
             Node(
                 package="flexiv_test_nodes",
