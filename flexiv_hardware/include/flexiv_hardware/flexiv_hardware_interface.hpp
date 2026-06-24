@@ -96,7 +96,7 @@ private:
     std::vector<double> target_vel_buffer_;
     std::vector<double> target_torque_buffer_;
 
-    std::map<flexiv::rdk::JointGroup, flexiv::rdk::NrtJointPositionCmd> nrt_joint_position_cmds_;
+    std::map<flexiv::rdk::JointGroup, flexiv::rdk::RtJointPositionCmd> rt_joint_position_cmds_;
     std::map<flexiv::rdk::JointGroup, flexiv::rdk::RtJointTorqueCmd> rt_joint_torque_cmds_;
 
     // Robot states exported per active joint group.
