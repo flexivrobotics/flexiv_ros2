@@ -10,37 +10,37 @@ default_acceleration_scaling_factor: 0.1
 joint_limits:
   $(var robot_sn)_joint1:
     has_velocity_limits: true
-    max_velocity: 2.0944 # EnlightL
+    max_velocity: 2.0944 # Enlight-L
     has_acceleration_limits: true
     max_acceleration: 2.0
   $(var robot_sn)_joint2:
     has_velocity_limits: true
-    max_velocity: 2.0944 # EnlightL
+    max_velocity: 2.0944 # Enlight-L
     has_acceleration_limits: true
     max_acceleration: 2.0
   $(var robot_sn)_joint3:
     has_velocity_limits: true
-    max_velocity: 2.4435 # EnlightL
+    max_velocity: 2.4435 # Enlight-L
     has_acceleration_limits: true
     max_acceleration: 2.0
   $(var robot_sn)_joint4:
     has_velocity_limits: true
-    max_velocity: 2.4435 # EnlightL
+    max_velocity: 2.4435 # Enlight-L
     has_acceleration_limits: true
     max_acceleration: 2.0
   $(var robot_sn)_joint5:
     has_velocity_limits: true
-    max_velocity: 4.8869 # EnlightL
+    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
     max_acceleration: 2.0
   $(var robot_sn)_joint6:
     has_velocity_limits: true
-    max_velocity: 4.8869 # EnlightL
+    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
     max_acceleration: 2.0
   $(var robot_sn)_joint7:
     has_velocity_limits: true
-    max_velocity: 4.8869 # EnlightL
+    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
     max_acceleration: 2.0
   $(var robot_sn)_finger_width_joint:
@@ -48,3 +48,75 @@ joint_limits:
     max_velocity: 0.5
     has_acceleration_limits: true
     max_acceleration: 1.0
+
+  # Dual-arm joint limits (Enlight-LL, MICO-Core, MICO-Plus, MICO-Ultra)
+  left_$(var robot_sn)_joint1:
+    has_velocity_limits: true
+    max_velocity: 2.0944 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_$(var robot_sn)_joint2:
+    has_velocity_limits: true
+    max_velocity: 2.0944 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_$(var robot_sn)_joint3:
+    has_velocity_limits: true
+    max_velocity: 2.4435 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_$(var robot_sn)_joint4:
+    has_velocity_limits: true
+    max_velocity: 2.4435 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_$(var robot_sn)_joint5:
+    has_velocity_limits: true
+    max_velocity: 4.8869 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_$(var robot_sn)_joint6:
+    has_velocity_limits: true
+    max_velocity: 4.8869 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_$(var robot_sn)_joint7:
+    has_velocity_limits: true
+    max_velocity: 4.8869 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_$(var robot_sn)_joint1:
+    has_velocity_limits: true
+    max_velocity: 2.0944 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_$(var robot_sn)_joint2:
+    has_velocity_limits: true
+    max_velocity: 2.0944 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_$(var robot_sn)_joint3:
+    has_velocity_limits: true
+    max_velocity: 2.4435 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_$(var robot_sn)_joint4:
+    has_velocity_limits: true
+    max_velocity: 2.4435 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_$(var robot_sn)_joint5:
+    has_velocity_limits: true
+    max_velocity: 4.8869 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_$(var robot_sn)_joint6:
+    has_velocity_limits: true
+    max_velocity: 4.8869 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_$(var robot_sn)_joint7:
+    has_velocity_limits: true
+    max_velocity: 4.8869 # Enlight-L
+    has_acceleration_limits: true
+    max_acceleration: 2.0

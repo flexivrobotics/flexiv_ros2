@@ -1,21 +1,110 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg robot_type)">
     <!-- parameters -->
-    <xacro:arg name="robot_type" default="EnlightL" />
+    <xacro:arg name="robot_type" default="Enlight-L" />
     <xacro:arg name="arm_prefix" default="" />
     <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper" default="false" />
     <xacro:arg name="load_mounted_ft_sensor" default="false" />
 
     <xacro:include filename="$(find flexiv_moveit_config)/srdf/flexiv_macro.srdf.xacro" />
-    <xacro:flexiv_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
-        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
 
-    <!-- Load gripper -->
-    <xacro:if value="$(arg load_gripper)">
-        <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
+    <!-- Determine if this is a dual-arm robot type -->
+    <xacro:property name="is_dual" value="${'$(arg robot_type)' in ['Enlight-LL', 'MICO-Core', 'MICO-Plus', 'MICO-Ultra']}" />
+
+    <xacro:unless value="${is_dual}">
+        <!-- Single-arm -->
+        <xacro:flexiv_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
             load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
+
+        <!-- Load gripper -->
+        <xacro:if value="$(arg load_gripper)">
+            <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
+            <xacro:grav_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
+                load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
+        </xacro:if>
+    </xacro:unless>
+
+    <xacro:if value="${is_dual}">
+        <!-- Dual-arm: left and right Enlight-L arms sharing the same robot_sn.
+             URDF link/joint naming: left_<sn>_* and right_<sn>_*
+             The macro computes prefix = arm_prefix + robot_sn + '_', so
+             arm_prefix="left_" yields prefix "left_<sn>_" as required.
+             Virtual joints are disabled because both arms parent to 'world' via the URDF. -->
+        <xacro:flexiv_srdf arm_prefix="left_" robot_sn="$(arg robot_sn)"
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)"
+            use_virtual_joint="false" />
+        <xacro:flexiv_srdf arm_prefix="right_" robot_sn="$(arg robot_sn)"
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)"
+            use_virtual_joint="false" />
+
+        <!-- Combined group that references both arm sub-groups -->
+        <xacro:property name="left_prefix" value="${'left_' + '$(arg robot_sn)' + '_'}" />
+        <xacro:property name="right_prefix" value="${'right_' + '$(arg robot_sn)' + '_'}" />
+        <group name="both_arms">
+            <group name="${left_prefix}arm" />
+            <group name="${right_prefix}arm" />
+        </group>
+
+        <!-- Load gripper on both arms. -->
+        <xacro:if value="$(arg load_gripper)">
+            <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
+            <xacro:grav_srdf arm_prefix="left_" robot_sn="$(arg robot_sn)"
+                load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
+            <xacro:grav_srdf arm_prefix="right_" robot_sn="$(arg robot_sn)"
+                load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
+        </xacro:if>
+    </xacro:if>
+
+    <!-- ============================== MICO torso ============================== -->
+    <!-- The two arms mount on the torso, so the torso links and the arm base_links touch by
+         design. Without these disable_collisions every start state reads as in-collision and
+         planning aborts (e.g. torso_link2 vs left_base_link). torso_prefix = "<sn>_torso_";
+         left_prefix/right_prefix ("<arm>_<sn>_") were defined in the is_dual block above. -->
+    <xacro:property name="is_mico_core" value="${'$(arg robot_type)' == 'MICO-Core'}" />
+    <xacro:property name="is_mico_pan_tilt"
+        value="${'$(arg robot_type)' in ['MICO-Plus', 'MICO-Ultra']}" />
+    <xacro:property name="torso_prefix" value="${'$(arg robot_sn)' + '_torso_'}" />
+
+    <!-- MICO-Core: fixed torso; both arm bases mount directly on the torso base_link. -->
+    <xacro:if value="${is_mico_core}">
+        <disable_collisions link1="${torso_prefix}base_link" link2="${left_prefix}base_link"
+            reason="Adjacent" />
+        <disable_collisions link1="${torso_prefix}base_link" link2="${right_prefix}base_link"
+            reason="Adjacent" />
+        <disable_collisions link1="${left_prefix}base_link" link2="${right_prefix}base_link"
+            reason="Never" />
+    </xacro:if>
+
+    <!-- MICO-Plus / MICO-Ultra: 2-DoF torso (base_link -> link1 -> link2); arms mount on link2. -->
+    <xacro:if value="${is_mico_pan_tilt}">
+        <group name="$(arg robot_sn)_torso">
+            <joint name="$(arg robot_sn)_torso_joint1" />
+            <joint name="$(arg robot_sn)_torso_joint2" />
+        </group>
+        <group_state name="home" group="$(arg robot_sn)_torso">
+            <joint name="$(arg robot_sn)_torso_joint1" value="0" />
+            <joint name="$(arg robot_sn)_torso_joint2" value="0" />
+        </group_state>
+
+        <!-- Torso-internal adjacencies (revolute joint1/joint2) -->
+        <disable_collisions link1="${torso_prefix}base_link" link2="${torso_prefix}link1"
+            reason="Adjacent" />
+        <disable_collisions link1="${torso_prefix}link1" link2="${torso_prefix}link2"
+            reason="Adjacent" />
+        <disable_collisions link1="${torso_prefix}base_link" link2="${torso_prefix}link2"
+            reason="Never" />
+        <!-- Arm bases mount on link2 (via fixed flanges); link1 sits close to them too. -->
+        <disable_collisions link1="${torso_prefix}link2" link2="${left_prefix}base_link"
+            reason="Adjacent" />
+        <disable_collisions link1="${torso_prefix}link2" link2="${right_prefix}base_link"
+            reason="Adjacent" />
+        <disable_collisions link1="${torso_prefix}link1" link2="${left_prefix}base_link"
+            reason="Never" />
+        <disable_collisions link1="${torso_prefix}link1" link2="${right_prefix}base_link"
+            reason="Never" />
+        <disable_collisions link1="${left_prefix}base_link" link2="${right_prefix}base_link"
+            reason="Never" />
     </xacro:if>
 
 </robot>

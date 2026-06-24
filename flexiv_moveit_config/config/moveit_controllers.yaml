@@ -1,3 +1,5 @@
+# Single-arm (Enlight-L). Dual / MICO robots use moveit_controllers_dual.yaml /
+# moveit_controllers_mico.yaml, selected by flexiv_moveit.launch.py based on robot_type.
 controller_names:
   - flexiv_arm_controller
   - flexiv_gripper_node
