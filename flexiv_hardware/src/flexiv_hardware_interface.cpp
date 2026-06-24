@@ -29,8 +29,6 @@
 
 namespace {
 
-constexpr double kMaxJointVelocity = 2.0;
-constexpr double kMaxJointAcceleration = 3.0;
 constexpr uint64_t kMaxExactRobotStatesHandle = 1ULL << 53;
 
 using GroupDofList = std::vector<std::pair<flexiv::rdk::JointGroup, size_t>>;
@@ -85,9 +83,13 @@ std::string describe_group_layout(
 /**
  * Resolve active joint groups from Robot::states() for this interface.
  *
- * Supported layouts:
- * 1) Single-arm: exactly one group ARMS with DoF equal to expected_dof.
- * 2) Dual-arm: exactly two groups ARM_1 and ARM_2 whose DoFs sum to expected_dof.
+ * Supported arm layouts, each optionally combined with an EXT_AXIS group (e.g. MICO-Plus,
+ * MICO-Ultra torso), are: 1) Single-arm: one group ARMS. 2) Dual-arm: one group each for ARM_1 and
+ * ARM_2.
+ *
+ * When an EXT_AXIS group is present it is placed first in the returned list, matching the
+ * rdk_to_ros_map_ ordering convention (external axes precede arm joints). The DoFs of all
+ * returned groups must sum to expected_dof.
  *
  * @param states_by_group Joint-group keyed robot states from RDK.
  * @param expected_dof Total DoF expected by this hardware interface mapping.
@@ -100,64 +102,63 @@ GroupDofList determine_active_groups(
 {
     GroupDofList active_groups;
 
-    // Single-arm robot: one and only one group ARMS.
-    auto arms_it = states_by_group.find(flexiv::rdk::JointGroup::ARMS);
-    if (states_by_group.size() == 1 && arms_it != states_by_group.end()
-        && arms_it->second.q.size() == expected_dof) {
-        active_groups.emplace_back(flexiv::rdk::JointGroup::ARMS, expected_dof);
-        return active_groups;
-    }
-    if (states_by_group.size() == 1 && arms_it != states_by_group.end()) {
-        RCLCPP_ERROR(logger,
-            "Robot reported ARMS group with %zu joints, but hardware interface expects %zu. "
-            "Layout: %s",
-            arms_it->second.q.size(), expected_dof, describe_group_layout(states_by_group).c_str());
-        return active_groups;
-    }
+    // Optional external-axis group. Commanded first to match the
+    // rdk_to_ros_map_ ordering [ext_axis..., arm_joint...].
+    auto ext_it = states_by_group.find(flexiv::rdk::JointGroup::EXT_AXIS);
+    const bool has_ext = ext_it != states_by_group.end();
 
-    // Dual-arm robot: one and only one group for each arm.
+    // Arm layout. A real robot's states() exposes overlapping views: a dual-arm robot reports the
+    // commandable per-arm groups ARM_1 and ARM_2 *alongside* the aggregate views ALL and ARMS, and
+    // a single-arm robot reports ARMS alongside ALL. The per-arm groups are the commandable
+    // single-arm groups, so prefer them whenever both are present and treat ALL/ARMS as redundant
+    // aggregates to ignore. Fall back to ARMS only when there is no per-arm split.
+    auto arms_it = states_by_group.find(flexiv::rdk::JointGroup::ARMS);
     auto arm1_it = states_by_group.find(flexiv::rdk::JointGroup::ARM_1);
     auto arm2_it = states_by_group.find(flexiv::rdk::JointGroup::ARM_2);
-    if (states_by_group.size() == 2 && arm1_it != states_by_group.end()
-        && arm2_it != states_by_group.end()) {
-        const size_t arm1_dof = arm1_it->second.q.size();
-        const size_t arm2_dof = arm2_it->second.q.size();
-        if (arm1_dof > 0 && arm2_dof > 0 && arm1_dof + arm2_dof == expected_dof) {
-            active_groups.emplace_back(flexiv::rdk::JointGroup::ARM_1, arm1_dof);
-            active_groups.emplace_back(flexiv::rdk::JointGroup::ARM_2, arm2_dof);
-            return active_groups;
-        }
-    }
-    if (states_by_group.size() == 2 && arm1_it != states_by_group.end()
-        && arm2_it != states_by_group.end()) {
+    const bool is_dual_arm = arm1_it != states_by_group.end() && arm2_it != states_by_group.end();
+    const bool is_single_arm = !is_dual_arm && arms_it != states_by_group.end();
+
+    if (!is_single_arm && !is_dual_arm) {
         RCLCPP_ERROR(logger,
-            "Robot reported ARM_1 with %zu joints and ARM_2 with %zu joints, but hardware "
-            "interface expects %zu total joints. Layout: %s",
-            arm1_it->second.q.size(), arm2_it->second.q.size(), expected_dof,
-            describe_group_layout(states_by_group).c_str());
+            "Unsupported joint-group combination returned by robot states: %s. Supported arm "
+            "layouts are [ARMS] or [ARM_1, ARM_2] (overlapping [ALL]/[ARMS] aggregate views are "
+            "ignored), each optionally with [EXT_AXIS], with expected total DoF %zu.",
+            describe_group_layout(states_by_group).c_str(), expected_dof);
         return active_groups;
     }
 
-    for (const auto& [group, states] : states_by_group) {
-        if (group == flexiv::rdk::JointGroup::ARMS || group == flexiv::rdk::JointGroup::ARM_1
-            || group == flexiv::rdk::JointGroup::ARM_2) {
-            continue;
-        }
-
-        RCLCPP_WARN(logger,
-            "Robot reported unsupported joint group '%s' while resolving active groups "
-            "(q=%zu, dtheta=%zu, tau=%zu)",
-            joint_group_name_string(group).c_str(), states.q.size(), states.dtheta.size(),
-            states.tau.size());
+    // Assemble in RDK order: external axes first, then arm(s).
+    GroupDofList candidate_groups;
+    if (has_ext) {
+        candidate_groups.emplace_back(flexiv::rdk::JointGroup::EXT_AXIS, ext_it->second.q.size());
+    }
+    if (is_single_arm) {
+        candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARMS, arms_it->second.q.size());
+    } else {
+        candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARM_1, arm1_it->second.q.size());
+        candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARM_2, arm2_it->second.q.size());
     }
 
-    RCLCPP_ERROR(logger,
-        "Unsupported joint-group combination returned by robot states: %s. Supported layouts "
-        "are [ARMS] or [ARM_1, ARM_2] with expected total DoF %zu.",
-        describe_group_layout(states_by_group).c_str(), expected_dof);
+    size_t total_dof = 0;
+    for (const auto& [group, group_dof] : candidate_groups) {
+        if (group_dof == 0) {
+            RCLCPP_ERROR(logger, "Joint group '%s' reported 0 joints. Layout: %s",
+                joint_group_name_string(group).c_str(),
+                describe_group_layout(states_by_group).c_str());
+            return active_groups;
+        }
+        total_dof += group_dof;
+    }
 
-    // Any other group combination is unsupported in this interface.
-    active_groups.clear();
+    if (total_dof != expected_dof) {
+        RCLCPP_ERROR(logger,
+            "Robot joint groups report %zu total joints, but hardware interface expects %zu. "
+            "Layout: %s",
+            total_dof, expected_dof, describe_group_layout(states_by_group).c_str());
+        return active_groups;
+    }
+
+    active_groups = std::move(candidate_groups);
     return active_groups;
 }
 
@@ -231,7 +232,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     target_torque_buffer_.resize(info_.joints.size(), 0.0);
     hw_states_gpio_in_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
     hw_commands_gpio_out_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
-    nrt_joint_position_cmds_.clear();
+    rt_joint_position_cmds_.clear();
     rt_joint_torque_cmds_.clear();
     stop_modes_ = {};
     start_modes_ = {};
@@ -416,9 +417,9 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     try {
         auto rdk_control_mode_str = info_.hardware_parameters.at("rdk_control_mode");
         if (rdk_control_mode_str == "joint_position") {
-            rdk_control_mode_ = flexiv::rdk::Mode::NRT_JOINT_POSITION;
+            rdk_control_mode_ = flexiv::rdk::Mode::RT_JOINT_POSITION;
         } else if (rdk_control_mode_str == "joint_impedance") {
-            rdk_control_mode_ = flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE;
+            rdk_control_mode_ = flexiv::rdk::Mode::RT_JOINT_IMPEDANCE;
         } else {
             RCLCPP_FATAL(getLogger(),
                 "Parameter 'rdk_control_mode' has invalid value '%s'. Options: joint_position, "
@@ -474,7 +475,13 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
 
     std::vector<flexiv::rdk::JointGroup> groups;
     if (robot_) {
-        groups = robot_->groups();
+        for (const auto& [group, name] : robot_->info().all_groups) {
+            if (group == flexiv::rdk::JointGroup::ALL
+                || group == flexiv::rdk::JointGroup::UNKNOWN) {
+                continue;
+            }
+            groups.push_back(group);
+        }
     }
     if (groups.empty()) {
         groups.push_back(flexiv::rdk::JointGroup::ARMS);
@@ -553,27 +560,33 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
             RCLCPP_INFO(getLogger(), "Fault on robot server is cleared");
         }
 
-        // Check the DoF of the robot
-        if (robot_->info().DoF != info_.joints.size()) {
-            RCLCPP_FATAL(getLogger(), "Robot has %ld DoF. Expected %ld (from URDF).",
-                robot_->info().DoF, info_.joints.size());
+        const auto robot_info = robot_->info();
+        size_t robot_total_dof = 0;
+        for (const auto& [group, name] : robot_info.single_arm_groups) {
+            const auto dof_it = robot_info.DoF.find(group);
+            if (dof_it != robot_info.DoF.end()) {
+                robot_total_dof += dof_it->second;
+            }
+        }
+        const auto ext_dof_it = robot_info.DoF.find(flexiv::rdk::JointGroup::EXT_AXIS);
+        if (ext_dof_it != robot_info.DoF.end()) {
+            robot_total_dof += ext_dof_it->second;
+        }
+        if (robot_total_dof != info_.joints.size()) {
+            RCLCPP_FATAL(getLogger(), "Robot has %zu commandable DoF. Expected %zu (from URDF).",
+                robot_total_dof, info_.joints.size());
             return hardware_interface::CallbackReturn::ERROR;
         }
 
-        // Enable the robot
-        RCLCPP_INFO(getLogger(), "Enabling robot ...");
-        robot_->Enable();
+        // Servo on the robot (release brakes and become operational)
+        RCLCPP_INFO(getLogger(), "Servoing on robot ...");
+        robot_->ServoOn();
 
         // Wait for the robot to become operational
         while (!robot_->operational()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         RCLCPP_INFO(getLogger(), "Robot is now operational");
-
-        // Unlock external axes if any
-        if (robot_->info().DoF_e > 0) {
-            robot_->LockExternalAxes(false);
-        }
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable robot.");
         RCLCPP_FATAL(getLogger(), e.what());
@@ -716,43 +729,42 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             }
         }
 
-        bool rebuild_nrt_joint_position_cmds
-            = nrt_joint_position_cmds_.size() != active_groups.size();
-        if (!rebuild_nrt_joint_position_cmds) {
-            auto cmd_it = nrt_joint_position_cmds_.begin();
+        // Stream real-time joint position commands.
+        bool rebuild_rt_joint_position_cmds
+            = rt_joint_position_cmds_.size() != active_groups.size();
+        if (!rebuild_rt_joint_position_cmds) {
+            auto cmd_it = rt_joint_position_cmds_.begin();
             for (const auto& [group, group_dof] : active_groups) {
-                if (cmd_it == nrt_joint_position_cmds_.end() || cmd_it->first != group
+                if (cmd_it == rt_joint_position_cmds_.end() || cmd_it->first != group
                     || cmd_it->second.q_d.size() != group_dof
                     || cmd_it->second.dq_d.size() != group_dof
-                    || cmd_it->second.dq_max.size() != group_dof
-                    || cmd_it->second.ddq_max.size() != group_dof) {
-                    rebuild_nrt_joint_position_cmds = true;
+                    || cmd_it->second.ddq_d.size() != group_dof) {
+                    rebuild_rt_joint_position_cmds = true;
                     break;
                 }
                 ++cmd_it;
             }
         }
 
-        if (rebuild_nrt_joint_position_cmds) {
-            nrt_joint_position_cmds_.clear();
+        if (rebuild_rt_joint_position_cmds) {
+            rt_joint_position_cmds_.clear();
             for (const auto& [group, group_dof] : active_groups) {
-                auto& cmd = nrt_joint_position_cmds_[group];
+                auto& cmd = rt_joint_position_cmds_[group];
                 cmd.q_d.resize(group_dof);
                 cmd.dq_d.resize(group_dof);
-                cmd.dq_max.assign(group_dof, kMaxJointVelocity);
-                cmd.ddq_max.assign(group_dof, kMaxJointAcceleration);
+                cmd.ddq_d.assign(group_dof, 0.0);
             }
         }
 
         if (active_groups.size() == 1
             && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
-            auto& cmd = nrt_joint_position_cmds_.at(flexiv::rdk::JointGroup::ARMS);
+            auto& cmd = rt_joint_position_cmds_.at(flexiv::rdk::JointGroup::ARMS);
             std::copy(target_pos.begin(), target_pos.end(), cmd.q_d.begin());
             std::copy(target_vel.begin(), target_vel.end(), cmd.dq_d.begin());
         } else {
             size_t offset = 0;
             for (const auto& [group, group_dof] : active_groups) {
-                auto& cmd = nrt_joint_position_cmds_.at(group);
+                auto& cmd = rt_joint_position_cmds_.at(group);
                 const auto begin = static_cast<std::vector<double>::difference_type>(offset);
                 std::copy_n(target_pos.begin() + begin, group_dof, cmd.q_d.begin());
                 std::copy_n(target_vel.begin() + begin, group_dof, cmd.dq_d.begin());
@@ -760,7 +772,7 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             }
         }
 
-        robot_->SendJointPosition(nrt_joint_position_cmds_);
+        robot_->StreamJointPosition(rt_joint_position_cmds_);
     } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
                && !is_eff_nan) {
         auto states_by_group = robot_->states();
