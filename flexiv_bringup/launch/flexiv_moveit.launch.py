@@ -7,6 +7,7 @@ from launch.actions import (
     DeclareLaunchArgument,
     EmitEvent,
     IncludeLaunchDescription,
+    LogInfo,
     OpaqueFunction,
     RegisterEventHandler,
     SetEnvironmentVariable,
@@ -52,10 +53,18 @@ def launch_setup(context):
     robot_type = LaunchConfiguration("robot_type")
     robot_sn = LaunchConfiguration("robot_sn")
     robot_sn_str = robot_sn.perform(context)
+    robot_type_str = robot_type.perform(context)
+    dual_arm_robot_types = ["Enlight-LL", "MICO-Core", "MICO-Plus", "MICO-Ultra"]
+    pan_tilt_robot_types = ["MICO-Plus", "MICO-Ultra"]
+    is_dual = robot_type_str in dual_arm_robot_types
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
     start_rviz = LaunchConfiguration("start_rviz")
     load_gripper = LaunchConfiguration("load_gripper")
     gripper_name = LaunchConfiguration("gripper_name")
+    gripper_name_left = LaunchConfiguration("gripper_name_left")
+    gripper_name_right = LaunchConfiguration("gripper_name_right")
+    robot_controller = LaunchConfiguration("robot_controller")
+    rdk_install_prefix = LaunchConfiguration("rdk_install_prefix")
     load_mounted_ft_sensor = LaunchConfiguration("load_mounted_ft_sensor")
     use_fake_hardware = LaunchConfiguration("use_fake_hardware")
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
@@ -174,9 +183,15 @@ def launch_setup(context):
     )
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
-    # Trajectory Execution Configuration
+    # Trajectory Execution Configuration.
+    if robot_type_str in pan_tilt_robot_types:
+        moveit_controllers_file = "config/moveit_controllers_mico.yaml"
+    elif is_dual:
+        moveit_controllers_file = "config/moveit_controllers_dual.yaml"
+    else:
+        moveit_controllers_file = "config/moveit_controllers.yaml"
     moveit_simple_controllers_yaml = load_yaml(
-        "flexiv_moveit_config", "config/moveit_controllers.yaml", replacements
+        "flexiv_moveit_config", moveit_controllers_file, replacements
     )
 
     moveit_controllers = {
@@ -259,9 +274,15 @@ def launch_setup(context):
         parameters=[robot_description],
     )
 
-    # Robot controllers
+    # Robot controllers — select by topology (must match moveit_controllers selection above).
+    if robot_type_str in pan_tilt_robot_types:
+        controllers_file = "flexiv_mico_controllers.yaml"
+    elif is_dual:
+        controllers_file = "flexiv_dual_controllers.yaml"
+    else:
+        controllers_file = "flexiv_controllers.yaml"
     robot_controllers = PathJoinSubstitution(
-        [FindPackageShare("flexiv_bringup"), "config", "flexiv_controllers.yaml"]
+        [FindPackageShare("flexiv_bringup"), "config", controllers_file]
     )
 
     # Run controller manager
@@ -288,6 +309,8 @@ def launch_setup(context):
                 "source_list": [
                     "flexiv_arm/joint_states",
                     "flexiv_gripper_node/gripper_joint_states",
+                    "left_flexiv_gripper_node/gripper_joint_states",
+                    "right_flexiv_gripper_node/gripper_joint_states",
                 ],
                 "rate": 30,
             }
@@ -298,11 +321,7 @@ def launch_setup(context):
     robot_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=[
-            "flexiv_arm_controller",
-            "--controller-manager",
-            "/controller_manager",
-        ],
+        arguments=[robot_controller, "--controller-manager", "/controller_manager"],
     )
 
     # Run joint state broadcaster
@@ -316,50 +335,154 @@ def launch_setup(context):
         ],
     )
 
-    # Run Flexiv robot states broadcaster
-    flexiv_robot_states_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["flexiv_robot_states_broadcaster"],
-        parameters=[{"robot_sn": robot_sn}],
-        condition=UnlessCondition(use_fake_hardware),
-    )
-
-    # Include gripper launch file
-    load_gripper_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution(
-                [
-                    FindPackageShare("flexiv_gripper"),
-                    "launch",
-                    "flexiv_gripper.launch.py",
-                ]
+    # Run Flexiv robot states broadcaster(s). Single-arm robots publish one; dual-arm robots
+    # publish one per arm (left_<sn> / right_<sn>), matching the selected controllers yaml.
+    robot_states_broadcaster_spawners = []
+    if is_dual:
+        robot_states_broadcaster_spawners.append(
+            Node(
+                package="controller_manager",
+                executable="spawner",
+                arguments=["left_flexiv_robot_states_broadcaster"],
+                condition=UnlessCondition(use_fake_hardware),
             )
-        ),
-        launch_arguments={
+        )
+        robot_states_broadcaster_spawners.append(
+            Node(
+                package="controller_manager",
+                executable="spawner",
+                arguments=["right_flexiv_robot_states_broadcaster"],
+                condition=UnlessCondition(use_fake_hardware),
+            )
+        )
+    else:
+        robot_states_broadcaster_spawners.append(
+            Node(
+                package="controller_manager",
+                executable="spawner",
+                arguments=["flexiv_robot_states_broadcaster"],
+                parameters=[{"robot_sn": robot_sn}],
+                condition=UnlessCondition(use_fake_hardware),
+            )
+        )
+
+    # ---- Gripper launch + readiness gating (mirrors flexiv.launch.py) ----
+    # Grippers run only on real hardware (gripper_ready_gate_condition). Single-arm robots run one
+    # gripper node; dual-arm robots run one per arm group (ARM_1 = left, ARM_2 = right), each a lite
+    # RDK instance sharing the driver's connection.
+    def gripper_launch(node_name, name, joint_group=None):
+        args = {
+            "gripper_node_name": node_name,
             "robot_sn": robot_sn,
-            "gripper_name": gripper_name,
+            "gripper_name": name,
             "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
-            "rdk_install_prefix": LaunchConfiguration("rdk_install_prefix"),
-        }.items(),
-        condition=IfCondition(load_gripper),
-    )
+            "rdk_install_prefix": rdk_install_prefix,
+        }
+        if joint_group is not None:
+            args["joint_group"] = joint_group
+        return IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution(
+                    [
+                        FindPackageShare("flexiv_gripper"),
+                        "launch",
+                        "flexiv_gripper.launch.py",
+                    ]
+                )
+            ),
+            launch_arguments=args.items(),
+            condition=IfCondition(gripper_ready_gate_condition),
+        )
 
-    gripper_ready_waiter = Node(
-        package="flexiv_gripper",
-        executable="wait_for_gripper_ready",
-        name="wait_for_gripper_ready",
-        parameters=[{"ready_topic": "/flexiv_gripper_node/ready"}],
-        output="screen",
-        condition=IfCondition(gripper_ready_gate_condition),
-    )
+    def gripper_ready_waiter_node(node_name, topic):
+        return Node(
+            package="flexiv_gripper",
+            executable="wait_for_gripper_ready",
+            name=node_name,
+            parameters=[{"ready_topic": topic}],
+            output="screen",
+            condition=IfCondition(gripper_ready_gate_condition),
+        )
 
     def launch_robot_controller_after_gripper_ready(event, context):
         if event.returncode == 0:
             return [robot_controller_spawner]
-        return [
-            EmitEvent(event=Shutdown(reason="flexiv_gripper_node did not report ready"))
+        return [EmitEvent(event=Shutdown(reason="flexiv gripper did not report ready"))]
+
+    # Nodes added directly, and the event handlers that sequence the gripper(s) -> controller.
+    gripper_nodes = []
+    gripper_event_handlers = []
+    if is_dual:
+        load_gripper_launch_left = gripper_launch(
+            "left_flexiv_gripper_node", gripper_name_left, "ARM_1"
+        )
+        load_gripper_launch_right = gripper_launch(
+            "right_flexiv_gripper_node", gripper_name_right, "ARM_2"
+        )
+        left_gripper_ready_waiter = gripper_ready_waiter_node(
+            "wait_for_left_gripper_ready", "/left_flexiv_gripper_node/ready"
+        )
+        right_gripper_ready_waiter = gripper_ready_waiter_node(
+            "wait_for_right_gripper_ready", "/right_flexiv_gripper_node/ready"
+        )
+
+        def launch_right_waiter_after_left_ready(event, context):
+            if event.returncode == 0:
+                return [right_gripper_ready_waiter]
+            return [
+                EmitEvent(
+                    event=Shutdown(
+                        reason="left_flexiv_gripper_node did not report ready"
+                    )
+                )
+            ]
+
+        gripper_nodes = [left_gripper_ready_waiter]
+        gripper_event_handlers = [
+            RegisterEventHandler(
+                event_handler=OnProcessExit(
+                    target_action=joint_state_broadcaster_spawner,
+                    on_exit=[load_gripper_launch_left, load_gripper_launch_right],
+                ),
+                condition=IfCondition(gripper_ready_gate_condition),
+            ),
+            RegisterEventHandler(
+                event_handler=OnProcessExit(
+                    target_action=left_gripper_ready_waiter,
+                    on_exit=launch_right_waiter_after_left_ready,
+                ),
+                condition=IfCondition(gripper_ready_gate_condition),
+            ),
+            RegisterEventHandler(
+                event_handler=OnProcessExit(
+                    target_action=right_gripper_ready_waiter,
+                    on_exit=launch_robot_controller_after_gripper_ready,
+                ),
+                condition=IfCondition(gripper_ready_gate_condition),
+            ),
+        ]
+    else:
+        load_gripper_launch = gripper_launch("flexiv_gripper_node", gripper_name)
+        gripper_ready_waiter = gripper_ready_waiter_node(
+            "wait_for_gripper_ready", "/flexiv_gripper_node/ready"
+        )
+        gripper_nodes = [gripper_ready_waiter]
+        gripper_event_handlers = [
+            RegisterEventHandler(
+                event_handler=OnProcessExit(
+                    target_action=joint_state_broadcaster_spawner,
+                    on_exit=[load_gripper_launch],
+                ),
+                condition=IfCondition(gripper_ready_gate_condition),
+            ),
+            RegisterEventHandler(
+                event_handler=OnProcessExit(
+                    target_action=gripper_ready_waiter,
+                    on_exit=launch_robot_controller_after_gripper_ready,
+                ),
+                condition=IfCondition(gripper_ready_gate_condition),
+            ),
         ]
 
     # Servo node for realtime control
@@ -391,7 +514,8 @@ def launch_setup(context):
         condition=UnlessCondition(use_fake_hardware),
     )
 
-    # Delay start of robot_controller after `joint_state_broadcaster`
+    # When no gripper is loaded, start the robot controller right after joint_state_broadcaster.
+    # (With a gripper, the gripper_event_handlers chain starts the controller once grippers ready.)
     delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = (
         RegisterEventHandler(
             event_handler=OnProcessExit(
@@ -400,22 +524,6 @@ def launch_setup(context):
             ),
             condition=UnlessCondition(gripper_ready_gate_condition),
         )
-    )
-
-    delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=joint_state_broadcaster_spawner,
-            on_exit=[load_gripper_launch],
-        ),
-        condition=IfCondition(gripper_ready_gate_condition),
-    )
-
-    delay_robot_controller_spawner_after_gripper_ready = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=gripper_ready_waiter,
-            on_exit=launch_robot_controller_after_gripper_ready,
-        ),
-        condition=IfCondition(gripper_ready_gate_condition),
     )
 
     # Delay move_group start after `robot_controller_spawner`
@@ -434,18 +542,28 @@ def launch_setup(context):
         )
     )
 
+    # MICO-Ultra mobile base alert
+    mico_ultra_alert = LogInfo(
+        msg=(
+            "MICO-Ultra mobile base is NOT supported in ros2_control (v2.1). "
+            "The arms and pan-tilt torso are controllable; the mobile base is not "
+            "driven by this stack."
+        ),
+        condition=IfCondition(PythonExpression(["'", robot_type, "' == 'MICO-Ultra'"])),
+    )
+
     nodes = [
+        mico_ultra_alert,
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
-        gripper_ready_waiter,
         joint_state_broadcaster_spawner,
-        flexiv_robot_states_broadcaster_spawner,
+        *robot_states_broadcaster_spawners,
         gpio_controller_spawner,
         servo_node,
-        delay_gripper_launch_after_joint_state_broadcaster_spawner,
+        *gripper_nodes,
+        *gripper_event_handlers,
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
-        delay_robot_controller_spawner_after_gripper_ready,
         delay_move_group_after_robot_controller_spawner,
         delay_rviz_after_robot_controller_spawner,
     ]
@@ -456,23 +574,27 @@ def launch_setup(context):
 def generate_launch_description():
     # Declare command-line arguments
     declared_arguments = []
-    single_arm_robot_types = [
-        "EnlightL",
+    robot_types = [
+        "Enlight-L",
+        "Enlight-LL",
+        "MICO-Core",
+        "MICO-Plus",
+        "MICO-Ultra",
     ]
 
     declared_arguments.append(
         DeclareLaunchArgument(
             "robot_type",
-            description="Type of the Flexiv single-arm robot.",
-            default_value="EnlightL",
-            choices=single_arm_robot_types,
+            description="Type of the Flexiv robot. Single-arm: Enlight-L. Dual-arm: Enlight-LL, MICO-Core, MICO-Plus, MICO-Ultra.",
+            default_value="Enlight-L",
+            choices=robot_types,
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
             "robot_sn",
-            description="Serial number of the robot to connect to. Remove any space, for example: EnlightL-123456",
+            description="Serial number of the robot to connect to. Remove any space, for example: Enlight-L-123456",
         )
     )
 
@@ -505,7 +627,31 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "gripper_name",
             default_value="Flexiv-GN01",
-            description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
+            description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device. For single-arm robots and as the default for both arms of a dual-arm robot.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "gripper_name_left",
+            default_value=LaunchConfiguration("gripper_name"),
+            description="Gripper device name for the LEFT arm (ARM_1) of a dual-arm robot. Defaults to 'gripper_name'.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "gripper_name_right",
+            default_value=LaunchConfiguration("gripper_name"),
+            description="Gripper device name for the RIGHT arm (ARM_2) of a dual-arm robot. Defaults to 'gripper_name'.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "robot_controller",
+            default_value="flexiv_arm_controller",
+            description="Robot controller to start. Available: flexiv_arm_controller",
         )
     )
 
