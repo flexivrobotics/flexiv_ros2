@@ -4,6 +4,37 @@
 
 #include "flexiv_gripper/gripper_action_server.hpp"
 
+namespace {
+
+/**
+ * @brief Resolve the joint group whose gripper this node controls.
+ * @param[in] group_name Requested group name ("ARM_1", "ARM_2", ...). Empty means auto-detect.
+ * @param[in] single_arm_groups Single-arm groups reported by the connected robot.
+ * @return Resolved joint group.
+ * @throw std::invalid_argument if the name is unknown, or if auto-detect is ambiguous (more than
+ * one single-arm group) or finds no group.
+ */
+flexiv::rdk::JointGroup ResolveJointGroup(const std::string& group_name,
+    const std::map<flexiv::rdk::JointGroup, std::string>& single_arm_groups)
+{
+    if (group_name.empty()) {
+        if (single_arm_groups.size() == 1) {
+            return single_arm_groups.begin()->first;
+        }
+        throw std::invalid_argument(
+            "Parameter 'joint_group' must be specified (e.g. ARM_1 or ARM_2) because the connected "
+            "robot reports multiple single-arm groups");
+    }
+    for (const auto& [group, name] : flexiv::rdk::kJointGroupNames) {
+        if (name == group_name) {
+            return group;
+        }
+    }
+    throw std::invalid_argument("Unknown joint_group '" + group_name + "'");
+}
+
+}
+
 namespace flexiv_gripper {
 
 GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
@@ -17,6 +48,7 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
     this->declare_parameter("default_max_force", kDefaultMaxForce);
     this->declare_parameter("gripper_joint_names", std::vector<std::string>());
     this->declare_parameter("use_lite_rdk", false);
+    this->declare_parameter("joint_group", std::string());
 
     std::string robot_sn;
     if (!this->get_parameter("robot_sn", robot_sn)) {
@@ -50,8 +82,7 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
     try {
         RCLCPP_INFO(this->get_logger(), "Connecting to robot %s with a %s RDK instance ...",
             robot_sn.c_str(), use_lite_rdk ? "lite" : "normal");
-        robot_ = std::make_unique<flexiv::rdk::Robot>(
-            robot_sn, std::vector<std::string> {}, true, use_lite_rdk);
+        robot_ = std::make_unique<flexiv::rdk::Robot>(robot_sn, true, use_lite_rdk);
 
         RCLCPP_INFO(this->get_logger(), "Successfully connected to robot");
 
@@ -67,8 +98,8 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
             }
 
             if (!robot_->operational()) {
-                RCLCPP_INFO(this->get_logger(), "Enabling robot ...");
-                robot_->Enable();
+                RCLCPP_INFO(this->get_logger(), "Servoing on robot ...");
+                robot_->ServoOn();
 
                 while (!robot_->operational()) {
                     std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -77,27 +108,32 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
             }
         }
 
+        const std::string joint_group_name = this->get_parameter("joint_group").as_string();
+        this->joint_group_ = ResolveJointGroup(joint_group_name, robot_->info().single_arm_groups);
+        RCLCPP_INFO(this->get_logger(), "Controlling gripper for joint group [%s]",
+            flexiv::rdk::kJointGroupNames.at(joint_group_).c_str());
+
         RCLCPP_INFO(this->get_logger(), "Initializing Flexiv gripper control interface");
         this->gripper_ = std::make_unique<flexiv::rdk::Gripper>(*robot_);
         this->tool_ = std::make_unique<flexiv::rdk::Tool>(*robot_);
 
-        // Enable the specified gripper as a device
+        // Enable the specified gripper as a device for this joint group
         RCLCPP_INFO(this->get_logger(), "Enabling gripper %s ...", gripper_name.c_str());
-        gripper_->Enable(gripper_name);
+        gripper_->Enable(joint_group_, gripper_name);
 
         // Switch robot tool to gripper so the gravity compensation and TCP location is updated
         RCLCPP_INFO(this->get_logger(), "Switching robot tool to %s ...", gripper_name.c_str());
-        tool_->Switch(gripper_name);
+        tool_->Switch(joint_group_, gripper_name);
 
         // Manually initialize the gripper, not all grippers need this step
         RCLCPP_INFO(
             this->get_logger(), "Initializing gripper, this process takes about 10 seconds ..");
-        gripper_->Init();
+        gripper_->Init(joint_group_);
         std::this_thread::sleep_for(std::chrono::seconds(10));
         RCLCPP_INFO(this->get_logger(), "Gripper initialization completed");
 
         // Get the current gripper states
-        this->current_gripper_states_ = gripper_->states();
+        this->current_gripper_states_ = gripper_->states().at(joint_group_);
     } catch (const std::exception& e) {
         if (use_lite_rdk) {
             RCLCPP_FATAL(this->get_logger(),
@@ -179,7 +215,7 @@ void GripperActionServer::ExecuteMove(const std::shared_ptr<GoalHandleMove>& goa
 {
     auto command = [this, goal_handle]() {
         const auto goal = goal_handle->get_goal();
-        gripper_->Move(goal->width, goal->velocity, goal->max_force);
+        gripper_->Move(joint_group_, goal->width, goal->velocity, goal->max_force);
     };
     ExecuteCommand(goal_handle, GripperAction::kMove, command);
 }
@@ -188,7 +224,7 @@ void GripperActionServer::ExecuteGrasp(const std::shared_ptr<GoalHandleGrasp>& g
 {
     auto command = [this, goal_handle]() {
         const auto goal = goal_handle->get_goal();
-        gripper_->Grasp(goal->force);
+        gripper_->Grasp(joint_group_, goal->force);
     };
     ExecuteCommand(goal_handle, GripperAction::kGrasp, command);
 }
@@ -202,9 +238,10 @@ void GripperActionServer::ExecuteGripperCommand(
     std::unique_lock<std::mutex> guard(gripper_states_mutex_);
     auto result = std::make_shared<control_msgs::action::GripperCommand::Result>();
     const double current_width = current_gripper_states_.width;
-    if (target_width > gripper_->params().max_width || target_width < 0) {
+    const double max_width = gripper_->params().at(joint_group_).max_width;
+    if (target_width > max_width || target_width < 0) {
         RCLCPP_ERROR(this->get_logger(), "Invalid gripper target width: %f. Max width = %f",
-            target_width, gripper_->params().max_width);
+            target_width, max_width);
         goal_handle->abort(result);
         return;
     }
@@ -220,7 +257,7 @@ void GripperActionServer::ExecuteGripperCommand(
     guard.unlock();
 
     auto command = [this, target_width]() {
-        gripper_->Move(target_width, kDefaultVelocity, kDefaultMaxForce);
+        gripper_->Move(joint_group_, target_width, kDefaultVelocity, kDefaultMaxForce);
     };
 
     ExecuteGripperCommandHelper(goal_handle, command);
@@ -250,7 +287,7 @@ void GripperActionServer::ExecuteGripperCommandHelper(
 
     while (!IsResultReady(result_future, future_wait_timeout_) && rclcpp::ok()) {
         if (goal_handle->is_canceling()) {
-            gripper_->Stop();
+            gripper_->Stop(joint_group_);
             auto result = result_future.get();
             RCLCPP_INFO(
                 this->get_logger(), "Gripper %s action has been canceled", action_name.c_str());
@@ -279,7 +316,7 @@ void GripperActionServer::ExecuteGripperCommandHelper(
 void GripperActionServer::StopServiceCallback(const std::shared_ptr<Trigger::Response>& response)
 {
     RCLCPP_INFO(this->get_logger(), "Stopping the gripper...");
-    auto result = CommandExecutionResult<Move>([this]() { gripper_->Stop(); })();
+    auto result = CommandExecutionResult<Move>([this]() { gripper_->Stop(joint_group_); })();
     response->success = result->success;
     response->message = result->error;
     if (response->success) {
@@ -295,7 +332,7 @@ void GripperActionServer::StopServiceCallback(const std::shared_ptr<Trigger::Res
 void GripperActionServer::PublishGripperStates()
 {
     std::lock_guard<std::mutex> lock(gripper_states_mutex_);
-    this->current_gripper_states_ = gripper_->states();
+    this->current_gripper_states_ = gripper_->states().at(joint_group_);
     // Modify the gripper joint states based on the mounted gripper type
     // The gripper joint states below is for the Flexiv Grav GN-01 gripper
     sensor_msgs::msg::JointState gripper_joint_states;

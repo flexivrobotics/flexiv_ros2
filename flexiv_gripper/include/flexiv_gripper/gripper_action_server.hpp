@@ -99,6 +99,11 @@ private:
     std::unique_ptr<flexiv::rdk::Gripper> gripper_;
     std::unique_ptr<flexiv::rdk::Tool> tool_;
 
+    // Joint group whose gripper this node controls.
+    // Only single-arm groups (ARM_1, ARM_2) are valid for grippers.
+    // A dual-arm robot runs two instances of this node, one per arm group.
+    flexiv::rdk::JointGroup joint_group_;
+
     rclcpp_action::Server<Grasp>::SharedPtr grasp_action_server_;
     rclcpp_action::Server<Move>::SharedPtr move_action_server_;
     rclcpp_action::Server<GripperCommand>::SharedPtr gripper_command_action_server_;
@@ -185,7 +190,7 @@ private:
 
         while (!IsResultReady(result_future, future_wait_timeout_) && rclcpp::ok()) {
             if (goal_handle->is_canceling()) {
-                gripper_->Stop();
+                gripper_->Stop(joint_group_);
                 auto result = result_future.get();
                 RCLCPP_INFO(
                     this->get_logger(), "Gripper %s action has been canceled", action_name.c_str());

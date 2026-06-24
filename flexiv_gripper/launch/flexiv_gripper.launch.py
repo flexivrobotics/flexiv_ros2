@@ -19,6 +19,7 @@ def generate_launch_description():
     use_fake_hardware_param_name = "use_fake_hardware"
     use_lite_rdk_param_name = "use_lite_rdk"
     gripper_joint_names_param_name = "gripper_joint_names"
+    joint_group_param_name = "joint_group"
     rdk_install_prefix_param_name = "rdk_install_prefix"
 
     # Declare arguments
@@ -35,7 +36,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             robot_sn_param_name,
-            description="Serial number of the robot to connect to. Remove any space, for example: EnlightL-123456",
+            description="Serial number of the robot to connect to. Remove any space, for example: Enlight-L-123456",
         )
     )
 
@@ -73,6 +74,15 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            joint_group_param_name,
+            default_value="",
+            description="Joint group whose gripper to control (e.g. ARM_1 or ARM_2). Leave empty to "
+            "auto-detect on single-arm robots; must be set for dual-arm robots.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             rdk_install_prefix_param_name,
             default_value=os.path.expanduser("~/rdk_install"),
             description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
@@ -86,6 +96,7 @@ def generate_launch_description():
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     use_lite_rdk = LaunchConfiguration(use_lite_rdk_param_name)
     gripper_joint_names = LaunchConfiguration(gripper_joint_names_param_name)
+    joint_group = LaunchConfiguration(joint_group_param_name)
     rdk_install_prefix = LaunchConfiguration(rdk_install_prefix_param_name)
 
     set_rdk_ld_library_path = SetEnvironmentVariable(
@@ -112,6 +123,7 @@ def generate_launch_description():
                 "gripper_name": gripper_name,
                 "gripper_joint_names": gripper_joint_names,
                 "use_lite_rdk": use_lite_rdk,
+                "joint_group": joint_group,
             },
             gripper_config_file,
         ],
