@@ -20,7 +20,7 @@ class StateMonitor(Node):
         super().__init__("state_monitor")
 
         # Declare a parameter for the robot serial number
-        self.declare_parameter("robot_sn", "EnlightL-000000")
+        self.declare_parameter("robot_sn", "Enlight-L-000001")
         robot_sn = self.get_parameter("robot_sn").get_parameter_value().string_value
 
         # Construct topic name dynamically based on robot SN

@@ -1,19 +1,18 @@
 """Launch file for Robot States Publisher Node.
 
 Example usage:
-    # Auto-detect network interface:
     ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
-        robot_sn:=EnlightL-123456
-
-    # With specific network interface:
-    ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
-        robot_sn:=EnlightL-123456 \
-        network_interface:=eth0
+        robot_sn:=Enlight-L-123456
 
     # Custom publish rate:
     ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
-        robot_sn:=EnlightL-123456 \
+        robot_sn:=Enlight-L-123456 \
         publish_rate:=200
+
+    # Publish a single arm of a dual-arm robot:
+    ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
+        robot_sn:=Enlight-LL-123456 \
+        joint_group:=ARM_1
 
 Author: Flexiv Robotics
 License: Apache-2.0
@@ -30,19 +29,20 @@ def generate_launch_description():
 
     # Declare launch arguments
     robot_sn_arg = DeclareLaunchArgument(
-        "robot_sn", description="Robot serial number (e.g., EnlightL-123456)"
-    )
-
-    network_interface_arg = DeclareLaunchArgument(
-        "network_interface",
-        default_value="",
-        description="Network interface name (e.g., eth0, enp0s31f6). Leave empty to auto-detect.",
+        "robot_sn", description="Robot serial number (e.g., Enlight-L-123456)"
     )
 
     publish_rate_arg = DeclareLaunchArgument(
         "publish_rate",
         default_value="100",
         description="Publishing rate in Hz (default: 100)",
+    )
+
+    joint_group_arg = DeclareLaunchArgument(
+        "joint_group",
+        default_value="ALL",
+        description="RDK joint group whose states to publish: ALL (whole robot), ARM_1 (left), "
+        "or ARM_2 (right).",
     )
 
     # Create the Robot States Publisher node
@@ -54,23 +54,21 @@ def generate_launch_description():
         parameters=[
             {
                 "robot_sn": LaunchConfiguration("robot_sn"),
-                "network_interface": LaunchConfiguration("network_interface"),
                 "publish_rate": LaunchConfiguration("publish_rate"),
+                "joint_group": LaunchConfiguration("joint_group"),
             }
         ],
         arguments=[
             "--robot-sn",
             LaunchConfiguration("robot_sn"),
-            "--network-interface",
-            LaunchConfiguration("network_interface"),
         ],
     )
 
     return LaunchDescription(
         [
             robot_sn_arg,
-            network_interface_arg,
             publish_rate_arg,
+            joint_group_arg,
             robot_states_publisher_node,
         ]
     )
