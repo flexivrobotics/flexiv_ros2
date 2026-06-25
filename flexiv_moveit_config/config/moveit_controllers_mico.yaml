@@ -3,7 +3,8 @@
 # joint subset via allow_partial_joints_goal (enabled controller-side).
 controller_names:
   - flexiv_arm_controller
-  - flexiv_gripper_node
+  - left_flexiv_gripper_node
+  - right_flexiv_gripper_node
 
 flexiv_arm_controller:
   action_ns: follow_joint_trajectory
@@ -27,9 +28,16 @@ flexiv_arm_controller:
     - $(var robot_sn)_torso_joint1
     - $(var robot_sn)_torso_joint2
 
-flexiv_gripper_node:
+left_flexiv_gripper_node:
   action_ns: gripper_action
   type: GripperCommand
   default: true
   joints:
-    - $(var robot_sn)_finger_width_joint
+    - left_$(var robot_sn)_finger_width_joint
+
+right_flexiv_gripper_node:
+  action_ns: gripper_action
+  type: GripperCommand
+  default: true
+  joints:
+    - right_$(var robot_sn)_finger_width_joint
