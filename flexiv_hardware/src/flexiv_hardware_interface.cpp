@@ -113,12 +113,10 @@ GroupDofList determine_active_groups(
     // accept single-arm and external-axis groups and reject ALL/ARMS, so select ARM_1[/ARM_2] and
     // never the aggregates. ARMS is used only as a last-resort fallback for a robot that exposes
     // no per-arm group at all.
-    auto arms_it = states_by_group.find(flexiv::rdk::JointGroup::ARMS);
     auto arm1_it = states_by_group.find(flexiv::rdk::JointGroup::ARM_1);
     auto arm2_it = states_by_group.find(flexiv::rdk::JointGroup::ARM_2);
     const bool has_arm1 = arm1_it != states_by_group.end();
     const bool has_arm2 = arm2_it != states_by_group.end();
-    const bool has_arms = arms_it != states_by_group.end();
 
     // Assemble in RDK order: external axes first, then arm(s).
     GroupDofList candidate_groups;
@@ -132,9 +130,6 @@ GroupDofList determine_active_groups(
     } else if (has_arm1) {
         // Single-arm: ARM_1 is the commandable group (ARMS is only an aggregate view).
         candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARM_1, arm1_it->second.q.size());
-    } else if (has_arms) {
-        // Fallback: robot exposes only the aggregate ARMS group.
-        candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARMS, arms_it->second.q.size());
     } else {
         RCLCPP_ERROR(logger,
             "Unsupported joint-group combination returned by robot states: %s. Expected a "
