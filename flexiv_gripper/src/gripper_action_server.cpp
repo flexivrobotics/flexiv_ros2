@@ -27,6 +27,11 @@ flexiv::rdk::JointGroup ResolveJointGroup(const std::string& group_name,
     }
     for (const auto& [group, name] : flexiv::rdk::kJointGroupNames) {
         if (name == group_name) {
+            if (single_arm_groups.count(group) == 0) {
+                throw std::invalid_argument("Joint group '" + group_name
+                    + "' is not a single-arm group of the connected robot; a gripper can only be "
+                      "controlled on a single-arm group (e.g. ARM_1 or ARM_2)");
+            }
             return group;
         }
     }
