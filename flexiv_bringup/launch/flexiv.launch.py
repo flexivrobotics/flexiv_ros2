@@ -215,7 +215,7 @@ def launch_setup(context):
     # Grippers run only on real hardware (gripper_ready_gate_condition). Single-arm robots run one
     # gripper node; dual-arm robots run one per arm group (ARM_1 = left, ARM_2 = right), each a lite
     # RDK instance sharing the driver's connection.
-    def gripper_launch(node_name, name, joint_group=None):
+    def gripper_launch(node_name, name, joint_group=None, gripper_joint_names=None):
         args = {
             "gripper_node_name": node_name,
             "robot_sn": robot_sn,
@@ -226,6 +226,8 @@ def launch_setup(context):
         }
         if joint_group is not None:
             args["joint_group"] = joint_group
+        if gripper_joint_names is not None:
+            args["gripper_joint_names"] = gripper_joint_names
         return IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
                 PathJoinSubstitution(
@@ -260,10 +262,16 @@ def launch_setup(context):
     gripper_event_handlers = []
     if is_dual:
         load_gripper_launch_left = gripper_launch(
-            "left_flexiv_gripper_node", gripper_name_left, "ARM_1"
+            "left_flexiv_gripper_node",
+            gripper_name_left,
+            "ARM_1",
+            gripper_joint_names=["[left_", robot_sn, "_finger_width_joint]"],
         )
         load_gripper_launch_right = gripper_launch(
-            "right_flexiv_gripper_node", gripper_name_right, "ARM_2"
+            "right_flexiv_gripper_node",
+            gripper_name_right,
+            "ARM_2",
+            gripper_joint_names=["[right_", robot_sn, "_finger_width_joint]"],
         )
         left_gripper_ready_waiter = gripper_ready_waiter_node(
             "wait_for_left_gripper_ready", "/left_flexiv_gripper_node/ready"
@@ -308,7 +316,11 @@ def launch_setup(context):
             ),
         ]
     else:
-        load_gripper_launch = gripper_launch("flexiv_gripper_node", gripper_name)
+        load_gripper_launch = gripper_launch(
+            "flexiv_gripper_node",
+            gripper_name,
+            gripper_joint_names=["[", robot_sn, "_finger_width_joint]"],
+        )
         gripper_ready_waiter = gripper_ready_waiter_node(
             "wait_for_gripper_ready", "/flexiv_gripper_node/ready"
         )
