@@ -107,36 +107,41 @@ GroupDofList determine_active_groups(
     auto ext_it = states_by_group.find(flexiv::rdk::JointGroup::EXT_AXIS);
     const bool has_ext = ext_it != states_by_group.end();
 
-    // Arm layout. A real robot's states() exposes overlapping views: a dual-arm robot reports the
-    // commandable per-arm groups ARM_1 and ARM_2 *alongside* the aggregate views ALL and ARMS, and
-    // a single-arm robot reports ARMS alongside ALL. The per-arm groups are the commandable
-    // single-arm groups, so prefer them whenever both are present and treat ALL/ARMS as redundant
-    // aggregates to ignore. Fall back to ARMS only when there is no per-arm split.
+    // Arm layout. A real robot's states() exposes overlapping views: the commandable per-arm
+    // single-arm groups ARM_1 (and ARM_2 on a dual-arm robot) appear *alongside* the aggregate
+    // views ALL and ARMS. The joint command APIs (SendJointPosition/StreamJointPosition) only
+    // accept single-arm and external-axis groups and reject ALL/ARMS, so select ARM_1[/ARM_2] and
+    // never the aggregates. ARMS is used only as a last-resort fallback for a robot that exposes
+    // no per-arm group at all.
     auto arms_it = states_by_group.find(flexiv::rdk::JointGroup::ARMS);
     auto arm1_it = states_by_group.find(flexiv::rdk::JointGroup::ARM_1);
     auto arm2_it = states_by_group.find(flexiv::rdk::JointGroup::ARM_2);
-    const bool is_dual_arm = arm1_it != states_by_group.end() && arm2_it != states_by_group.end();
-    const bool is_single_arm = !is_dual_arm && arms_it != states_by_group.end();
-
-    if (!is_single_arm && !is_dual_arm) {
-        RCLCPP_ERROR(logger,
-            "Unsupported joint-group combination returned by robot states: %s. Supported arm "
-            "layouts are [ARMS] or [ARM_1, ARM_2] (overlapping [ALL]/[ARMS] aggregate views are "
-            "ignored), each optionally with [EXT_AXIS], with expected total DoF %zu.",
-            describe_group_layout(states_by_group).c_str(), expected_dof);
-        return active_groups;
-    }
+    const bool has_arm1 = arm1_it != states_by_group.end();
+    const bool has_arm2 = arm2_it != states_by_group.end();
+    const bool has_arms = arms_it != states_by_group.end();
 
     // Assemble in RDK order: external axes first, then arm(s).
     GroupDofList candidate_groups;
     if (has_ext) {
         candidate_groups.emplace_back(flexiv::rdk::JointGroup::EXT_AXIS, ext_it->second.q.size());
     }
-    if (is_single_arm) {
-        candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARMS, arms_it->second.q.size());
-    } else {
+    if (has_arm1 && has_arm2) {
+        // Dual-arm: two commandable single-arm groups.
         candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARM_1, arm1_it->second.q.size());
         candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARM_2, arm2_it->second.q.size());
+    } else if (has_arm1) {
+        // Single-arm: ARM_1 is the commandable group (ARMS is only an aggregate view).
+        candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARM_1, arm1_it->second.q.size());
+    } else if (has_arms) {
+        // Fallback: robot exposes only the aggregate ARMS group.
+        candidate_groups.emplace_back(flexiv::rdk::JointGroup::ARMS, arms_it->second.q.size());
+    } else {
+        RCLCPP_ERROR(logger,
+            "Unsupported joint-group combination returned by robot states: %s. Expected a "
+            "commandable ARM_1[/ARM_2] group (optionally with EXT_AXIS); the aggregate ALL/ARMS "
+            "views are not commandable. Expected total DoF %zu.",
+            describe_group_layout(states_by_group).c_str(), expected_dof);
+        return active_groups;
     }
 
     size_t total_dof = 0;
@@ -634,7 +639,6 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 
         for (const auto& [group, group_dof] : active_groups) {
             const auto& group_states = states_by_group.at(group);
-            hw_flexiv_robot_states_by_group_[group] = group_states;
             if (group_states.q.size() < group_dof || group_states.dtheta.size() < group_dof
                 || group_states.tau.size() < group_dof) {
                 RCLCPP_ERROR(getLogger(),
@@ -655,6 +659,17 @@ hardware_interface::return_type FlexivHardwareInterface::read(
                 "Resolved joint state size mismatch (q=%ld dtheta=%ld tau=%ld expected=%ld)",
                 q.size(), dtheta.size(), tau.size(), dof);
             return hardware_interface::return_type::ERROR;
+        }
+
+        // Refresh every exported per-group robot-states handle the robot reports, so the
+        // robot-states broadcaster(s) publish fresh data regardless of which group name they read:
+        // a single-arm broadcaster reads the ARMS-named (robot_sn) handle while commands use ARM_1,
+        // and dual-arm broadcasters read the ARM_1/ARM_2 (left_/right_) handles.
+        for (auto& [group, group_states] : hw_flexiv_robot_states_by_group_) {
+            const auto it = states_by_group.find(group);
+            if (it != states_by_group.end()) {
+                group_states = it->second;
+            }
         }
 
         // Read joint states
