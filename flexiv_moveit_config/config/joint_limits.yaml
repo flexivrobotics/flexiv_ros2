@@ -120,3 +120,16 @@ joint_limits:
     max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
     max_acceleration: 2.0
+
+  # 2-DoF torso joint limits (MICO-Plus, MICO-Ultra). Required by MoveIt's
+  # time-optimal trajectory generation, which has no acceleration limit otherwise.
+  $(var robot_sn)_torso_joint1:
+    has_velocity_limits: true
+    max_velocity: 1.0 # MICO torso
+    has_acceleration_limits: true
+    max_acceleration: 1.0
+  $(var robot_sn)_torso_joint2:
+    has_velocity_limits: true
+    max_velocity: 1.0 # MICO torso
+    has_acceleration_limits: true
+    max_acceleration: 1.0
