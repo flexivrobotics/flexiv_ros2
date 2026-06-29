@@ -22,6 +22,16 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 | **Branch**         | [humble](https://github.com/flexivrobotics/flexiv_ros2/tree/humble) | [jazzy](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy) |
 | **Release Status** | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) | [![Jazzy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml/badge.svg?branch=jazzy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml) |
 
+> [!NOTE]
+> **Release lines.** Two parallel version lines are maintained per ROS 2 distribution:
+>
+> | Line   | Branch                                                                    | RDK      | Supported robots                                        |
+> | ------ | ------------------------------------------------------------------------- | -------- | ------------------------------------------------------- |
+> | **v2** | [humble](https://github.com/flexivrobotics/flexiv_ros2/tree/humble)       | RDK v2.x | Enlight-L, Enlight-LL, MICO-Core, MICO-Plus, MICO-Ultra |
+> | **v1** | [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) | RDK v1.x | Rizon 4/4s/4M/4R/10/10s, AICO1/2 |
+>
+> The default `humble`/`jazzy` branches track the current **v2** line. For Rizon support on RDK v1.x, use the `humble-v1`/`jazzy-v1` branches. The two lines use incompatible RDK APIs and are not interchangeable.
+
 ## Getting Started
 
 This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
