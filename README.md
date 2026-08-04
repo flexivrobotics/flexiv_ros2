@@ -150,7 +150,7 @@ The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
-- `rizon_type` (default: *Rizon4*) - type of the Flexiv Rizon robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10 or Rizon10s)
+- `robot_type` (default: *Rizon4*) - type of the Flexiv robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10 or Rizon10s)
 - `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
@@ -162,7 +162,7 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
 
 - `robot_sn_left` (*required for dual robot setup*) - Serial number of the left robot to connect to. Remove any space, for example: Rizon4-123456
 - `robot_sn_right` (*required for dual robot setup*) - Serial number of the right robot to connect to. Remove any space, for example: Rizon4R-654321
-- `external_axis_type` (default: *AICO1-4-V1*) - type of the Flexiv AICO1 robot platform. Options: *AICO1-4-V1* or *AICO1-4-V2*
+- `robot_type` (default: *AICO1-4-V1*) - type of the Flexiv AICO1 robot platform. Options: *AICO1-4-V1* or *AICO1-4-V2*
 
 ### Example Commands
 
@@ -171,7 +171,7 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
    - Test with real robot:
 
      ```bash
-     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4
+     ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_type:=Rizon4
      ```
 
    - Test with fake hardware (`ros2_control` capability):
@@ -198,13 +198,13 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
 **AICO1-4** robot:
 
 ```bash
-ros2 launch flexiv_bringup aico1.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4 external_axis_type:=AICO1-4-V1
+ros2 launch flexiv_bringup aico1.launch.py robot_sn:=[robot_sn] robot_type:=AICO1-4-V1
 ```
 
 **AICO2-4** robot:
 
 ```bash
-ros2 launch flexiv_bringup aico2.launch.py rizon_type:=Rizon4 robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] external_axis_type:=AICO2-4-V1
+ros2 launch flexiv_bringup aico2.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-4-V1
 ```
 
 ### Using MoveIt
@@ -230,13 +230,13 @@ ros2 launch flexiv_bringup rizon_dual_moveit.launch.py robot_sn_left:=[robot_sn_
 With AICO1-4 setup:
 
 ```bash
-ros2 launch flexiv_bringup aico1_moveit.launch.py robot_sn:=[robot_sn] rizon_type:=Rizon4 external_axis_type:=AICO1-4-V1
+ros2 launch flexiv_bringup aico1_moveit.launch.py robot_sn:=[robot_sn] robot_type:=AICO1-4-V1
 ```
 
 With AICO2-4 setup:
 
 ```bash
-ros2 launch flexiv_bringup aico2_moveit.launch.py rizon_type:=Rizon4 robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] external_axis_type:=AICO2-4-V1
+ros2 launch flexiv_bringup aico2_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-4-V1
 ```
 
 ### Robot States

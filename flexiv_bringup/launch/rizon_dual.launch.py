@@ -22,8 +22,8 @@ from launch.substitutions import (
 
 
 def generate_launch_description():
-    rizon_type_left_param_name = "rizon_type_left"
-    rizon_type_right_param_name = "rizon_type_right"
+    arm_type_left_param_name = "arm_type_left"
+    arm_type_right_param_name = "arm_type_right"
     robot_sn_left_param_name = "robot_sn_left"
     robot_sn_right_param_name = "robot_sn_right"
     rdk_control_mode_param_name = "rdk_control_mode"
@@ -42,8 +42,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            rizon_type_left_param_name,
-            description="Type of the left Flexiv Rizon robot.",
+            arm_type_left_param_name,
+            description="Type of the left arm.",
             default_value="Rizon4",
             choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
         )
@@ -51,8 +51,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            rizon_type_right_param_name,
-            description="Type of the right Flexiv Rizon robot.",
+            arm_type_right_param_name,
+            description="Type of the right arm.",
             default_value="Rizon4R",
             choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
         )
@@ -154,8 +154,8 @@ def generate_launch_description():
     )
 
     # Initialize Arguments
-    rizon_type_left = LaunchConfiguration(rizon_type_left_param_name)
-    rizon_type_right = LaunchConfiguration(rizon_type_right_param_name)
+    arm_type_left = LaunchConfiguration(arm_type_left_param_name)
+    arm_type_right = LaunchConfiguration(arm_type_right_param_name)
     robot_sn_left = LaunchConfiguration(robot_sn_left_param_name)
     robot_sn_right = LaunchConfiguration(robot_sn_right_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
@@ -196,16 +196,34 @@ def generate_launch_description():
 
     set_prefix_left = SetLaunchConfiguration(
         name="prefix_left",
-        value=PythonExpression(["'left_' + '", robot_sn_left, "' + '_'"]),
+        # Matches compute_arm_prefix in flexiv_description: the separator only
+        # appears when the part it separates is non-empty.
+        value=PythonExpression(
+            [
+                "'left_' + '",
+                robot_sn_left,
+                "' + '_' if '",
+                robot_sn_left,
+                "' else 'left_'",
+            ]
+        ),
     )
     set_prefix_right = SetLaunchConfiguration(
         name="prefix_right",
-        value=PythonExpression(["'right_' + '", robot_sn_right, "' + '_'"]),
+        value=PythonExpression(
+            [
+                "'right_' + '",
+                robot_sn_right,
+                "' + '_' if '",
+                robot_sn_right,
+                "' else 'right_'",
+            ]
+        ),
     )
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "rizon_dual.urdf.xacro"]
+        [FindPackageShare("flexiv_hardware"), "urdf", "flexiv.urdf.xacro"]
     )
 
     robot_description_content = ParameterValue(
@@ -215,17 +233,18 @@ def generate_launch_description():
                 " ",
                 flexiv_urdf_xacro,
                 " ",
+                "robot_type:=Rizon-Dual ",
                 "robot_sn_left:=",
                 robot_sn_left,
                 " ",
                 "robot_sn_right:=",
                 robot_sn_right,
                 " ",
-                "rizon_type_left:=",
-                rizon_type_left,
+                "arm_type_left:=",
+                arm_type_left,
                 " ",
-                "rizon_type_right:=",
-                rizon_type_right,
+                "arm_type_right:=",
+                arm_type_right,
                 " ",
                 "load_gripper_left:=",
                 load_gripper_left,
@@ -263,7 +282,7 @@ def generate_launch_description():
 
     # RViZ
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "rviz", "view_rizon.rviz"]
+        [FindPackageShare("flexiv_description"), "rviz", "view_flexiv.rviz"]
     )
 
     rviz_node = Node(

@@ -23,7 +23,19 @@ from launch.substitutions import (
     FindExecutable,
     LaunchConfiguration,
     PathJoinSubstitution,
+    PythonExpression,
 )
+
+
+def arm_prefix(side, robot_sn):
+    """Build a link/joint name prefix, matching compute_arm_prefix in
+    flexiv_description's flexiv_common.xacro: the separating underscore only
+    appears when the part it separates is non-empty."""
+    if side and robot_sn:
+        return side + "_" + robot_sn + "_"
+    if side or robot_sn:
+        return side + robot_sn + "_"
+    return ""
 
 
 def load_yaml(package_name, file_path, replacements=None):
@@ -47,8 +59,8 @@ def load_yaml(package_name, file_path, replacements=None):
 
 def launch_setup(context):
     # Initialize Arguments
-    rizon_type_left = LaunchConfiguration("rizon_type_left")
-    rizon_type_right = LaunchConfiguration("rizon_type_right")
+    arm_type_left = LaunchConfiguration("arm_type_left")
+    arm_type_right = LaunchConfiguration("arm_type_right")
     robot_sn_left = LaunchConfiguration("robot_sn_left")
     robot_sn_right = LaunchConfiguration("robot_sn_right")
 
@@ -89,8 +101,8 @@ def launch_setup(context):
     warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
 
     # Construct prefixes
-    prefix_left_str = "left_" + robot_sn_left_str + "_"
-    prefix_right_str = "right_" + robot_sn_right_str + "_"
+    prefix_left_str = arm_prefix("left", robot_sn_left_str)
+    prefix_right_str = arm_prefix("right", robot_sn_right_str)
 
     set_prefix_left = SetLaunchConfiguration(name="prefix_left", value=prefix_left_str)
     set_prefix_right = SetLaunchConfiguration(
@@ -99,7 +111,7 @@ def launch_setup(context):
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "rizon_dual.urdf.xacro"]
+        [FindPackageShare("flexiv_hardware"), "urdf", "flexiv.urdf.xacro"]
     )
 
     robot_description_content = ParameterValue(
@@ -109,17 +121,18 @@ def launch_setup(context):
                 " ",
                 flexiv_urdf_xacro,
                 " ",
+                "robot_type:=Rizon-Dual ",
                 "robot_sn_left:=",
                 robot_sn_left,
                 " ",
                 "robot_sn_right:=",
                 robot_sn_right,
                 " ",
-                "rizon_type_left:=",
-                rizon_type_left,
+                "arm_type_left:=",
+                arm_type_left,
                 " ",
-                "rizon_type_right:=",
-                rizon_type_right,
+                "arm_type_right:=",
+                arm_type_right,
                 " ",
                 "load_gripper_left:=",
                 load_gripper_left,
@@ -186,10 +199,10 @@ def launch_setup(context):
                 load_mounted_ft_sensor_right,
                 " ",
                 "prefix_left:=",
-                "left_",
+                "left",
                 " ",
                 "prefix_right:=",
-                "right_",
+                "right",
             ]
         ),
         value_type=str,
@@ -617,8 +630,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "rizon_type_left",
-            description="Type of the left Flexiv Rizon robot.",
+            "arm_type_left",
+            description="Type of the left arm.",
             default_value="Rizon4",
             choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
         )
@@ -626,8 +639,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "rizon_type_right",
-            description="Type of the right Flexiv Rizon robot.",
+            "arm_type_right",
+            description="Type of the right arm.",
             default_value="Rizon4R",
             choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
         )
