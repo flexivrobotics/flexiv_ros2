@@ -22,7 +22,7 @@ from launch.substitutions import (
 
 
 def generate_launch_description():
-    rizon_type_param_name = "rizon_type"
+    robot_type_param_name = "robot_type"
     robot_sn_param_name = "robot_sn"
     rdk_control_mode_param_name = "rdk_control_mode"
     start_rviz_param_name = "start_rviz"
@@ -38,8 +38,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            rizon_type_param_name,
-            description="Type of the Flexiv Rizon robot.",
+            robot_type_param_name,
+            description="Type of the Flexiv robot.",
             default_value="Rizon4",
             choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
         )
@@ -119,7 +119,7 @@ def generate_launch_description():
     )
 
     # Initialize Arguments
-    rizon_type = LaunchConfiguration(rizon_type_param_name)
+    robot_type = LaunchConfiguration(robot_type_param_name)
     robot_sn = LaunchConfiguration(robot_sn_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
@@ -141,7 +141,7 @@ def generate_launch_description():
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
+        [FindPackageShare("flexiv_hardware"), "urdf", "flexiv.urdf.xacro"]
     )
 
     # Get URDF via xacro
@@ -155,8 +155,8 @@ def generate_launch_description():
                 "robot_sn:=",
                 robot_sn,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "robot_type:=",
+                robot_type,
                 " ",
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
@@ -185,7 +185,7 @@ def generate_launch_description():
 
     # RViZ
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "rviz", "view_rizon.rviz"]
+        [FindPackageShare("flexiv_description"), "rviz", "view_flexiv.rviz"]
     )
 
     rviz_node = Node(

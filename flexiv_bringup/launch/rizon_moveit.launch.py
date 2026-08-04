@@ -47,7 +47,7 @@ def load_yaml(package_name, file_path, replacements=None):
 
 def launch_setup(context):
     # Initialize Arguments
-    rizon_type = LaunchConfiguration("rizon_type")
+    robot_type = LaunchConfiguration("robot_type")
     robot_sn = LaunchConfiguration("robot_sn")
     robot_sn_str = robot_sn.perform(context)
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
@@ -71,7 +71,7 @@ def launch_setup(context):
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "rizon.urdf.xacro"]
+        [FindPackageShare("flexiv_hardware"), "urdf", "flexiv.urdf.xacro"]
     )
 
     # Get URDF via xacro
@@ -85,8 +85,8 @@ def launch_setup(context):
                 "robot_sn:=",
                 robot_sn,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "robot_type:=",
+                robot_type,
                 " ",
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
@@ -127,8 +127,8 @@ def launch_setup(context):
                 "robot_sn:=",
                 robot_sn,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "robot_type:=",
+                robot_type,
                 " ",
                 "load_gripper:=",
                 load_gripper,
@@ -461,8 +461,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "rizon_type",
-            description="Type of the Flexiv Rizon robot.",
+            "robot_type",
+            description="Type of the Flexiv robot.",
             default_value="Rizon4",
             choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
         )

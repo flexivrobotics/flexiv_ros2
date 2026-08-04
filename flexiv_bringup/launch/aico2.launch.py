@@ -22,7 +22,7 @@ from launch.substitutions import (
 
 
 def generate_launch_description():
-    rizon_type_param_name = "rizon_type"
+    arm_type_param_name = "arm_type"
     robot_sn_left_param_name = "robot_sn_left"
     robot_sn_right_param_name = "robot_sn_right"
     rdk_control_mode_param_name = "rdk_control_mode"
@@ -35,7 +35,7 @@ def generate_launch_description():
     gripper_name_right_param_name = "gripper_name_right"
     load_mounted_ft_sensor_left_param_name = "load_mounted_ft_sensor_left"
     load_mounted_ft_sensor_right_param_name = "load_mounted_ft_sensor_right"
-    external_axis_type_param_name = "external_axis_type"
+    robot_type_param_name = "robot_type"
     external_axis_prefix_param_name = "external_axis_prefix"
 
     # Declare arguments
@@ -43,8 +43,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            rizon_type_param_name,
-            description="Type of the Flexiv Rizon robot.",
+            arm_type_param_name,
+            description="Type of the arm carried by the external axis.",
             default_value="Rizon4",
             choices=["Rizon4", "Rizon10"],
         )
@@ -147,7 +147,7 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            external_axis_type_param_name,
+            robot_type_param_name,
             default_value="AICO2-4-V1",
             description="Type of the AICO2 platform.",
             choices=["AICO2-4-V1", "AICO2-4-V2", "AICO2-10-V1"],
@@ -163,7 +163,7 @@ def generate_launch_description():
     )
 
     # Initialize Arguments
-    rizon_type = LaunchConfiguration(rizon_type_param_name)
+    arm_type = LaunchConfiguration(arm_type_param_name)
     robot_sn_left = LaunchConfiguration(robot_sn_left_param_name)
     robot_sn_right = LaunchConfiguration(robot_sn_right_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
@@ -180,7 +180,7 @@ def generate_launch_description():
     load_mounted_ft_sensor_right = LaunchConfiguration(
         load_mounted_ft_sensor_right_param_name
     )
-    external_axis_type = LaunchConfiguration(external_axis_type_param_name)
+    robot_type = LaunchConfiguration(robot_type_param_name)
     external_axis_prefix = LaunchConfiguration(external_axis_prefix_param_name)
     left_gripper_ready_gate_condition = PythonExpression(
         [
@@ -206,16 +206,34 @@ def generate_launch_description():
 
     set_prefix_left = SetLaunchConfiguration(
         name="prefix_left",
-        value=PythonExpression(["'left_' + '", robot_sn_left, "' + '_'"]),
+        # Matches compute_arm_prefix in flexiv_description: the separator only
+        # appears when the part it separates is non-empty.
+        value=PythonExpression(
+            [
+                "'left_' + '",
+                robot_sn_left,
+                "' + '_' if '",
+                robot_sn_left,
+                "' else 'left_'",
+            ]
+        ),
     )
     set_prefix_right = SetLaunchConfiguration(
         name="prefix_right",
-        value=PythonExpression(["'right_' + '", robot_sn_right, "' + '_'"]),
+        value=PythonExpression(
+            [
+                "'right_' + '",
+                robot_sn_right,
+                "' + '_' if '",
+                robot_sn_right,
+                "' else 'right_'",
+            ]
+        ),
     )
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "aico2.urdf.xacro"]
+        [FindPackageShare("flexiv_hardware"), "urdf", "flexiv.urdf.xacro"]
     )
 
     robot_description_content = ParameterValue(
@@ -225,8 +243,13 @@ def generate_launch_description():
                 " ",
                 flexiv_urdf_xacro,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "arm_type_left:=",
+                arm_type,
+                " ",
+                "arm_type_right:=",
+                PythonExpression(
+                    ["'Rizon4R' if '", arm_type, "' == 'Rizon4' else '", arm_type, "'"]
+                ),
                 " ",
                 "robot_sn_left:=",
                 robot_sn_left,
@@ -262,10 +285,8 @@ def generate_launch_description():
                 "fake_sensor_commands:=",
                 fake_sensor_commands,
                 " ",
-                "external_axis_type:=",
-                PythonExpression(
-                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
-                ),
+                "robot_type:=",
+                robot_type,
                 " ",
                 "external_axis_prefix:=",
                 external_axis_prefix,
@@ -278,7 +299,7 @@ def generate_launch_description():
 
     # RViZ
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "rviz", "view_rizon.rviz"]
+        [FindPackageShare("flexiv_description"), "rviz", "view_flexiv.rviz"]
     )
 
     rviz_node = Node(
@@ -294,9 +315,9 @@ def generate_launch_description():
     controller_file_name = PythonExpression(
         [
             "'aico2_10_v1_controllers.yaml' if '",
-            external_axis_type,
+            robot_type,
             "' == 'AICO2-10-V1' else ('aico2_4_v2_controllers.yaml' if '",
-            external_axis_type,
+            robot_type,
             "' == 'AICO2-4-V2' else 'aico2_4_v1_controllers.yaml')",
         ]
     )

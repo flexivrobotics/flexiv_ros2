@@ -46,7 +46,7 @@ def load_yaml(package_name, file_path, replacements=None):
 
 
 def launch_setup(context):
-    rizon_type = LaunchConfiguration("rizon_type")
+    arm_type = LaunchConfiguration("arm_type")
     robot_sn = LaunchConfiguration("robot_sn")
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
     start_rviz = LaunchConfiguration("start_rviz")
@@ -56,9 +56,8 @@ def launch_setup(context):
     use_fake_hardware = LaunchConfiguration("use_fake_hardware")
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
     robot_controller = LaunchConfiguration("robot_controller")
-    external_axis_type = LaunchConfiguration("external_axis_type")
+    robot_type = LaunchConfiguration("robot_type")
     external_axis_prefix = LaunchConfiguration("external_axis_prefix")
-    arm_prefix = LaunchConfiguration("arm_prefix")
     gripper_ready_gate_condition = PythonExpression(
         [
             "'",
@@ -70,21 +69,15 @@ def launch_setup(context):
     )
 
     robot_sn_str = robot_sn.perform(context)
-    arm_prefix_str = arm_prefix.perform(context)
     external_axis_prefix_str = external_axis_prefix.perform(context)
-    external_axis_type_str = external_axis_type.perform(context)
+    robot_type_str = robot_type.perform(context)
 
     # Construct prefix
-    prefix_str = ""
-
-    if arm_prefix_str and robot_sn_str:
-        prefix_str = arm_prefix_str + "_" + robot_sn_str + "_"
-    elif arm_prefix_str or robot_sn_str:
-        prefix_str = arm_prefix_str + robot_sn_str + "_"
+    prefix_str = robot_sn_str + "_" if robot_sn_str else ""
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "aico1.urdf.xacro"]
+        [FindPackageShare("flexiv_hardware"), "urdf", "flexiv.urdf.xacro"]
     )
 
     robot_description_content = ParameterValue(
@@ -97,8 +90,8 @@ def launch_setup(context):
                 "robot_sn:=",
                 robot_sn,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "arm_type:=",
+                arm_type,
                 " ",
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
@@ -119,16 +112,11 @@ def launch_setup(context):
                 "fake_sensor_commands:=",
                 fake_sensor_commands,
                 " ",
-                "external_axis_type:=",
-                PythonExpression(
-                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
-                ),
+                "robot_type:=",
+                robot_type,
                 " ",
                 "external_axis_prefix:=",
                 external_axis_prefix,
-                " ",
-                "arm_prefix:=",
-                arm_prefix,
             ]
         ),
         value_type=str,
@@ -157,16 +145,11 @@ def launch_setup(context):
                 "load_mounted_ft_sensor:=",
                 load_mounted_ft_sensor,
                 " ",
-                "external_axis_type:=",
-                PythonExpression(
-                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
-                ),
+                "robot_type:=",
+                robot_type,
                 " ",
                 "external_axis_prefix:=",
                 external_axis_prefix,
-                " ",
-                "arm_prefix:=",
-                arm_prefix,
             ]
         ),
         value_type=str,
@@ -214,7 +197,7 @@ def launch_setup(context):
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
     controllers_file = "config/aico/aico1_4_v1_moveit_controllers.yaml"
-    if external_axis_type_str == "AICO1-4-V2":
+    if robot_type_str == "AICO1-4-V2":
         controllers_file = "config/aico/aico1_4_v2_moveit_controllers.yaml"
 
     moveit_simple_controllers_yaml = load_yaml(
@@ -325,7 +308,7 @@ def launch_setup(context):
 
     # Robot controllers
     ros2_controllers_file = "aico1_4_v1_controllers.yaml"
-    if external_axis_type_str == "AICO1-4-V2":
+    if robot_type_str == "AICO1-4-V2":
         ros2_controllers_file = "aico1_4_v2_controllers.yaml"
     robot_controllers = PathJoinSubstitution(
         [FindPackageShare("flexiv_bringup"), "config", ros2_controllers_file]
@@ -495,8 +478,8 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "rizon_type",
-            description="Type of the Flexiv Rizon robot.",
+            "arm_type",
+            description="Type of the arm carried by the external axis.",
             default_value="Rizon4",
             choices=["Rizon4", "Rizon4s"],
         )
@@ -577,7 +560,7 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "external_axis_type",
+            "robot_type",
             default_value="AICO1-4-V1",
             description="Type of the AICO1 platform.",
             choices=["AICO1-4-V1", "AICO1-4-V2"],
@@ -589,14 +572,6 @@ def generate_launch_description():
             "external_axis_prefix",
             default_value="",
             description="Prefix for the external axis links and joints.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            "arm_prefix",
-            default_value="",
-            description="Prefix for the arm links and joints.",
         )
     )
 
