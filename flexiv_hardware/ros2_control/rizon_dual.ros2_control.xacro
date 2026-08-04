@@ -1,0 +1,168 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="rizon_dual_ros2_control"
+    params="
+    prefix_left
+    prefix_right
+    robot_sn_left
+    robot_sn_right
+    rdk_control_mode:='joint_position'
+    use_fake_hardware:=false
+    fake_sensor_commands:=false
+    initial_positions_file_left
+    initial_positions_file_right
+    translation_left_x:=0.0
+    translation_left_y:=0.0
+    translation_left_z:=0.0
+    translation_right_x:=0.0
+    translation_right_y:=0.0
+    translation_right_z:=0.0
+    external_axis_type:=''
+    external_axis_prefix:=''
+    ">
+
+    <xacro:property name="initial_positions_left" value="${xacro.load_yaml(initial_positions_file_left)['initial_positions']}"/>
+    <xacro:property name="initial_positions_right" value="${xacro.load_yaml(initial_positions_file_right)['initial_positions']}"/>
+
+    <ros2_control name="FlexivDualHardwareInterface" type="system">
+      <hardware>
+        <xacro:if value="${use_fake_hardware}">
+          <plugin>mock_components/GenericSystem</plugin>
+          <param name="mock_sensor_commands">${fake_sensor_commands}</param>
+          <param name="state_following_offset">0.0</param>
+        </xacro:if>
+        <xacro:unless value="${use_fake_hardware}">
+          <plugin>flexiv_hardware/FlexivDualHardwareInterface</plugin>
+          <param name="robot_sn_left">${robot_sn_left}</param>
+          <param name="robot_sn_right">${robot_sn_right}</param>
+          <param name="prefix_left">${prefix_left}</param>
+          <param name="prefix_right">${prefix_right}</param>
+          <param name="rdk_control_mode">${rdk_control_mode}</param>
+          <param name="external_axis_type">${external_axis_type}</param>
+          <param name="translation_left_x">${translation_left_x}</param>
+          <param name="translation_left_y">${translation_left_y}</param>
+          <param name="translation_left_z">${translation_left_z}</param>
+          <param name="translation_right_x">${translation_right_x}</param>
+          <param name="translation_right_y">${translation_right_y}</param>
+          <param name="translation_right_z">${translation_right_z}</param>
+        </xacro:unless>
+      </hardware>
+
+      <xacro:macro name="configure_joint" params="joint_name initial_pos">
+        <joint name="${joint_name}">
+          <command_interface name="position" />
+          <command_interface name="velocity" />
+          <command_interface name="effort" />
+          <state_interface name="position">
+            <param name="initial_value">${initial_pos}</param>
+          </state_interface>
+          <state_interface name="velocity" />
+          <state_interface name="effort" />
+        </joint>
+      </xacro:macro>
+
+      <xacro:configure_joint joint_name="${prefix_left}joint1" initial_pos="${initial_positions_left['joint1']}" />
+      <xacro:configure_joint joint_name="${prefix_left}joint2" initial_pos="${initial_positions_left['joint2']}" />
+      <xacro:configure_joint joint_name="${prefix_left}joint3" initial_pos="${initial_positions_left['joint3']}" />
+      <xacro:configure_joint joint_name="${prefix_left}joint4" initial_pos="${initial_positions_left['joint4']}" />
+      <xacro:configure_joint joint_name="${prefix_left}joint5" initial_pos="${initial_positions_left['joint5']}" />
+      <xacro:configure_joint joint_name="${prefix_left}joint6" initial_pos="${initial_positions_left['joint6']}" />
+      <xacro:configure_joint joint_name="${prefix_left}joint7" initial_pos="${initial_positions_left['joint7']}" />
+
+      <!-- External axis joints -->
+      <xacro:if value="${external_axis_type == 'aico2_4_v1'}">
+        <joint name="${external_axis_prefix}aico2_4_v1_joint1">
+          <command_interface name="position" />
+          <command_interface name="velocity" />
+          <command_interface name="effort" />
+          <state_interface name="position">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+          <state_interface name="velocity" />
+          <state_interface name="effort" />
+        </joint>
+        <joint name="${external_axis_prefix}aico2_4_v1_joint2">
+          <command_interface name="position" />
+          <command_interface name="velocity" />
+          <command_interface name="effort" />
+          <state_interface name="position">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+          <state_interface name="velocity" />
+          <state_interface name="effort" />
+        </joint>
+      </xacro:if>
+      <xacro:if value="${external_axis_type == 'aico2_4_v2'}">
+        <joint name="${external_axis_prefix}aico2_4_v2_joint1">
+          <command_interface name="position" />
+          <command_interface name="velocity" />
+          <command_interface name="effort" />
+          <state_interface name="position">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+          <state_interface name="velocity" />
+          <state_interface name="effort" />
+        </joint>
+        <joint name="${external_axis_prefix}aico2_4_v2_joint2">
+          <command_interface name="position" />
+          <command_interface name="velocity" />
+          <command_interface name="effort" />
+          <state_interface name="position">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+          <state_interface name="velocity" />
+          <state_interface name="effort" />
+        </joint>
+      </xacro:if>
+      <xacro:if value="${external_axis_type == 'aico2_10_v1'}">
+        <joint name="${external_axis_prefix}aico2_10_v1_joint1">
+          <command_interface name="position" />
+          <command_interface name="velocity" />
+          <command_interface name="effort" />
+          <state_interface name="position">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+          <state_interface name="velocity" />
+          <state_interface name="effort" />
+        </joint>
+        <joint name="${external_axis_prefix}aico2_10_v1_joint2">
+          <command_interface name="position" />
+          <command_interface name="velocity" />
+          <command_interface name="effort" />
+          <state_interface name="position">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+          <state_interface name="velocity" />
+          <state_interface name="effort" />
+        </joint>
+      </xacro:if>
+
+      <xacro:configure_joint joint_name="${prefix_right}joint1" initial_pos="${initial_positions_right['joint1']}" />
+      <xacro:configure_joint joint_name="${prefix_right}joint2" initial_pos="${initial_positions_right['joint2']}" />
+      <xacro:configure_joint joint_name="${prefix_right}joint3" initial_pos="${initial_positions_right['joint3']}" />
+      <xacro:configure_joint joint_name="${prefix_right}joint4" initial_pos="${initial_positions_right['joint4']}" />
+      <xacro:configure_joint joint_name="${prefix_right}joint5" initial_pos="${initial_positions_right['joint5']}" />
+      <xacro:configure_joint joint_name="${prefix_right}joint6" initial_pos="${initial_positions_right['joint6']}" />
+      <xacro:configure_joint joint_name="${prefix_right}joint7" initial_pos="${initial_positions_right['joint7']}" />
+
+      <!-- 18 digital IO ports per robot -->
+      <xacro:macro name="loop_gpio" params="idx">
+        <command_interface name="digital_output_${idx}" />
+        <state_interface name="digital_input_${idx}" />
+        <xacro:if value="${idx &lt; 17}">
+          <xacro:loop_gpio idx="${idx+1}" />
+        </xacro:if>
+      </xacro:macro>
+
+      <gpio name="${prefix_left}gpio">
+        <xacro:loop_gpio idx="0" />
+      </gpio>
+
+      <gpio name="${prefix_right}gpio">
+        <xacro:loop_gpio idx="0" />
+      </gpio>
+
+    </ros2_control>
+  </xacro:macro>
+</robot>
