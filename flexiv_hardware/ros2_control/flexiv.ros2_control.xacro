@@ -1,0 +1,157 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Single-robot ros2_control: one robot_sn, one FlexivHardwareInterface.
+       For two robots paired on a platform (Rizon dual, AICO2) see
+       rizon_dual.ros2_control.xacro instead. -->
+  <xacro:macro name="flexiv_ros2_control"
+    params="
+    prefix
+    robot_sn
+    rdk_control_mode:='joint_position'
+    use_fake_hardware:=false
+    fake_sensor_commands:=false
+    initial_positions_file
+    num_gpio_ports:=20
+    external_axis_type:=''
+    external_axis_prefix:=''
+    ">
+
+    <xacro:property name="initial_positions" value="${xacro.load_yaml(initial_positions_file)['initial_positions']}"/>
+
+    <xacro:include filename="$(find flexiv_description)/urdf/common/flexiv_common.xacro" />
+    <!-- GPIO is named from robot_sn alone, matching the hardware interface. -->
+    <xacro:compute_arm_prefix robot_sn="${robot_sn}" />
+    <xacro:property name="sn_prefix" value="${computed_arm_prefix}" lazy_eval="false" />
+
+    <ros2_control name="FlexivHardwareInterface" type="system">
+      <hardware>
+        <xacro:if value="${use_fake_hardware}">
+          <plugin>mock_components/GenericSystem</plugin>
+          <param name="mock_sensor_commands">${fake_sensor_commands}</param>
+          <param name="state_following_offset">0.0</param>
+        </xacro:if>
+        <xacro:unless value="${use_fake_hardware}">
+          <plugin>flexiv_hardware/FlexivHardwareInterface</plugin>
+          <param name="robot_sn">${robot_sn}</param>
+          <param name="prefix">${prefix}</param>
+          <param name="rdk_control_mode">${rdk_control_mode}</param>
+          <xacro:unless value="${external_axis_type == ''}">
+            <param name="external_axis_type">${external_axis_type}</param>
+          </xacro:unless>
+        </xacro:unless>
+      </hardware>
+
+      <joint name="${prefix}joint1">
+        <command_interface name="position" />
+        <command_interface name="velocity" />
+        <command_interface name="effort" />
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint1']}</param>
+        </state_interface>
+        <state_interface name="velocity" />
+        <state_interface name="effort" />
+      </joint>
+      <joint name="${prefix}joint2">
+        <command_interface name="position" />
+        <command_interface name="velocity" />
+        <command_interface name="effort" />
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint2']}</param>
+        </state_interface>
+        <state_interface name="velocity" />
+        <state_interface name="effort" />
+      </joint>
+      <joint name="${prefix}joint3">
+        <command_interface name="position" />
+        <command_interface name="velocity" />
+        <command_interface name="effort" />
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint3']}</param>
+        </state_interface>
+        <state_interface name="velocity" />
+        <state_interface name="effort" />
+      </joint>
+      <joint name="${prefix}joint4">
+        <command_interface name="position" />
+        <command_interface name="velocity" />
+        <command_interface name="effort" />
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint4']}</param>
+        </state_interface>
+        <state_interface name="velocity" />
+        <state_interface name="effort" />
+      </joint>
+      <joint name="${prefix}joint5">
+        <command_interface name="position" />
+        <command_interface name="velocity" />
+        <command_interface name="effort" />
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint5']}</param>
+        </state_interface>
+        <state_interface name="velocity" />
+        <state_interface name="effort" />
+      </joint>
+      <joint name="${prefix}joint6">
+        <command_interface name="position" />
+        <command_interface name="velocity" />
+        <command_interface name="effort" />
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint6']}</param>
+        </state_interface>
+        <state_interface name="velocity" />
+        <state_interface name="effort" />
+      </joint>
+      <joint name="${prefix}joint7">
+        <command_interface name="position" />
+        <command_interface name="velocity" />
+        <command_interface name="effort" />
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint7']}</param>
+        </state_interface>
+        <state_interface name="velocity" />
+        <state_interface name="effort" />
+      </joint>
+
+      <!-- External axis joints. AICO1 mounts a single arm on a positioner, so
+           the axis joints join this robot's interface rather than a paired one. -->
+      <xacro:macro name="ext_axis_joint" params="name">
+        <joint name="${external_axis_prefix}${name}">
+          <command_interface name="position" />
+          <command_interface name="velocity" />
+          <command_interface name="effort" />
+          <state_interface name="position">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+          <state_interface name="velocity" />
+          <state_interface name="effort" />
+        </joint>
+      </xacro:macro>
+
+      <xacro:if value="${external_axis_type == 'aico1_4_v1'}">
+        <!-- joint1 is not actuated on this variant. -->
+        <xacro:ext_axis_joint name="aico1_4_v1_joint2" />
+      </xacro:if>
+      <xacro:if value="${external_axis_type == 'aico1_4_v2'}">
+        <xacro:ext_axis_joint name="aico1_4_v2_joint1" />
+        <xacro:ext_axis_joint name="aico1_4_v2_joint2" />
+        <xacro:ext_axis_joint name="aico1_4_v2_joint_head" />
+      </xacro:if>
+
+      <!-- Digital IO ports: 16 on the control box plus 2 in each wrist connector.
+           Enlight-L and MICO have two wrist connectors (20); Rizon has one (18). -->
+      <xacro:macro name="loop_gpio" params="idx">
+        <command_interface name="digital_output_${idx}" />
+        <state_interface name="digital_input_${idx}" />
+        <xacro:if value="${idx &lt; num_gpio_ports - 1}">
+          <xacro:loop_gpio idx="${idx+1}" />
+        </xacro:if>
+      </xacro:macro>
+
+      <gpio name="${sn_prefix}gpio">
+        <xacro:loop_gpio idx="0" />
+      </gpio>
+
+    </ros2_control>
+  </xacro:macro>
+</robot>
