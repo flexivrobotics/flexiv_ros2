@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg rizon_type)">
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg robot_type)">
     <!-- parameters -->
-    <xacro:arg name="rizon_type" default="Rizon4" />
-    <xacro:arg name="arm_prefix" default="" />
+    <xacro:arg name="robot_type" default="Rizon4" />
     <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper" default="false" />
     <xacro:arg name="load_mounted_ft_sensor" default="false" />
 
     <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
-    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
+
+    <xacro:compute_prefix robot_sn="$(arg robot_sn)" />
+    <xacro:property name="prefix" value="${computed_prefix}" lazy_eval="false" />
+
+    <xacro:rizon_srdf prefix="${prefix}"
         load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
 
     <!-- Load gripper -->
     <xacro:if value="$(arg load_gripper)">
         <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
+        <xacro:grav_srdf prefix="${prefix}"
             load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
     </xacro:if>
 

@@ -1,8 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-    <xacro:macro name="rizon_srdf" params="arm_prefix robot_sn load_mounted_ft_sensor use_virtual_joint:=true">
-        <!-- Prefix defaults to 'arm_prefix_robot_sn' -->
-        <xacro:property name="prefix" value="${arm_prefix + robot_sn + '_'}" />
+    <!--
+        Build a link/joint name prefix from a side name and a serial number, and expose
+        it to the caller as 'computed_prefix'.
+
+        Mirrors compute_arm_prefix in flexiv_description's flexiv_common.xacro and must
+        stay in step with it: the separating underscore only appears when the part it
+        separates is non-empty. Concatenating unconditionally yields 'left__base_link'
+        for an empty robot_sn where the URDF creates 'left_base_link'.
+
+        side:     'left', 'right' or '' (no trailing underscore)
+        robot_sn: robot serial number, may be empty
+    -->
+    <xacro:macro name="compute_prefix" params="side:='' robot_sn:=''">
+        <xacro:property name="computed_prefix"
+            value="${(side + '_' + robot_sn + '_') if side != '' and robot_sn != '' else (side + robot_sn + '_') if (side + robot_sn) != '' else ''}"
+            scope="parent" />
+    </xacro:macro>
+
+    <!-- 'prefix' is the fully-formed prefix, normally from compute_prefix above. -->
+    <xacro:macro name="rizon_srdf" params="prefix load_mounted_ft_sensor use_virtual_joint:=true">
 
         <group name="${prefix}arm">
             <chain base_link="${prefix}base_link" tip_link="${prefix}flange" />
