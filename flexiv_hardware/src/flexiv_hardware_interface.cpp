@@ -57,8 +57,9 @@ std::string get_optional_hardware_parameter(
 
 std::string joint_group_name_string(flexiv::rdk::JointGroup group)
 {
-    const auto name_it = flexiv::rdk::kJointGroupNames.find(group);
-    if (name_it != flexiv::rdk::kJointGroupNames.end()) {
+    const auto& group_names = flexiv::rdk::JointGroupNames();
+    const auto name_it = group_names.find(group);
+    if (name_it != group_names.end()) {
         return name_it->second;
     }
     return "GROUP_" + std::to_string(static_cast<int>(group));
