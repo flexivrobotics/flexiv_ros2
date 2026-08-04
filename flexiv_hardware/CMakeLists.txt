@@ -58,6 +58,11 @@ install(
   DESTINATION include
 )
 
+install(
+  DIRECTORY ros2_control urdf
+  DESTINATION share/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 endif()

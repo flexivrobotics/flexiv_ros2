@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  flexiv_description model + the ros2_control block for flexiv_hardware.
+  Use flexiv_description's entry point for visualization, this one for control.
+
+  This release supports the Enlight and MICO models only. flexiv_description hosts
+  every Flexiv model, so asking for an unsupported one is rejected below.
+
+  robot_type must be passed on the command line: it names the robot element,
+  which xacro resolves before <xacro:arg> defaults are read.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg robot_type)">
+
+  <xacro:arg name="robot_type" default="Enlight-L" />
+
+  <!-- Other args come from the description entry point included below. -->
+  <xacro:arg name="ros2_control" default="true" />
+  <xacro:arg name="rdk_control_mode" default="joint_position" />
+  <xacro:arg name="use_fake_hardware" default="false" />
+  <xacro:arg name="fake_sensor_commands" default="false" />
+  <xacro:arg name="initial_positions_file" default="" />
+
+  <!-- Robot model, including the arg declarations this file relies on
+       (robot_sn, arm_prefix). -->
+  <xacro:include filename="$(find flexiv_description)/urdf/flexiv.urdf.xacro" />
+
+  <xacro:if value="$(arg ros2_control)">
+    <xacro:include filename="$(find flexiv_description)/urdf/common/flexiv_common.xacro" />
+    <xacro:include filename="$(find flexiv_hardware)/ros2_control/flexiv.ros2_control.xacro" />
+    <xacro:include filename="$(find flexiv_hardware)/ros2_control/flexiv_dual.ros2_control.xacro" />
+    <xacro:include filename="$(find flexiv_hardware)/ros2_control/flexiv_mico.ros2_control.xacro" />
+
+    <xacro:property name="cfg" value="$(find flexiv_description)/config" />
+    <xacro:property name="rtype" value="$(arg robot_type)" />
+
+    <xacro:property name="is_single" value="${rtype == 'Enlight-L'}" />
+    <xacro:property name="is_enlight_ll" value="${rtype == 'Enlight-LL'}" />
+    <xacro:property name="is_mico_core" value="${rtype == 'MICO-Core'}" />
+    <xacro:property name="is_mico_torso" value="${rtype in ['MICO-Plus', 'MICO-Ultra']}" />
+
+    <xacro:unless value="${is_single or is_enlight_ll or is_mico_core or is_mico_torso}">
+      ${xacro.error('robot_type ' + rtype + ' is not supported by this release. Supported: '
+        + 'Enlight-L, Enlight-LL, MICO-Core, MICO-Plus, MICO-Ultra')}
+    </xacro:unless>
+
+    <!-- Enlight-L has 20 digital IO ports: 16 on the control box plus 2 in each of
+         its two wrist connectors. -->
+    <xacro:property name="num_gpio_ports" value="20" />
+    <xacro:property name="arm_init" value="${cfg}/Enlight-L/initial_positions.yaml" />
+    <xacro:property name="arm_init_mirrored"
+      value="${cfg}/Enlight-L/initial_positions_mirrored.yaml" />
+
+    <!-- ===================== SINGLE ARM (Enlight-L) ===================== -->
+    <xacro:if value="${is_single}">
+      <xacro:compute_arm_prefix arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)" />
+      <xacro:property name="prefix" value="${computed_arm_prefix}" lazy_eval="false" />
+      <xacro:property name="init_file"
+        value="${'$(arg initial_positions_file)' if '$(arg initial_positions_file)' != '' else arm_init}" />
+
+      <xacro:flexiv_ros2_control
+        prefix="${prefix}"
+        robot_sn="$(arg robot_sn)"
+        rdk_control_mode="$(arg rdk_control_mode)"
+        use_fake_hardware="$(arg use_fake_hardware)"
+        fake_sensor_commands="$(arg fake_sensor_commands)"
+        initial_positions_file="${init_file}"
+        num_gpio_ports="${num_gpio_ports}" />
+    </xacro:if>
+
+    <!-- ============ ONE ROBOT WITH TWO ARMS (Enlight-LL, MICO) ============ -->
+    <xacro:if value="${is_enlight_ll or is_mico_core or is_mico_torso}">
+      <xacro:compute_arm_prefix arm_prefix="left" robot_sn="$(arg robot_sn)" />
+      <xacro:property name="prefix_left" value="${computed_arm_prefix}" lazy_eval="false" />
+      <xacro:compute_arm_prefix arm_prefix="right" robot_sn="$(arg robot_sn)" />
+      <xacro:property name="prefix_right" value="${computed_arm_prefix}" lazy_eval="false" />
+
+      <!-- Enlight-LL mirrors nothing; the MICO arms face each other. -->
+      <xacro:property name="init_right" value="${arm_init if is_enlight_ll else arm_init_mirrored}" />
+
+      <!-- MICO-Plus and MICO-Ultra add two actuated torso joints. -->
+      <xacro:unless value="${is_mico_torso}">
+        <xacro:flexiv_dual_ros2_control
+          prefix_left="${prefix_left}"
+          prefix_right="${prefix_right}"
+          robot_sn="$(arg robot_sn)"
+          rdk_control_mode="$(arg rdk_control_mode)"
+          use_fake_hardware="$(arg use_fake_hardware)"
+          fake_sensor_commands="$(arg fake_sensor_commands)"
+          initial_positions_file_left="${arm_init}"
+          initial_positions_file_right="${init_right}" />
+      </xacro:unless>
+
+      <xacro:if value="${is_mico_torso}">
+        <xacro:flexiv_mico_ros2_control
+          prefix_left="${prefix_left}"
+          prefix_right="${prefix_right}"
+          robot_sn="$(arg robot_sn)"
+          rdk_control_mode="$(arg rdk_control_mode)"
+          use_fake_hardware="$(arg use_fake_hardware)"
+          fake_sensor_commands="$(arg fake_sensor_commands)"
+          initial_positions_file_left="${arm_init}"
+          initial_positions_file_right="${init_right}"
+          torso_initial_positions_file="${cfg}/${rtype}/torso_initial_positions.yaml" />
+      </xacro:if>
+    </xacro:if>
+  </xacro:if>
+
+</robot>
