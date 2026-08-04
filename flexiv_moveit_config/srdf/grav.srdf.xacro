@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-    <xacro:macro name="grav_srdf" params="arm_prefix robot_sn load_mounted_ft_sensor">
-        <!-- Prefix defaults to 'arm_prefix_robot_sn' -->
-        <xacro:property name="prefix" value="${arm_prefix + robot_sn + '_'}" />
+    <!-- 'prefix' is the fully-formed prefix, see compute_prefix in rizon_macro.srdf.xacro. -->
+    <xacro:macro name="grav_srdf" params="prefix load_mounted_ft_sensor">
 
         <group name="${prefix}grav_gripper">
             <joint name="${prefix}gripper_base_joint" />
