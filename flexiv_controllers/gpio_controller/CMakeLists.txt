@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(gpio_controller LANGUAGES CXX)
 
-# Default to C++14
+# Default to C++20
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -20,6 +21,7 @@ find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
+find_package(flexiv_rdk REQUIRED)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   builtin_interfaces
@@ -46,6 +48,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE include)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
   gpio_controller_parameters
+  flexiv::flexiv_rdk
 )
 
 ament_target_dependencies(${PROJECT_NAME} PUBLIC
