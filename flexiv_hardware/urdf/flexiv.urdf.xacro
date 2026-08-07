@@ -34,7 +34,7 @@
     <xacro:property name="rtype" value="$(arg robot_type)" />
 
     <xacro:property name="single_arms"
-      value="${['Rizon4', 'Rizon4s', 'Rizon4M', 'Rizon4R', 'Rizon10', 'Rizon10s']}" />
+      value="${['Rizon4', 'Rizon4s', 'Rizon4M', 'Rizon4R', 'Rizon10', 'Rizon10s', 'Rizon10R']}" />
     <xacro:property name="is_single" value="${rtype in single_arms}" />
     <xacro:property name="is_aico1" value="${rtype in ['AICO1-4-V1', 'AICO1-4-V2']}" />
     <xacro:property name="is_aico2"
@@ -57,7 +57,7 @@
     <xacro:property name="aico1_arm"
       value="${'$(arg arm_type)' if '$(arg arm_type)' != '' else 'Rizon4'}" />
     <xacro:property name="paired_default_left" value="${'Rizon10' if rtype == 'AICO2-10-V1' else 'Rizon4'}" />
-    <xacro:property name="paired_default_right" value="${'Rizon10' if rtype == 'AICO2-10-V1' else 'Rizon4R'}" />
+    <xacro:property name="paired_default_right" value="${'Rizon10R' if rtype == 'AICO2-10-V1' else 'Rizon4R'}" />
     <xacro:property name="arm_left"
       value="${'$(arg arm_type_left)' if '$(arg arm_type_left)' != '' else paired_default_left}" />
     <xacro:property name="arm_right"

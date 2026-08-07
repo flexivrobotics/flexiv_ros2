@@ -148,7 +148,7 @@ The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
-- `robot_type` (default: *Rizon4*) - type of the Flexiv robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10 or Rizon10s)
+- `robot_type` (default: *Rizon4*) - type of the Flexiv robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10, Rizon10s or Rizon10R)
 - `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.

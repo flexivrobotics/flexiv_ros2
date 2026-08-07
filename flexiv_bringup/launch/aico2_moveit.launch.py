@@ -131,7 +131,15 @@ def launch_setup(context):
                 " ",
                 "arm_type_right:=",
                 PythonExpression(
-                    ["'Rizon4R' if '", arm_type, "' == 'Rizon4' else '", arm_type, "'"]
+                    [
+                        "'Rizon4R' if '",
+                        arm_type,
+                        "' == 'Rizon4' else 'Rizon10R' if '",
+                        arm_type,
+                        "' == 'Rizon10' else '",
+                        arm_type,
+                        "'",
+                    ]
                 ),
                 " ",
                 "robot_sn_left:=",
@@ -767,7 +775,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "load_mounted_ft_sensor_left",
             default_value="false",
-            description="Flag to load the mounted force torque sensor for the left robot. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor for the left robot. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.",
         )
     )
 
@@ -775,7 +783,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "load_mounted_ft_sensor_right",
             default_value="false",
-            description="Flag to load the mounted force torque sensor for the right robot. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor for the right robot. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.",
         )
     )
 
