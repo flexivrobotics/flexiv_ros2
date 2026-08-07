@@ -45,7 +45,15 @@ def generate_launch_description():
             arm_type_left_param_name,
             description="Type of the left arm.",
             default_value="Rizon4",
-            choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
+            choices=[
+                "Rizon4",
+                "Rizon4M",
+                "Rizon4R",
+                "Rizon4s",
+                "Rizon10",
+                "Rizon10s",
+                "Rizon10R",
+            ],
         )
     )
 
@@ -54,7 +62,15 @@ def generate_launch_description():
             arm_type_right_param_name,
             description="Type of the right arm.",
             default_value="Rizon4R",
-            choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
+            choices=[
+                "Rizon4",
+                "Rizon4M",
+                "Rizon4R",
+                "Rizon4s",
+                "Rizon10",
+                "Rizon10s",
+                "Rizon10R",
+            ],
         )
     )
 
@@ -141,7 +157,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             load_mounted_ft_sensor_left_param_name,
             default_value="false",
-            description="Flag to load the mounted force torque sensor for the left robot. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor for the left robot. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.",
         )
     )
 
@@ -149,7 +165,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             load_mounted_ft_sensor_right_param_name,
             default_value="false",
-            description="Flag to load the mounted force torque sensor for the right robot. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor for the right robot. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.",
         )
     )
 

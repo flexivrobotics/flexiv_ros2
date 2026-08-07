@@ -459,7 +459,15 @@ def generate_launch_description():
             "robot_type",
             description="Type of the Flexiv robot.",
             default_value="Rizon4",
-            choices=["Rizon4", "Rizon4M", "Rizon4R", "Rizon4s", "Rizon10", "Rizon10s"],
+            choices=[
+                "Rizon4",
+                "Rizon4M",
+                "Rizon4R",
+                "Rizon4s",
+                "Rizon10",
+                "Rizon10s",
+                "Rizon10R",
+            ],
         )
     )
 
@@ -507,7 +515,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "load_mounted_ft_sensor",
             default_value="false",
-            description="Flag to load the mounted force torque sensor. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.",
         )
     )
 
