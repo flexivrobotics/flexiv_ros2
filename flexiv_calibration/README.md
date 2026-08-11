@@ -30,9 +30,8 @@ Notes:
   `target_filename` to keep the repository pristine.
 - The two arms of a dual robot setup are usually different types (for example Rizon4 and
   Rizon4R), so the default writes to a different file for each. Two arms of the *same* type share
-  one file, so give at least one of them a `target_filename`.
-- The sync writes to a copy and moves it into place, so an interrupted run cannot leave a
-  half-written kinematics file behind.
+  one file, so give at least one of them a `target_filename`, and pass it back with
+  `kinematics_params_file_left` or `kinematics_params_file_right`.
 - A `calibration_metadata` block recording the robot serial number is appended to the file. It is
   rewritten rather than repeated when the same file is synced again.
 

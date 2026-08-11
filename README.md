@@ -261,38 +261,23 @@ ros2 topic pub /Rizon4_123456/gpio_outputs flexiv_msgs/msg/GPIOStates "{states: 
 
 ### Robot Calibration
 
-Every robot leaves the factory with measured kinematic parameters that differ slightly from the nominal ones shipped in `flexiv_description`. The `flexiv_calibration` package reads the actual parameters from a connected robot and syncs them into a kinematics YAML file, so that the URDF describes your specific robot rather than the model.
-
-Run this once per robot, and again whenever the robot is re-calibrated or repaired. Reading the parameters requires an RDK professional license:
+Every robot leaves the factory with measured kinematic parameters that differ slightly from the nominal ones shipped in `flexiv_description`. The `flexiv_calibration` package reads the actual parameters from a connected robot and syncs them into a kinematics YAML file, so that the URDF describes your specific robot rather than the model. Reading them requires an RDK professional license:
 
 ```bash
 ros2 launch flexiv_calibration calibration_correction.launch.py robot_sn:=[robot_sn]
 ```
 
-By default this updates `flexiv_description/config/[robot_type]/default_kinematics.yaml` in place, which is the file every launch file already reads, so nothing else has to change:
+By default this updates `flexiv_description/config/[robot_type]/default_kinematics.yaml` in place, which is the file every launch file already reads, so nothing else has to change. It does show up as a local change in `flexiv_description`.
+
+You can also specify a different file to write to, for example if you want to keep the default file intact:
 
 ```bash
-ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_type:=Rizon4s
+ros2 launch flexiv_calibration calibration_correction.launch.py robot_sn:=[robot_sn] target_filename:="${HOME}/[robot_sn]_kinematics.yaml"
+
+ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_type:=Rizon4s kinematics_params_file:="${HOME}/[robot_sn]_kinematics.yaml"
 ```
 
-Note that this shows up as a local change in `flexiv_description`, and a workspace built with `--symlink-install` updates the source checkout. Commit it, or keep the repository pristine by writing the parameters elsewhere and pointing the driver at them:
-
-```bash
-ros2 launch flexiv_calibration calibration_correction.launch.py robot_sn:=[robot_sn] target_filename:=[path]/[robot_sn]_kinematics.yaml
-
-ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_type:=Rizon4s kinematics_params_file:=[path]/[robot_sn]_kinematics.yaml
-```
-
-For a dual robot setup, run it once per serial number. The two arms are usually different types, so the default writes to a different file for each and needs no arguments on the driver side:
-
-```bash
-ros2 launch flexiv_calibration calibration_correction.launch.py robot_sn:=[robot_sn_left] robot_type:=Rizon4
-ros2 launch flexiv_calibration calibration_correction.launch.py robot_sn:=[robot_sn_right] robot_type:=Rizon4R
-```
-
-Two arms of the *same* type would share one file, so give at least one of them a `target_filename` and pass it back with `kinematics_params_file_left` or `kinematics_params_file_right`.
-
-The same arguments are accepted by the corresponding MoveIt launch files. If you use them, pass the same values there: `move_group` must build its URDF from the same kinematics file as the driver, or planning and control will disagree.
+*(Dual robot setups and the remaining arguments are described in [`flexiv_calibration`](/flexiv_calibration))*
 
 ### Gripper Control
 
