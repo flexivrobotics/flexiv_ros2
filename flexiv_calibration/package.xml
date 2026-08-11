@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>flexiv_calibration</name>
+  <version>1.9.3</version>
+  <description>Package for extracting the actual kinematic parameters of a Flexiv robot</description>
+  <maintainer email="munseng.phoon@flexiv.com">Mun Seng Phoon</maintainer>
+  <license>Apache License 2.0</license>
+  <author email="munseng.phoon@flexiv.com">Mun Seng Phoon</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>ament_index_cpp</depend>
+  <depend>rclcpp</depend>
+
+  <exec_depend>flexiv_description</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
