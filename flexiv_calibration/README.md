@@ -1,35 +1,39 @@
 # flexiv_calibration
 
-Extracts the actual kinematic parameters of a connected Flexiv robot into a kinematics YAML
-file that `flexiv_description` can load, so that the generated URDF describes that specific
-robot instead of the nominal model.
+Syncs the actual kinematic parameters of a connected Flexiv robot into the kinematics YAML file
+that `flexiv_description` loads, so that the generated URDF describes that specific robot instead
+of the nominal model.
 
 ## calibration_correction
 
-Copies a template kinematics YAML, then syncs the connected robot's measured parameters into
-the copy and appends a `calibration_metadata` block recording which robot it came from.
+By default this updates `flexiv_description/config/[robot_type]/default_kinematics.yaml` in place,
+which is the file every launch file already reads. Nothing else has to change afterwards:
 
 ```bash
-ros2 launch flexiv_calibration calibration_correction.launch.py robot_sn:=[robot_sn] target_filename:=$HOME/flexiv_calib/[robot_sn]_kinematics.yaml
+ros2 launch flexiv_calibration calibration_correction.launch.py robot_sn:=[robot_sn]
 ```
 
 Launch arguments:
 
 - `robot_sn` (*required*) - serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
-- `target_filename` (*required*) - path of the kinematics YAML file to write. Must be outside `flexiv_description`.
-- `robot_type` (default: *empty*) - type of the Flexiv robot, used to pick the template. Defaults to the model name reported by the robot.
-- `template_filename` (default: *empty*) - template kinematics YAML file to copy. Defaults to `flexiv_description/config/[robot_type]/default_kinematics.yaml`.
-- `overwrite` (default: *false*) - replace the target file if it already exists.
+- `robot_type` (default: *empty*) - type of the Flexiv robot, which selects the kinematics file to update. Defaults to the model name reported by the robot.
+- `target_filename` (default: *empty*) - write the synced parameters here instead of updating `flexiv_description`. Use this to keep several robots of the same type side by side, and pass the file back with the driver's `kinematics_params_file` argument.
+- `template_filename` (default: *empty*) - template kinematics YAML file to sync. Defaults to `flexiv_description/config/[robot_type]/default_kinematics.yaml`.
 
 Notes:
 
 - Reading kinematic parameters requires an RDK professional license.
-- The sync rewrites its input file in place, so the node always works on a copy. It refuses to
-  write anywhere inside `flexiv_description`, including the source checkout that a
-  `--symlink-install` workspace points back at.
-- Run the extraction once per robot, and again whenever the robot is re-calibrated or repaired.
-  For a dual robot setup, run it once per serial number.
+- Run this once per robot, and again whenever the robot is re-calibrated or repaired. For a dual
+  robot setup, run it once per serial number.
+- Updating `flexiv_description` in place shows up as a local change in that repository, and a
+  workspace built with `--symlink-install` updates the source checkout. Commit it, or use
+  `target_filename` to keep the repository pristine.
+- The two arms of a dual robot setup are usually different types (for example Rizon4 and
+  Rizon4R), so the default writes to a different file for each. Two arms of the *same* type share
+  one file, so give at least one of them a `target_filename`.
+- The sync writes to a copy and moves it into place, so an interrupted run cannot leave a
+  half-written kinematics file behind.
+- A `calibration_metadata` block recording the robot serial number is appended to the file. It is
+  rewritten rather than repeated when the same file is synced again.
 
-Pass the resulting file to the driver with the `kinematics_params_file` launch argument
-(`kinematics_params_file_left` / `_right` for dual robot setups). See the
-[repository README](../README.md#robot-calibration).
+See the [repository README](../README.md#robot-calibration) for the driver-side arguments.

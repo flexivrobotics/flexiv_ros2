@@ -8,10 +8,9 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     robot_sn_param_name = "robot_sn"
-    target_filename_param_name = "target_filename"
     robot_type_param_name = "robot_type"
+    target_filename_param_name = "target_filename"
     template_filename_param_name = "template_filename"
-    overwrite_param_name = "overwrite"
 
     # Declare arguments
     declared_arguments = []
@@ -25,16 +24,17 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            target_filename_param_name,
-            description="Path of the kinematics YAML file to write. Must be outside flexiv_description.",
+            robot_type_param_name,
+            default_value="",
+            description="Type of the Flexiv robot, which selects the kinematics file to update. Defaults to the model name reported by the robot.",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            robot_type_param_name,
+            target_filename_param_name,
             default_value="",
-            description="Type of the Flexiv robot, used to pick the template. Defaults to the model name reported by the robot.",
+            description="Write the synced parameters here instead of updating flexiv_description's default_kinematics.yaml. Use this to keep several robots of the same type side by side.",
         )
     )
 
@@ -42,24 +42,15 @@ def generate_launch_description():
         DeclareLaunchArgument(
             template_filename_param_name,
             default_value="",
-            description="Template kinematics YAML file to copy. Defaults to flexiv_description/config/[robot_type]/default_kinematics.yaml",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            overwrite_param_name,
-            default_value="false",
-            description="Replace the target file if it already exists.",
+            description="Template kinematics YAML file to sync. Defaults to flexiv_description/config/[robot_type]/default_kinematics.yaml",
         )
     )
 
     # Initialize arguments
     robot_sn = LaunchConfiguration(robot_sn_param_name)
-    target_filename = LaunchConfiguration(target_filename_param_name)
     robot_type = LaunchConfiguration(robot_type_param_name)
+    target_filename = LaunchConfiguration(target_filename_param_name)
     template_filename = LaunchConfiguration(template_filename_param_name)
-    overwrite = LaunchConfiguration(overwrite_param_name)
 
     calibration_correction_node = Node(
         package="flexiv_calibration",
@@ -68,10 +59,9 @@ def generate_launch_description():
         parameters=[
             {
                 "robot_sn": robot_sn,
-                "target_filename": target_filename,
                 "robot_type": robot_type,
+                "target_filename": target_filename,
                 "template_filename": template_filename,
-                "overwrite": overwrite,
             }
         ],
         output="screen",
