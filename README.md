@@ -261,7 +261,7 @@ ros2 topic pub /Rizon4_123456/gpio_outputs flexiv_msgs/msg/GPIOStates "{states: 
 
 ### Robot Calibration
 
-Every robot leaves the factory with measured kinematic parameters that differ slightly from the nominal ones shipped in `flexiv_description`. The `flexiv_calibration` package reads the actual parameters from a connected robot and syncs them into a kinematics YAML file, so that the URDF describes your specific robot rather than the model. Reading them requires an RDK professional license:
+Every robot leaves the factory with measured kinematic parameters that differ slightly from the nominal ones shipped in `flexiv_description`. The `flexiv_calibration` package reads the actual parameters from a connected robot and syncs them into a kinematics YAML file, so that the URDF describes your specific robot rather than the model.
 
 ```bash
 ros2 launch flexiv_calibration calibration_correction.launch.py robot_sn:=[robot_sn]
@@ -274,7 +274,7 @@ You can also specify a different file to write to, for example if you want to ke
 ```bash
 ros2 launch flexiv_calibration calibration_correction.launch.py robot_sn:=[robot_sn] target_filename:="${HOME}/[robot_sn]_kinematics.yaml"
 
-ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_type:=Rizon4s kinematics_params_file:="${HOME}/[robot_sn]_kinematics.yaml"
+ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_type:=[robot_type] kinematics_params_file:="${HOME}/[robot_sn]_kinematics.yaml"
 ```
 
 *(Dual robot setups and the remaining arguments are described in [`flexiv_calibration`](/flexiv_calibration))*

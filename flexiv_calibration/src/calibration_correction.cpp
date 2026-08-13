@@ -39,6 +39,28 @@ struct TempFile
 };
 
 /**
+ * @brief Check a template before it is used. The sync only fills keys the template already
+ * lists, so the template decides which joints get measured values and an empty one syncs
+ * nothing at all.
+ */
+bool TemplateIsUsable(const fs::path& tmpl, const rclcpp::Logger& logger)
+{
+    if (!fs::is_regular_file(tmpl)) {
+        RCLCPP_ERROR(logger,
+            "Template [%s] does not exist. Set [robot_type] to a robot type that "
+            "flexiv_description ships a config for, or set [template_filename] explicitly",
+            tmpl.c_str());
+        return false;
+    }
+    if (fs::file_size(tmpl) == 0) {
+        RCLCPP_ERROR(
+            logger, "Template [%s] is empty. It must list the joints to sync", tmpl.c_str());
+        return false;
+    }
+    return true;
+}
+
+/**
  * @brief Record which robot the parameters came from. Rewrites any block from an earlier run so
  * that repeated syncs of the same file do not stack up.
  */
@@ -94,6 +116,22 @@ int main(int argc, char** argv)
     }
 
     try {
+        const fs::path description_dir
+            = ament_index_cpp::get_package_share_directory("flexiv_description");
+        const auto default_template = [&](const std::string& type) {
+            return (description_dir / "config" / type / "default_kinematics.yaml").string();
+        };
+
+        // Resolve the template as early as the inputs allow, so a bad one is reported without
+        // first waiting on the robot. Only an unset robot_type has to wait for the robot to
+        // name itself.
+        if (template_filename.empty() && !robot_type.empty()) {
+            template_filename = default_template(robot_type);
+        }
+        if (!template_filename.empty() && !TemplateIsUsable(template_filename, logger)) {
+            return 1;
+        }
+
         RCLCPP_INFO(logger, "Connecting to robot [%s]...", robot_sn.c_str());
         flexiv::rdk::Robot robot(robot_sn, whitelist);
         const auto info = robot.info();
@@ -104,21 +142,13 @@ int main(int argc, char** argv)
         if (robot_type.empty()) {
             robot_type = info.model_name;
         }
-
-        const fs::path description_dir
-            = ament_index_cpp::get_package_share_directory("flexiv_description");
         if (template_filename.empty()) {
-            template_filename
-                = (description_dir / "config" / robot_type / "default_kinematics.yaml").string();
+            template_filename = default_template(robot_type);
+            if (!TemplateIsUsable(template_filename, logger)) {
+                return 1;
+            }
         }
         const fs::path tmpl = fs::path(template_filename);
-        if (!fs::is_regular_file(tmpl)) {
-            RCLCPP_ERROR(logger,
-                "Template [%s] does not exist. Set [robot_type] to a robot type that "
-                "flexiv_description ships a config for, or set [template_filename] explicitly",
-                tmpl.c_str());
-            return 1;
-        }
 
         // Default to updating the template itself, which is what flexiv_description loads unless
         // a launch file points it elsewhere. Resolve symlinks so that a --symlink-install
@@ -135,6 +165,15 @@ int main(int argc, char** argv)
 
         flexiv::rdk::Model model(robot);
         const size_t synced = model.SyncKinematicsYAML(tmp.path.string());
+        // Nothing matched, so the result would carry nominal values while looking calibrated.
+        // Leave [dest] alone; the temporary file is discarded on the way out.
+        if (synced == 0) {
+            RCLCPP_ERROR(logger,
+                "Synced 0 joints, so [%s] was not written. The sync only fills keys already "
+                "present in the template [%s] -- check that it lists this robot's joints",
+                dest.c_str(), tmpl.c_str());
+            return 1;
+        }
         if (synced < info.DoF_m) {
             RCLCPP_WARN(logger,
                 "Only %zu of %zu joints were synced. [%s] now mixes measured and nominal values",

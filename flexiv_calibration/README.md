@@ -17,11 +17,14 @@ Launch arguments:
 
 - `robot_sn` (*required*) - serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
 - `robot_type` (default: *empty*) - type of the Flexiv robot, which selects the kinematics file to update. Defaults to the model name reported by the robot.
-- `target_filename` (default: *empty*) - write the synced parameters here instead of updating `flexiv_description`. Use this to keep several robots of the same type side by side, and pass the file back with the driver's `kinematics_params_file` argument.
-- `template_filename` (default: *empty*) - template kinematics YAML file to sync. Defaults to `flexiv_description/config/[robot_type]/default_kinematics.yaml`.
+- `target_filename` (default: *empty*) - write the synced parameters here instead of updating `flexiv_description`. Use this to keep several robots of the same type side by side, and pass the file back with the driver's `kinematics_params_file` argument. This is a destination only: it is never read, and any existing content is replaced.
+- `template_filename` (default: *empty*) - template kinematics YAML file to sync. It supplies the joint list, so only the joints it names get measured values. Defaults to `flexiv_description/config/[robot_type]/default_kinematics.yaml`.
 
 Notes:
 
+- The sync fills values into the keys the template already lists; it never adds joints. A
+  template that is empty, or that does not name this robot's joints, syncs nothing — the run
+  fails and no file is written.
 - Reading kinematic parameters requires an RDK professional license.
 - Run this once per robot, and again whenever the robot is re-calibrated or repaired. For a dual
   robot setup, run it once per serial number.
