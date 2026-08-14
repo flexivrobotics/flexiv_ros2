@@ -74,6 +74,7 @@ jobs:
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.humble.repos
           package-name: |
             flexiv_bringup
+            flexiv_calibration
             flexiv_gripper
             flexiv_hardware
             flexiv_moveit_config
