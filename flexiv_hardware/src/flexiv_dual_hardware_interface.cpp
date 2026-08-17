@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <string>
+#include <thread>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/clock.hpp>
@@ -15,10 +16,15 @@
 
 #include "flexiv/drdk/robot_pair.hpp"
 #include "flexiv_hardware/flexiv_dual_hardware_interface.hpp"
+#include "flexiv_hardware/operational_status.hpp"
 
 namespace {
 constexpr double kMaxJointVelocity = 2.0;
 constexpr double kMaxJointAcceleration = 3.0;
+
+// Bounded wait for both robots to become operational during activation.
+constexpr std::chrono::seconds kActivationOperationalTimeout {30};
+constexpr std::chrono::milliseconds kOperationalPollPeriod {200};
 }
 
 namespace flexiv_hardware {
@@ -186,6 +192,13 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    // The joint map below is built from the connected robots, so unlike the single-robot
+    // interface the connection has to stay in on_init. on_configure only brings up the recovery
+    // interface on top of it.
+    driver_status_ = std::make_shared<DriverStatus>();
+    executor_ = params.executor;
+    robot_system_control_ = std::make_unique<DualRobotSystemControl>(*robot_pair_);
+
     // Check the DoF of both robots
     if (robot_pair_->info().first.DoF + robot_pair_->info().second.DoF != info_.joints.size()) {
         if (external_axis_type_.find("aico2") != std::string::npos) {
@@ -347,6 +360,102 @@ FlexivDualHardwareInterface::export_command_interfaces()
     return command_interfaces;
 }
 
+hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_configure(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    driver_status_->driver_state.store(DriverState::FAULT);
+
+    auto executor = executor_.lock();
+    if (!executor) {
+        RCLCPP_FATAL(getLogger(),
+            "No executor available to host the recovery interface. The controller manager must "
+            "provide one through HardwareComponentInterfaceParams.");
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    // Namespaced by the left robot so that the pair has a single, predictable recovery interface.
+    const std::string robot_sn_left = info_.hardware_parameters.at("robot_sn_left");
+    recovery_node_
+        = std::make_shared<RecoveryNode>(robot_sn_left, *robot_system_control_, driver_status_);
+    executor->add_node(recovery_node_->get_node_base_interface());
+
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+void FlexivDualHardwareInterface::TeardownRecoveryNode()
+{
+    if (recovery_node_) {
+        if (auto executor = executor_.lock()) {
+            executor->remove_node(recovery_node_->get_node_base_interface());
+        }
+        recovery_node_.reset();
+    }
+}
+
+hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_cleanup(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    TeardownRecoveryNode();
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_shutdown(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    TeardownRecoveryNode();
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_error(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    RCLCPP_ERROR(getLogger(), "Hardware component entered the error state, stopping the robots");
+
+    driver_status_->driver_state.store(DriverState::FAULT);
+    try {
+        robot_pair_->Stop();
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(getLogger(), "Could not stop the robots: %s", e.what());
+    }
+
+    TeardownRecoveryNode();
+
+    // SUCCESS puts the component in UNCONFIGURED, from which it can be configured and activated
+    // again. FAILURE or ERROR would finalize it and force a restart of the whole process.
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+bool FlexivDualHardwareInterface::WaitUntilOperational(std::chrono::seconds timeout)
+{
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    auto next_log = std::chrono::steady_clock::now();
+
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (robot_pair_->operational()) {
+            return true;
+        }
+        if (std::chrono::steady_clock::now() >= next_log) {
+            RCLCPP_INFO(getLogger(), "Waiting for both robots to become operational ...");
+            next_log = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        }
+        std::this_thread::sleep_for(kOperationalPollPeriod);
+    }
+    return robot_pair_->operational();
+}
+
+void FlexivDualHardwareInterface::SynchronizeCommandsWithState()
+{
+    // Position commands start from where the robots actually are, so the first write() after a
+    // mode switch commands a hold instead of a stale setpoint.
+    hw_commands_joint_positions_ = hw_states_joint_positions_;
+    std::fill(hw_commands_joint_velocities_.begin(), hw_commands_joint_velocities_.end(), 0.0);
+
+    // Effort commands stay NaN so that write() skips streaming. A zero torque command is streamed
+    // with gravity compensation enabled and would leave the arms floating instead of holding.
+    std::fill(hw_commands_joint_efforts_.begin(), hw_commands_joint_efforts_.end(),
+        std::numeric_limits<double>::quiet_NaN());
+}
+
 hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
@@ -389,9 +498,14 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
         RCLCPP_INFO(getLogger(), "Enabling robots ...");
         robot_pair_->Enable();
 
-        // Wait for both robots to become operational
-        while (!robot_pair_->operational()) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+        // Wait for both robots to become operational, bounded so that a robot that never becomes
+        // ready fails the activation instead of hanging the controller manager forever.
+        if (!WaitUntilOperational(kActivationOperationalTimeout)) {
+            RCLCPP_FATAL(getLogger(),
+                "Robots did not become operational within %ld s. Check that the E-stop is "
+                "released and that both robots are in Auto (Remote) mode.",
+                static_cast<long>(kActivationOperationalTimeout.count()));
+            return hardware_interface::CallbackReturn::ERROR;
         }
         RCLCPP_INFO(getLogger(), "Both robots are now operational");
 
@@ -406,6 +520,8 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    driver_status_->driver_state.store(DriverState::READY);
+
     RCLCPP_INFO(getLogger(), "System successfully started!");
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -414,7 +530,18 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
     RCLCPP_INFO(getLogger(), "Stopping... please wait...");
-    robot_pair_->Stop();
+
+    // Hold off write() before stopping, so the real-time loop cannot stream a command into robots
+    // that are being brought to a halt.
+    driver_status_->driver_state.store(DriverState::FAULT);
+
+    try {
+        robot_pair_->Stop();
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(getLogger(), "Could not stop the robots: %s", e.what());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
     RCLCPP_INFO(getLogger(), "System successfully stopped!");
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -422,7 +549,22 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_deactivate(
 hardware_interface::return_type FlexivDualHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    if (robot_pair_->operational()) {
+    // Latch the pair condition for the recovery node. DRDK reports the pair as a whole, so the
+    // status topic carries the combined condition rather than per-robot detail.
+    const bool operational = robot_pair_->operational();
+    driver_status_->connected.store(true);
+    driver_status_->operational.store(operational);
+    driver_status_->fault.store(robot_pair_->fault());
+    driver_status_->operational_status.store(robot_system_control_->operational_status());
+    driver_status_->control_mode.store(robot_system_control_->mode());
+
+    // Recovery owns the driver state while it runs; do not fight it from here.
+    if (driver_status_->driver_state.load() != DriverState::RECOVERING) {
+        driver_status_->driver_state.store(
+            operational ? DriverState::READY : DriverState::FAULT);
+    }
+
+    if (operational) {
         auto robot_states_pair = robot_pair_->states();
         hw_flexiv_robot_states_left_ = robot_states_pair.first;
         hw_flexiv_robot_states_right_ = robot_states_pair.second;
@@ -456,6 +598,13 @@ hardware_interface::return_type FlexivDualHardwareInterface::read(
 hardware_interface::return_type FlexivDualHardwareInterface::write(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
+    // Issue no DRDK call unless the robots are ready. While recovery runs it changes the control
+    // mode and the fault state, and this early return is what guarantees the real-time loop is
+    // quiescent for the duration without needing a lock on the hot path.
+    if (driver_status_->driver_state.load() != DriverState::READY) {
+        return hardware_interface::return_type::OK;
+    }
+
     // Initialize target position and velocity vectors
     std::vector<double> target_pos_left(robot_pair_->info().first.DoF);
     std::vector<double> target_vel_left(robot_pair_->info().first.DoF);
@@ -675,8 +824,7 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
-        std::fill(hw_commands_joint_positions_.begin(), hw_commands_joint_positions_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        SynchronizeCommandsWithState();
 
         // Set to joint position or joint impedance mode
         robot_pair_->SwitchMode(rdk_control_mode_);
@@ -690,8 +838,7 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
-        std::fill(hw_commands_joint_velocities_.begin(), hw_commands_joint_velocities_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        SynchronizeCommandsWithState();
 
         // Set to joint position or joint impedance mode
         robot_pair_->SwitchMode(rdk_control_mode_);
@@ -706,10 +853,11 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
 
         // Hold joints when starting joint torque controller before user
         // commands arrives
-        std::fill(hw_commands_joint_efforts_.begin(), hw_commands_joint_efforts_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        SynchronizeCommandsWithState();
 
-        // Set to joint torque mode
+        // Set to joint torque mode. This is also the step that brings the robots back from IDLE to
+        // RT_JOINT_TORQUE after a fault: recovery leaves them operational in IDLE, and restarting
+        // the effort controller lands here with a freshly synchronized command buffer.
         robot_pair_->SwitchMode(flexiv::rdk::Mode::RT_JOINT_TORQUE);
 
         torque_controller_running_ = true;
