@@ -463,35 +463,22 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 {
     // Latch the robot condition for the recovery node. These are all non-blocking accessors over
     // cached state, so they are safe to poll from the real-time loop.
-    const bool connected = robot_->connected();
-    const bool operational = robot_->operational();
-    driver_status_->connected.store(connected);
-    driver_status_->operational.store(operational);
-    driver_status_->fault.store(robot_->fault());
-    driver_status_->estop_released.store(robot_->estop_released());
-    driver_status_->reduced.store(robot_->reduced());
-    driver_status_->recovery_state.store(robot_->recovery());
-    driver_status_->reached_timeliness_failure_limit.store(
-        robot_->reached_timeliness_failure_limit());
-    driver_status_->operational_status.store(robot_->operational_status());
-    driver_status_->control_mode.store(robot_->mode());
+    driver_status_->Latch(*robot_system_control_);
+
+    // Recovery owns the driver state while it runs
+    if (driver_status_->driver_state.load() != DriverState::RECOVERING) {
+        driver_status_->driver_state.store(driver_status_->DeriveDriverState());
+    }
 
     // A lost connection is the only condition the driver cannot report or recover from in place,
     // so it is the only one escalated to the controller manager. Every other fault keeps the
     // component ACTIVE, which keeps the status topic and the recovery action reachable.
-    if (!connected) {
-        driver_status_->driver_state.store(DriverState::DISCONNECTED);
+    if (!driver_status_->connected.load()) {
         RCLCPP_ERROR(getLogger(), "Lost connection with the robot");
         return hardware_interface::return_type::ERROR;
     }
 
-    // Recovery owns the driver state while it runs; do not fight it from here.
-    const auto driver_state = driver_status_->driver_state.load();
-    if (driver_state != DriverState::RECOVERING) {
-        driver_status_->driver_state.store(operational ? DriverState::READY : DriverState::FAULT);
-    }
-
-    if (operational) {
+    if (driver_status_->operational.load()) {
         hw_flexiv_robot_states_ = robot_->states();
 
         // Read joint states

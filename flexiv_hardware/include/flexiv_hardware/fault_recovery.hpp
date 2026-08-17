@@ -98,11 +98,6 @@ enum class DriverState : uint8_t
 };
 
 /**
- * @brief [Non-blocking] Name of a driver state.
- */
-std::string DriverStateName(DriverState state);
-
-/**
  * @brief Robot condition latched by the real-time control loop and read by the recovery node.
  *
  * read() is the only writer and it only ever stores; the recovery node and the status publisher are
@@ -124,11 +119,21 @@ struct DriverStatus
         flexiv::rdk::OperationalStatus::UNKNOWN};
     std::atomic<flexiv::rdk::Mode> control_mode {flexiv::rdk::Mode::UNKNOWN};
 
-    /** @brief [Non-blocking] Latch the current robot condition. Called from read(). */
+    /**
+     * @brief [Non-blocking] Latch every condition field from the robot. Called from read(). Does
+     * not touch driver_state; use DeriveDriverState() for that, so that a caller holding the
+     * recovery lock can refresh the condition without releasing it.
+     */
     void Latch(const RobotSystemControl& robot);
 
     /** @brief [Non-blocking] Rebuild the condition from the latched values. */
     RobotCondition condition() const;
+
+    /**
+     * @brief [Non-blocking] The driver state implied by the latched condition. Pure: it reads the
+     * latched fields and stores nothing, so the caller decides when to apply it.
+     */
+    DriverState DeriveDriverState() const;
 };
 
 //====================================== RECOVERY SEQUENCE =========================================

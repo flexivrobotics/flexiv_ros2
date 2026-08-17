@@ -551,19 +551,19 @@ hardware_interface::return_type FlexivDualHardwareInterface::read(
 {
     // Latch the pair condition for the recovery node. DRDK reports the pair as a whole, so the
     // status topic carries the combined condition rather than per-robot detail.
-    const bool operational = robot_pair_->operational();
-    driver_status_->connected.store(true);
-    driver_status_->operational.store(operational);
-    driver_status_->fault.store(robot_pair_->fault());
-    driver_status_->operational_status.store(robot_system_control_->operational_status());
-    driver_status_->control_mode.store(robot_system_control_->mode());
+    driver_status_->Latch(*robot_system_control_);
 
     // Recovery owns the driver state while it runs; do not fight it from here.
     if (driver_status_->driver_state.load() != DriverState::RECOVERING) {
-        driver_status_->driver_state.store(operational ? DriverState::READY : DriverState::FAULT);
+        driver_status_->driver_state.store(driver_status_->DeriveDriverState());
     }
 
-    if (operational) {
+    if (!driver_status_->connected.load()) {
+        RCLCPP_ERROR(getLogger(), "Lost connection with one or both robots");
+        return hardware_interface::return_type::ERROR;
+    }
+
+    if (driver_status_->operational.load()) {
         auto robot_states_pair = robot_pair_->states();
         hw_flexiv_robot_states_left_ = robot_states_pair.first;
         hw_flexiv_robot_states_right_ = robot_states_pair.second;

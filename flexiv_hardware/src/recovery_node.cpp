@@ -191,8 +191,6 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
     auto feedback = std::make_shared<ErrorRecovery::Feedback>();
     auto result = std::make_shared<ErrorRecovery::Result>();
 
-    const auto previous_driver_state = status_->driver_state.load();
-
     // Announce the recovery before touching the robot. write() withholds every RDK call while the
     // driver is RECOVERING, which is what makes it safe to change the control mode from here.
     status_->driver_state.store(DriverState::RECOVERING);
@@ -228,24 +226,25 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
     // cannot apply a stale pre-fault command.
     result->requires_controller_restart = state_machine.succeeded();
 
+    // Release the recovery hold. The driver state is re-derived from the robot rather than guessed
+    // per outcome, so it reports what the robot actually is now regardless of how recovery ended.
+    // Latching here also means write() is unblocked without waiting for the next read().
+    status_->Latch(robot_);
+    status_->driver_state.store(status_->DeriveDriverState());
+
     if (canceled) {
-        status_->driver_state.store(previous_driver_state);
         result->success = false;
         result->message = "Recovery canceled by the caller.";
         result->requires_controller_restart = false;
         goal_handle->canceled(result);
         RCLCPP_WARN(this->get_logger(), "Recovery canceled");
     } else if (state_machine.succeeded()) {
-        // read() reclassifies on its next cycle; start from READY so write() is not held off.
-        status_->driver_state.store(DriverState::READY);
         goal_handle->succeed(result);
         RCLCPP_INFO(this->get_logger(), "%s", result->message.c_str());
     } else {
-        const auto policy = state_machine.policy();
-        status_->driver_state.store(
-            policy == RecoveryPolicy::SAFETY_LOCKOUT ? DriverState::LOCKOUT : DriverState::FAULT);
         goal_handle->abort(result);
-        RCLCPP_ERROR(this->get_logger(), "Recovery failed: %s", result->message.c_str());
+        RCLCPP_ERROR(this->get_logger(), "Recovery failed [%s]: %s",
+            RecoveryPolicyName(state_machine.policy()).c_str(), result->message.c_str());
     }
 
     RefreshRecentEvents();

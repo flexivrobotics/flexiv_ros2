@@ -154,26 +154,6 @@ std::string RecoveryPolicyName(RecoveryPolicy policy)
 
 //========================================= DRIVER STATUS ==========================================
 
-std::string DriverStateName(DriverState state)
-{
-    switch (state) {
-        case DriverState::UNINITIALIZED:
-            return "UNINITIALIZED";
-        case DriverState::READY:
-            return "READY";
-        case DriverState::FAULT:
-            return "FAULT";
-        case DriverState::RECOVERING:
-            return "RECOVERING";
-        case DriverState::LOCKOUT:
-            return "LOCKOUT";
-        case DriverState::DISCONNECTED:
-            return "DISCONNECTED";
-        default:
-            return "UNKNOWN";
-    }
-}
-
 void DriverStatus::Latch(const RobotSystemControl& robot)
 {
     connected.store(robot.connected());
@@ -190,6 +170,22 @@ void DriverStatus::Latch(const RobotSystemControl& robot)
 RobotCondition DriverStatus::condition() const
 {
     return {connected.load(), operational_status.load(), reached_timeliness_failure_limit.load()};
+}
+
+DriverState DriverStatus::DeriveDriverState() const
+{
+    if (!connected.load()) {
+        return DriverState::DISCONNECTED;
+    }
+    if (operational.load()) {
+        return DriverState::READY;
+    }
+    // Distinguish a safety lockout from an ordinary fault, so that the status topic shows why
+    // recovery would refuse to run.
+    if (ClassifyRecoveryPolicy(condition()) == RecoveryPolicy::SAFETY_LOCKOUT) {
+        return DriverState::LOCKOUT;
+    }
+    return DriverState::FAULT;
 }
 
 //====================================== RECOVERY SEQUENCE =========================================
