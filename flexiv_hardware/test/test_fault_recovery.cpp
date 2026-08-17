@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "flexiv_hardware/operational_status.hpp"
+#include "flexiv_hardware/fault_recovery.hpp"
 
 using flexiv::rdk::OperationalStatus;
 using flexiv_hardware::ClassifyRecoveryPolicy;

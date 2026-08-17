@@ -17,7 +17,7 @@
 
 #include "flexiv/rdk/robot.hpp"
 #include "flexiv_hardware/flexiv_hardware_interface.hpp"
-#include "flexiv_hardware/operational_status.hpp"
+#include "flexiv_hardware/fault_recovery.hpp"
 
 namespace {
 

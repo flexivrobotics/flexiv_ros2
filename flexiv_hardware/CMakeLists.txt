@@ -29,8 +29,7 @@ add_library(
   ${PROJECT_NAME}
   SHARED
   src/flexiv_hardware_interface.cpp
-  src/operational_status.cpp
-  src/recovery_state_machine.cpp
+  src/fault_recovery.cpp
   src/recovery_node.cpp
 )
 
@@ -89,9 +88,9 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(test_operational_status test/test_operational_status.cpp)
-  target_include_directories(test_operational_status PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  target_link_libraries(test_operational_status ${PROJECT_NAME} flexiv::flexiv_rdk)
+  ament_add_gtest(test_fault_recovery test/test_fault_recovery.cpp)
+  target_include_directories(test_fault_recovery PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_link_libraries(test_fault_recovery ${PROJECT_NAME} flexiv::flexiv_rdk)
 endif()
 
 # EXPORTS

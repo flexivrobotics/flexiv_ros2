@@ -9,7 +9,7 @@
 #include <thread>
 
 #include "flexiv_hardware/recovery_node.hpp"
-#include "flexiv_hardware/recovery_state_machine.hpp"
+#include "flexiv_hardware/fault_recovery.hpp"
 
 namespace {
 
@@ -32,26 +32,6 @@ std::string SanitizeNamespace(const std::string& robot_sn)
 }
 
 namespace flexiv_hardware {
-
-const char* DriverStateName(DriverState state)
-{
-    switch (state) {
-        case DriverState::UNINITIALIZED:
-            return "UNINITIALIZED";
-        case DriverState::READY:
-            return "READY";
-        case DriverState::FAULT:
-            return "FAULT";
-        case DriverState::RECOVERING:
-            return "RECOVERING";
-        case DriverState::LOCKOUT:
-            return "LOCKOUT";
-        case DriverState::DISCONNECTED:
-            return "DISCONNECTED";
-        default:
-            return "UNKNOWN";
-    }
-}
 
 RecoveryNode::RecoveryNode(
     const std::string& robot_sn, RobotSystemControl& robot, std::shared_ptr<DriverStatus> status)
@@ -145,15 +125,10 @@ flexiv_msgs::msg::OperationalStatus RecoveryNode::BuildStatusMessage()
     flexiv_msgs::msg::OperationalStatus message;
     message.header.stamp = this->now();
 
-    const auto operational_status = status_->operational_status.load();
-    RobotCondition condition;
-    condition.connected = status_->connected.load();
-    condition.operational_status = operational_status;
-    condition.reached_timeliness_failure_limit
-        = status_->reached_timeliness_failure_limit.load();
+    const auto condition = status_->condition();
 
-    message.operational_status = static_cast<uint8_t>(operational_status);
-    message.operational_status_name = OperationalStatusName(operational_status);
+    message.operational_status = static_cast<uint8_t>(condition.operational_status);
+    message.operational_status_name = OperationalStatusName(condition.operational_status);
     message.driver_state = static_cast<uint8_t>(status_->driver_state.load());
     message.connected = condition.connected;
     message.fault = status_->fault.load();

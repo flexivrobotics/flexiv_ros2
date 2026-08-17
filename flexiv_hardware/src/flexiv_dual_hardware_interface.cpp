@@ -16,7 +16,7 @@
 
 #include "flexiv/drdk/robot_pair.hpp"
 #include "flexiv_hardware/flexiv_dual_hardware_interface.hpp"
-#include "flexiv_hardware/operational_status.hpp"
+#include "flexiv_hardware/fault_recovery.hpp"
 
 namespace {
 constexpr double kMaxJointVelocity = 2.0;

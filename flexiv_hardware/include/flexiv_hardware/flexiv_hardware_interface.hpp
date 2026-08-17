@@ -32,7 +32,7 @@
 // Flexiv
 #include "flexiv/rdk/robot.hpp"
 
-#include "flexiv_hardware/driver_status.hpp"
+#include "flexiv_hardware/fault_recovery.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
 #include "flexiv_hardware/robot_system_control.hpp"
 

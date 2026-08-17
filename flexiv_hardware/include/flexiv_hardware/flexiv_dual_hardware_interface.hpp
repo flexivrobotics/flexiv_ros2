@@ -31,7 +31,7 @@
 // Flexiv
 #include "flexiv/drdk/robot_pair.hpp"
 
-#include "flexiv_hardware/driver_status.hpp"
+#include "flexiv_hardware/fault_recovery.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
 #include "flexiv_hardware/robot_system_control.hpp"
 
@@ -43,87 +43,6 @@ enum StoppingInterface
     STOP_POSITION,
     STOP_VELOCITY,
     STOP_EFFORT
-};
-
-/**
- * @brief RobotSystemControl implementation over a drdk::RobotPair. Does not own the pair.
- *
- * DRDK exposes a smaller status surface than rdk::Robot: it reports fault() and operational() for
- * the pair, but not the individual conditions behind them. The accessors that have no DRDK
- * equivalent are derived from those two, which is enough to clear faults and re-enable, but not
- * enough to tell an E-stop apart from a robot left in Manual mode. Such a condition surfaces as a
- * failed enable rather than as a specific operator message.
- */
-class DualRobotSystemControl : public RobotSystemControl
-{
-public:
-    explicit DualRobotSystemControl(flexiv::drdk::RobotPair& robot_pair)
-    : robot_pair_(robot_pair)
-    {
-    }
-
-    bool fault() const override { return robot_pair_.fault(); }
-    bool operational() const override { return robot_pair_.operational(); }
-
-    flexiv::rdk::Mode mode() const override
-    {
-        // The pair reports a mode per robot. Both are always commanded together, so report the
-        // shared mode and fall back to UNKNOWN if they ever diverge.
-        const auto modes = robot_pair_.mode();
-        return modes.first == modes.second ? modes.first : flexiv::rdk::Mode::UNKNOWN;
-    }
-    bool has_external_axes() const override
-    {
-        return robot_pair_.info().first.DoF_e > 0 || robot_pair_.info().second.DoF_e > 0;
-    }
-
-    // Derived, see the class note above.
-    bool connected() const override { return true; }
-    bool estop_released() const override { return true; }
-    bool recovery() const override { return false; }
-    bool reduced() const override { return false; }
-    bool reached_timeliness_failure_limit() const override { return false; }
-
-    flexiv::rdk::OperationalStatus operational_status() const override
-    {
-        if (robot_pair_.fault()) {
-            return flexiv::rdk::OperationalStatus::MINOR_FAULT;
-        }
-        if (robot_pair_.operational()) {
-            return flexiv::rdk::OperationalStatus::READY;
-        }
-        return flexiv::rdk::OperationalStatus::NOT_ENABLED;
-    }
-
-    std::vector<flexiv::rdk::RobotEvent> event_log() const override { return {}; }
-
-    void Stop() override { robot_pair_.Stop(); }
-    void Enable() override { robot_pair_.Enable(); }
-
-    bool ClearFault() override
-    {
-        // The pair reports per-robot results; the fault is only cleared if both succeeded.
-        const auto result = robot_pair_.ClearFault();
-        return result.first && result.second;
-    }
-
-    void UnlockExternalAxes() override
-    {
-        robot_pair_.LockExternalAxes(
-            {robot_pair_.info().first.DoF_e == 0, robot_pair_.info().second.DoF_e == 0});
-    }
-
-    void RunAutoRecovery() override
-    {
-        // DRDK exposes no automatic recovery for a pair. recovery() reports false, so the recovery
-        // sequence never reaches this state.
-        throw std::runtime_error(
-            "Automatic recovery is not available for a dual robot setup. Recover each robot "
-            "individually using Flexiv Elements.");
-    }
-
-private:
-    flexiv::drdk::RobotPair& robot_pair_;
 };
 
 class FlexivDualHardwareInterface : public hardware_interface::SystemInterface

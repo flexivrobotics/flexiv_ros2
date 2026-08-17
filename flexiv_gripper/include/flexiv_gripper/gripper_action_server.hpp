@@ -30,7 +30,7 @@
 #include "flexiv/rdk/robot.hpp"
 #include "flexiv/rdk/tool.hpp"
 
-#include "flexiv_hardware/operational_status.hpp"
+#include "flexiv_hardware/fault_recovery.hpp"
 
 namespace {
 
