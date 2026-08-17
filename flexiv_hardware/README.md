@@ -69,7 +69,7 @@ human.
 | Condition                                | Policy             | Behavior                                                 |
 | ---------------------------------------- | ------------------ | -------------------------------------------------------- |
 | Minor fault, critical fault, not enabled | `AUTO_RECOVERABLE` | Cleared and re-enabled                                   |
-| Booting, releasing brakes                | `TRANSIENT`        | Waited out                                               |
+| Booting, releasing brakes                | `TRANSIENT`        | Enabled, then waited out for up to 20 s                  |
 | E-stop pressed                           | `SAFETY_LOCKOUT`   | Refused. Release the E-stop                              |
 | Recovery state                           | `WAIT_OPERATOR`    | Refused unless `run_auto_recovery: true`                 |
 | Reduced state                            | `WAIT_OPERATOR`    | Refused. The TCP crossed a safety plane                  |

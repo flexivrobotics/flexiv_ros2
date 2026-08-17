@@ -258,7 +258,7 @@ reason, and exposes a recovery action:
 # Step 1: Diagnose the fault
 ros2 topic echo /Rizon4_123456/flexiv_recovery_node/operational_status
 
-# Step 2:Clear the fault and re-enable
+# Step 2: Clear the fault and re-enable
 ros2 action send_goal /Rizon4_123456/flexiv_recovery_node/error_recovery \
   flexiv_msgs/action/ErrorRecovery "{}" --feedback
 
