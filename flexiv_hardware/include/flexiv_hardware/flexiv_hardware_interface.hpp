@@ -9,6 +9,7 @@
 #ifndef FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 #define FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,6 +32,10 @@
 // Flexiv
 #include "flexiv/rdk/robot.hpp"
 
+#include "flexiv_hardware/driver_status.hpp"
+#include "flexiv_hardware/recovery_node.hpp"
+#include "flexiv_hardware/robot_system_control.hpp"
+
 namespace flexiv_hardware {
 
 enum StoppingInterface
@@ -48,6 +53,18 @@ public:
 
     hardware_interface::CallbackReturn on_init(
         const hardware_interface::HardwareComponentInterfaceParams& params) override;
+
+    hardware_interface::CallbackReturn on_configure(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    hardware_interface::CallbackReturn on_cleanup(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    hardware_interface::CallbackReturn on_shutdown(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    hardware_interface::CallbackReturn on_error(
+        const rclcpp_lifecycle::State& previous_state) override;
 
     std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
@@ -74,8 +91,30 @@ public:
         const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
 private:
+    /**
+     * @brief [Blocking] Wait for the robot to become operational, up to [timeout]. Logs the
+     * operational status while waiting so a stuck robot explains itself.
+     * @return True if the robot became operational, false on timeout.
+     */
+    bool WaitUntilOperational(std::chrono::seconds timeout);
+
+    /**
+     * @brief Set the joint command buffers to hold the currently measured position, so that
+     * resuming control cannot apply a stale command.
+     */
+    void SynchronizeCommandsWithState();
+
+    /** @brief Tear down the recovery node and release the robot connection. */
+    void Disconnect();
+
     // Flexiv RDK
     std::unique_ptr<flexiv::rdk::Robot> robot_;
+
+    // Recovery interface, hosted on the controller manager's executor
+    std::unique_ptr<RobotSystemControl> robot_system_control_;
+    std::shared_ptr<DriverStatus> driver_status_;
+    std::shared_ptr<RecoveryNode> recovery_node_;
+    rclcpp::Executor::WeakPtr executor_;
 
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;
