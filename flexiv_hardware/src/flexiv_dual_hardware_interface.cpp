@@ -560,8 +560,7 @@ hardware_interface::return_type FlexivDualHardwareInterface::read(
 
     // Recovery owns the driver state while it runs; do not fight it from here.
     if (driver_status_->driver_state.load() != DriverState::RECOVERING) {
-        driver_status_->driver_state.store(
-            operational ? DriverState::READY : DriverState::FAULT);
+        driver_status_->driver_state.store(operational ? DriverState::READY : DriverState::FAULT);
     }
 
     if (operational) {

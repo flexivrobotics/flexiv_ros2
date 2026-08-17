@@ -189,8 +189,7 @@ void DriverStatus::Latch(const RobotSystemControl& robot)
 
 RobotCondition DriverStatus::condition() const
 {
-    return {connected.load(), operational_status.load(),
-        reached_timeliness_failure_limit.load()};
+    return {connected.load(), operational_status.load(), reached_timeliness_failure_limit.load()};
 }
 
 //====================================== RECOVERY SEQUENCE =========================================
@@ -344,8 +343,9 @@ bool RecoveryStateMachine::Step()
                 if (robot_.has_external_axes()) {
                     robot_.UnlockExternalAxes();
                 }
-                message_ = "Robot recovered and is operational in IDLE control mode. Restart the "
-                           "controllers to resume motion.";
+                message_
+                    = "Robot recovered and is operational in IDLE control mode. Restart the "
+                      "controllers to resume motion.";
                 TransitionTo(RecoveryState::COMPLETE);
                 break;
 
@@ -353,8 +353,9 @@ bool RecoveryStateMachine::Step()
                 // Moves the affected joints slowly back into the allowed range. A reboot is
                 // required afterwards, so this never continues into ENABLE.
                 robot_.RunAutoRecovery();
-                message_ = "Automatic recovery finished. Reboot the robot to complete the "
-                           "recovery procedure, then restart the driver.";
+                message_
+                    = "Automatic recovery finished. Reboot the robot to complete the "
+                      "recovery procedure, then restart the driver.";
                 TransitionTo(RecoveryState::COMPLETE);
                 break;
 

@@ -13,7 +13,7 @@
 
 namespace {
 
-constexpr int kStatusPublishRate = 10;   // [Hz]
+constexpr int kStatusPublishRate = 10; // [Hz]
 constexpr int kRecoveryStepPeriodMs = 100;
 constexpr size_t kMaxRecentEvents = 10;
 
@@ -46,9 +46,10 @@ RecoveryNode::RecoveryNode(
     status_callback_group_
         = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
-    error_recovery_action_server_ = rclcpp_action::create_server<ErrorRecovery>(this,
-        "~/error_recovery",
-        [this](const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const ErrorRecovery::Goal> goal) {
+    error_recovery_action_server_ = rclcpp_action::create_server<ErrorRecovery>(
+        this, "~/error_recovery",
+        [this](
+            const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const ErrorRecovery::Goal> goal) {
             return this->HandleGoal(uuid, goal);
         },
         [this](const std::shared_ptr<GoalHandleErrorRecovery> goal_handle) {
@@ -72,8 +73,8 @@ RecoveryNode::RecoveryNode(
         "~/operational_status", rclcpp::QoS(1).reliable().transient_local());
 
     status_publish_timer_ = this->create_wall_timer(
-        std::chrono::duration<double>(1.0 / kStatusPublishRate), [this]() { this->PublishStatus(); },
-        status_callback_group_);
+        std::chrono::duration<double>(1.0 / kStatusPublishRate),
+        [this]() { this->PublishStatus(); }, status_callback_group_);
 
     RCLCPP_INFO(this->get_logger(),
         "Fault recovery interface ready: action '%s/error_recovery', service "
@@ -241,9 +242,8 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
         RCLCPP_INFO(this->get_logger(), "%s", result->message.c_str());
     } else {
         const auto policy = state_machine.policy();
-        status_->driver_state.store(policy == RecoveryPolicy::SAFETY_LOCKOUT
-                ? DriverState::LOCKOUT
-                : DriverState::FAULT);
+        status_->driver_state.store(
+            policy == RecoveryPolicy::SAFETY_LOCKOUT ? DriverState::LOCKOUT : DriverState::FAULT);
         goal_handle->abort(result);
         RCLCPP_ERROR(this->get_logger(), "Recovery failed: %s", result->message.c_str());
     }

@@ -390,8 +390,8 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
             RCLCPP_WARN(getLogger(), "%s", DescribeRobotCondition(condition).c_str());
         }
         if (policy == RecoveryPolicy::SAFETY_LOCKOUT || policy == RecoveryPolicy::WAIT_OPERATOR) {
-            RCLCPP_FATAL(getLogger(), "Cannot start: %s",
-                DescribeRobotCondition(condition).c_str());
+            RCLCPP_FATAL(
+                getLogger(), "Cannot start: %s", DescribeRobotCondition(condition).c_str());
             return hardware_interface::CallbackReturn::ERROR;
         }
 
@@ -488,8 +488,7 @@ hardware_interface::return_type FlexivHardwareInterface::read(
     // Recovery owns the driver state while it runs; do not fight it from here.
     const auto driver_state = driver_status_->driver_state.load();
     if (driver_state != DriverState::RECOVERING) {
-        driver_status_->driver_state.store(
-            operational ? DriverState::READY : DriverState::FAULT);
+        driver_status_->driver_state.store(operational ? DriverState::READY : DriverState::FAULT);
     }
 
     if (operational) {

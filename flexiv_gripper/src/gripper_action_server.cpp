@@ -78,16 +78,17 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
 
                 // Bounded, so that a robot that never becomes ready fails the node startup with
                 // an actionable message instead of hanging in the constructor forever.
-                const auto deadline
-                    = std::chrono::steady_clock::now() + kOperationalTimeout;
+                const auto deadline = std::chrono::steady_clock::now() + kOperationalTimeout;
                 while (!robot_->operational()) {
                     if (std::chrono::steady_clock::now() >= deadline) {
-                        throw std::runtime_error("Robot did not become operational within "
+                        throw std::runtime_error(
+                            "Robot did not become operational within "
                             + std::to_string(kOperationalTimeout.count()) + " s. "
-                            + flexiv_hardware::DescribeRobotCondition({robot_->connected(),
-                                robot_->operational_status(), false}));
+                            + flexiv_hardware::DescribeRobotCondition(
+                                {robot_->connected(), robot_->operational_status(), false}));
                     }
-                    RCLCPP_INFO(this->get_logger(), "Waiting for the robot to become operational: %s",
+                    RCLCPP_INFO(this->get_logger(),
+                        "Waiting for the robot to become operational: %s",
                         flexiv_hardware::OperationalStatusName(robot_->operational_status())
                             .c_str());
                     std::this_thread::sleep_for(std::chrono::seconds(1));
