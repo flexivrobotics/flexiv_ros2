@@ -1,7 +1,6 @@
 /**
  * @file fault_recovery.hpp
- * @brief Fault classification and the recovery sequence. Free of ROS and of any RDK connection, so
- * that it can be unit tested without hardware.
+ * @brief Fault classification and the recovery sequence.
  * @copyright Copyright (C) 2016-2025 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
