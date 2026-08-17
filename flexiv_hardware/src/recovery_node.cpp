@@ -1,0 +1,267 @@
+/**
+ * @file recovery_node.cpp
+ * @copyright Copyright (C) 2016-2025 Flexiv Ltd. All Rights Reserved.
+ * @author Flexiv
+ */
+
+#include <chrono>
+#include <thread>
+
+#include "flexiv_hardware/recovery_node.hpp"
+#include "flexiv_hardware/recovery_state_machine.hpp"
+
+namespace {
+
+constexpr int kStatusPublishRate = 10;   // [Hz]
+constexpr int kRecoveryStepPeriodMs = 100;
+constexpr size_t kMaxRecentEvents = 10;
+
+}
+
+namespace flexiv_hardware {
+
+const char* DriverStateName(DriverState state)
+{
+    switch (state) {
+        case DriverState::UNINITIALIZED:
+            return "UNINITIALIZED";
+        case DriverState::READY:
+            return "READY";
+        case DriverState::FAULT:
+            return "FAULT";
+        case DriverState::RECOVERING:
+            return "RECOVERING";
+        case DriverState::LOCKOUT:
+            return "LOCKOUT";
+        case DriverState::DISCONNECTED:
+            return "DISCONNECTED";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+RecoveryNode::RecoveryNode(
+    const std::string& robot_sn, RobotSystemControl& robot, std::shared_ptr<DriverStatus> status)
+: rclcpp::Node("flexiv_recovery_node", robot_sn)
+, robot_(robot)
+, status_(std::move(status))
+{
+    // The recovery sequence can block for up to 30 seconds clearing a critical fault. Keeping it
+    // in its own callback group lets the status publisher and the query service keep running.
+    recovery_callback_group_
+        = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    status_callback_group_
+        = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+    error_recovery_action_server_ = rclcpp_action::create_server<ErrorRecovery>(this,
+        "~/error_recovery",
+        [this](const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const ErrorRecovery::Goal> goal) {
+            return this->HandleGoal(uuid, goal);
+        },
+        [this](const std::shared_ptr<GoalHandleErrorRecovery> goal_handle) {
+            return this->HandleCancel(goal_handle);
+        },
+        [this](const std::shared_ptr<GoalHandleErrorRecovery> goal_handle) {
+            this->HandleAccepted(goal_handle);
+        },
+        rcl_action_server_get_default_options(), recovery_callback_group_);
+
+    get_operational_status_service_ = this->create_service<GetOperationalStatus>(
+        "~/get_operational_status",
+        [this](const std::shared_ptr<GetOperationalStatus::Request> /*request*/,
+            std::shared_ptr<GetOperationalStatus::Response> response) {
+            response->status = this->BuildStatusMessage();
+        },
+        rclcpp::ServicesQoS(), status_callback_group_);
+
+    // Latched so that a late subscriber immediately sees why the robot is not moving.
+    operational_status_publisher_ = this->create_publisher<flexiv_msgs::msg::OperationalStatus>(
+        "~/operational_status", rclcpp::QoS(1).reliable().transient_local());
+
+    status_publish_timer_ = this->create_wall_timer(
+        std::chrono::duration<double>(1.0 / kStatusPublishRate), [this]() { this->PublishStatus(); },
+        status_callback_group_);
+
+    RCLCPP_INFO(this->get_logger(),
+        "Fault recovery interface ready: action '%s/error_recovery', service "
+        "'%s/get_operational_status', topic '%s/operational_status'",
+        this->get_fully_qualified_name(), this->get_fully_qualified_name(),
+        this->get_fully_qualified_name());
+}
+
+RecoveryNode::~RecoveryNode() = default;
+
+void RecoveryNode::RefreshRecentEvents()
+{
+    std::vector<flexiv_msgs::msg::RobotEvent> events;
+    try {
+        const auto event_log = robot_.event_log();
+        // Only the tail matters, and only the entries that explain a fault.
+        for (auto it = event_log.rbegin();
+             it != event_log.rend() && events.size() < kMaxRecentEvents; ++it) {
+            if (it->level != flexiv::rdk::RobotEvent::ERROR
+                && it->level != flexiv::rdk::RobotEvent::CRITICAL) {
+                continue;
+            }
+            flexiv_msgs::msg::RobotEvent event;
+            event.level = static_cast<uint8_t>(it->level);
+            event.id = it->id;
+            event.description = it->description;
+            event.consequences = it->consequences;
+            event.probable_causes = it->probable_causes;
+            event.recommended_actions = it->recommended_actions;
+            const auto since_epoch = it->timestamp.time_since_epoch();
+            const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(since_epoch);
+            event.timestamp.sec = static_cast<int32_t>(seconds.count());
+            event.timestamp.nanosec = static_cast<uint32_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(since_epoch - seconds)
+                    .count());
+            events.push_back(std::move(event));
+        }
+    } catch (const std::exception& e) {
+        RCLCPP_WARN(this->get_logger(), "Could not read the robot event log: %s", e.what());
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(recent_events_mutex_);
+    recent_events_ = std::move(events);
+}
+
+flexiv_msgs::msg::OperationalStatus RecoveryNode::BuildStatusMessage()
+{
+    flexiv_msgs::msg::OperationalStatus message;
+    message.header.stamp = this->now();
+
+    const auto operational_status = status_->operational_status.load();
+    RobotCondition condition;
+    condition.connected = status_->connected.load();
+    condition.operational_status = operational_status;
+    condition.reached_timeliness_failure_limit
+        = status_->reached_timeliness_failure_limit.load();
+
+    message.operational_status = static_cast<uint8_t>(operational_status);
+    message.operational_status_name = OperationalStatusName(operational_status);
+    message.driver_state = static_cast<uint8_t>(status_->driver_state.load());
+    message.connected = condition.connected;
+    message.fault = status_->fault.load();
+    message.operational = status_->operational.load();
+    message.estop_released = status_->estop_released.load();
+    message.reduced = status_->reduced.load();
+    message.recovery_state = status_->recovery_state.load();
+    message.control_mode = static_cast<int8_t>(status_->control_mode.load());
+    message.recovery_policy = static_cast<uint8_t>(ClassifyRecoveryPolicy(condition));
+    message.message = DescribeRobotCondition(condition);
+
+    std::lock_guard<std::mutex> lock(recent_events_mutex_);
+    message.recent_events = recent_events_;
+
+    return message;
+}
+
+void RecoveryNode::PublishStatus()
+{
+    // Reading the event log every cycle would copy the whole log at 10 Hz, so only refresh it when
+    // a new fault appears.
+    const bool fault = status_->fault.load();
+    if (fault && !previous_fault_) {
+        RefreshRecentEvents();
+    }
+    previous_fault_ = fault;
+
+    operational_status_publisher_->publish(BuildStatusMessage());
+}
+
+rclcpp_action::GoalResponse RecoveryNode::HandleGoal(
+    const rclcpp_action::GoalUUID& /*uuid*/, std::shared_ptr<const ErrorRecovery::Goal> /*goal*/)
+{
+    if (recovery_in_progress_.load()) {
+        RCLCPP_WARN(this->get_logger(), "Recovery is already in progress, rejecting goal");
+        return rclcpp_action::GoalResponse::REJECT;
+    }
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+}
+
+rclcpp_action::CancelResponse RecoveryNode::HandleCancel(
+    const std::shared_ptr<GoalHandleErrorRecovery>& /*goal_handle*/)
+{
+    RCLCPP_INFO(this->get_logger(), "Received request to cancel recovery");
+    return rclcpp_action::CancelResponse::ACCEPT;
+}
+
+void RecoveryNode::HandleAccepted(const std::shared_ptr<GoalHandleErrorRecovery>& goal_handle)
+{
+    // Recovery blocks for seconds at a time, so it must not run on an executor thread.
+    std::thread {[this, goal_handle]() { this->ExecuteRecovery(goal_handle); }}.detach();
+}
+
+void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery>& goal_handle)
+{
+    recovery_in_progress_.store(true);
+
+    const auto goal = goal_handle->get_goal();
+    auto feedback = std::make_shared<ErrorRecovery::Feedback>();
+    auto result = std::make_shared<ErrorRecovery::Result>();
+
+    const auto previous_driver_state = status_->driver_state.load();
+
+    // Announce the recovery before touching the robot. write() withholds every RDK call while the
+    // driver is RECOVERING, which is what makes it safe to change the control mode from here.
+    status_->driver_state.store(DriverState::RECOVERING);
+
+    RCLCPP_INFO(this->get_logger(), "Starting recovery sequence");
+    RecoveryStateMachine state_machine(robot_, goal->run_auto_recovery);
+
+    bool canceled = false;
+    while (rclcpp::ok()) {
+        if (goal_handle->is_canceling()) {
+            canceled = true;
+            break;
+        }
+
+        const bool running = state_machine.Step();
+
+        feedback->recovery_state = static_cast<uint8_t>(state_machine.state());
+        feedback->recovery_state_name = RecoveryStateName(state_machine.state());
+        feedback->elapsed_seconds = static_cast<float>(state_machine.elapsed_seconds());
+        goal_handle->publish_feedback(feedback);
+
+        if (!running) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(kRecoveryStepPeriodMs));
+    }
+
+    result->recovery_policy = static_cast<uint8_t>(state_machine.policy());
+    result->success = state_machine.succeeded();
+    result->message = state_machine.message();
+    // The robot is left in IDLE control mode on purpose: re-entering a control mode has to go
+    // through a controller restart, so that the controller re-initializes its own setpoint and
+    // cannot apply a stale pre-fault command.
+    result->requires_controller_restart = state_machine.succeeded();
+
+    if (canceled) {
+        status_->driver_state.store(previous_driver_state);
+        result->success = false;
+        result->message = "Recovery canceled by the caller.";
+        result->requires_controller_restart = false;
+        goal_handle->canceled(result);
+        RCLCPP_WARN(this->get_logger(), "Recovery canceled");
+    } else if (state_machine.succeeded()) {
+        // read() reclassifies on its next cycle; start from READY so write() is not held off.
+        status_->driver_state.store(DriverState::READY);
+        goal_handle->succeed(result);
+        RCLCPP_INFO(this->get_logger(), "%s", result->message.c_str());
+    } else {
+        const auto policy = state_machine.policy();
+        status_->driver_state.store(policy == RecoveryPolicy::SAFETY_LOCKOUT
+                ? DriverState::LOCKOUT
+                : DriverState::FAULT);
+        goal_handle->abort(result);
+        RCLCPP_ERROR(this->get_logger(), "Recovery failed: %s", result->message.c_str());
+    }
+
+    RefreshRecentEvents();
+    recovery_in_progress_.store(false);
+}
+
+} /* namespace flexiv_hardware */
