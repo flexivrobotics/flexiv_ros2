@@ -4,6 +4,7 @@
  * @author Flexiv
  */
 
+#include <algorithm>
 #include <chrono>
 #include <thread>
 
@@ -15,6 +16,18 @@ namespace {
 constexpr int kStatusPublishRate = 10;   // [Hz]
 constexpr int kRecoveryStepPeriodMs = 100;
 constexpr size_t kMaxRecentEvents = 10;
+
+/**
+ * @brief Make a robot serial number usable as a ROS namespace. Serial numbers contain a hyphen,
+ * e.g. Rizon4s-123456, which is not a valid character in a ROS name. This is the same substitution
+ * the broadcasters and the GPIO controller apply to build their topic names.
+ */
+std::string SanitizeNamespace(const std::string& robot_sn)
+{
+    std::string sanitized = robot_sn;
+    std::replace(sanitized.begin(), sanitized.end(), '-', '_');
+    return sanitized;
+}
 
 }
 
@@ -42,7 +55,7 @@ const char* DriverStateName(DriverState state)
 
 RecoveryNode::RecoveryNode(
     const std::string& robot_sn, RobotSystemControl& robot, std::shared_ptr<DriverStatus> status)
-: rclcpp::Node("flexiv_recovery_node", robot_sn)
+: rclcpp::Node("flexiv_recovery_node", SanitizeNamespace(robot_sn))
 , robot_(robot)
 , status_(std::move(status))
 {

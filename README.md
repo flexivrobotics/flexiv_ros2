@@ -249,6 +249,88 @@ The robot driver (`rizon.launch.py`) publishes the following feedback states to 
 - `/${robot_sn}/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 - `/${robot_sn}/external_wrench_in_world`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 
+### Fault Handling and Recovery
+
+When the robot faults, it stops and drops to `IDLE` control mode. The driver detects this, withholds
+all commands, and reports the condition — but it stays `ACTIVE`, so the topics, the broadcasters and
+the recovery interface all remain available while the robot is faulted. Nothing has to be restarted
+to diagnose or clear a fault.
+
+#### Checking what is wrong
+
+As elsewhere in this package, the serial number is used with `-` replaced by `_`, so `Rizon4-123456`
+becomes `Rizon4_123456`:
+
+```bash
+ros2 topic echo /Rizon4_123456/flexiv_recovery_node/operational_status
+# or a one-shot query
+ros2 service call /Rizon4_123456/flexiv_recovery_node/get_operational_status flexiv_msgs/srv/GetOperationalStatus
+```
+
+The message [[`flexiv_msgs/msg/OperationalStatus.msg`](flexiv_msgs/msg/OperationalStatus.msg)] carries the
+robot's operational status, the driver state, the current control mode, a `message` field that names
+the operator action required, and `recent_events` — the robot's own error descriptions, probable
+causes and recommended actions.
+
+#### Recovering
+
+```bash
+ros2 action send_goal /Rizon4_123456/flexiv_recovery_node/error_recovery \
+  flexiv_msgs/action/ErrorRecovery "{}" --feedback
+```
+
+The recovery sequence is `Stop` → `ClearFault` → `Enable` → wait for operational. Every step has its
+own deadline, so a robot that cannot recover fails with a message instead of hanging. On success the
+robot is **operational and in `IDLE` control mode**, and the result sets
+`requires_controller_restart: true`.
+
+#### Getting back from IDLE to a control mode, e.g. RT_JOINT_TORQUE
+
+Recovery deliberately does not restore the control mode. Restart the controller instead:
+
+```bash
+ros2 control switch_controllers --deactivate rizon_arm_controller --activate rizon_arm_controller
+```
+
+The controller switch calls `perform_command_mode_switch()`, which issues `SwitchMode()` — for the
+effort interface, `RT_JOINT_TORQUE` — and re-synchronizes the command buffer with the measured joint
+positions in the same step. Going through the controller is what makes this safe: the controller
+re-initializes its own setpoint, so it cannot apply the stale pre-fault command that would otherwise
+cause a jump on the first cycle.
+
+#### Recovery policies
+
+Not every condition is auto-recoverable. The recovery action classifies the robot's
+`operational_status()` first and refuses the ones that need a human:
+
+| Condition | Policy | What happens |
+| --- | --- | --- |
+| Minor fault, critical fault, not enabled | `AUTO_RECOVERABLE` | Cleared and re-enabled by the action |
+| Booting, releasing brakes | `TRANSIENT` | Waited out |
+| E-stop pressed | `SAFETY_LOCKOUT` | Refused — release the E-stop first |
+| Recovery state (joint position limit violation) | `WAIT_OPERATOR` | Refused unless `run_auto_recovery: true`; a robot reboot is required afterwards |
+| Reduced state | `WAIT_OPERATOR` | Refused — the TCP crossed a safety plane |
+| Manual mode, regular Auto mode | `WAIT_OPERATOR` | Refused — switch to Auto (Remote) in Flexiv Elements |
+| Connection lost | `CONNECTION_LOST` | The only fault that deactivates the hardware component; reconfigure it to reconnect |
+
+#### Notes on `ClearFault()`
+
+- One call handles both minor and critical faults. It returns as soon as the fault clears, so the
+  timeout is only an upper bound — there is no reason to pass a shorter one for a minor fault. A
+  minor fault normally clears in under 3 seconds, a critical one in under 30.
+- It reports failure by returning `false`, it does not throw. If it returns `false` the fault could
+  not be cleared without a power cycle.
+- Clearing a *critical* fault without a power cycle needs a dedicated device that may not be
+  installed on older robot models.
+- Never call `Enable()` before `estop_released()` is true — it throws `std::logic_error`. The
+  recovery sequence checks this and reports "release the E-stop" instead.
+
+> [!NOTE]
+> For a dual-arm or AICO2 setup the recovery interface is namespaced by the **left** robot's serial
+> number and acts on the pair as a whole. DRDK reports a combined fault state rather than per-robot
+> detail, so conditions like a pressed E-stop surface as a failed enable rather than a specific
+> message.
+
 ### GPIO
 
 All digital inputs on the robot control box can be accessed via the ROS topic `/{robot_sn}/gpio_inputs`, which publishes the current state of all the 18 *(16 on control box + 2 inside the wrist connector)* digital input ports *(True: port high, false: port low)*.
