@@ -465,10 +465,8 @@ hardware_interface::return_type FlexivHardwareInterface::read(
     // cached state, so they are safe to poll from the real-time loop.
     driver_status_->Latch(*robot_system_control_);
 
-    // Recovery owns the driver state while it runs
-    if (driver_status_->driver_state.load() != DriverState::RECOVERING) {
-        driver_status_->driver_state.store(driver_status_->DeriveDriverState());
-    }
+    // Recovery owns the driver state while it runs, so this is a no-op for its duration.
+    driver_status_->TryApplyDerivedDriverState();
 
     // A lost connection is the only condition the driver cannot report or recover from in place,
     // so it is the only one escalated to the controller manager. Every other fault keeps the

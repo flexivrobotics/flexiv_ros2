@@ -553,10 +553,8 @@ hardware_interface::return_type FlexivDualHardwareInterface::read(
     // status topic carries the combined condition rather than per-robot detail.
     driver_status_->Latch(*robot_system_control_);
 
-    // Recovery owns the driver state while it runs; do not fight it from here.
-    if (driver_status_->driver_state.load() != DriverState::RECOVERING) {
-        driver_status_->driver_state.store(driver_status_->DeriveDriverState());
-    }
+    // Recovery owns the driver state while it runs, so this is a no-op for its duration.
+    driver_status_->TryApplyDerivedDriverState();
 
     if (!driver_status_->connected.load()) {
         RCLCPP_ERROR(getLogger(), "Lost connection with one or both robots");

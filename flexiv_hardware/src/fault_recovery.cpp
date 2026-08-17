@@ -188,6 +188,15 @@ DriverState DriverStatus::DeriveDriverState() const
     return DriverState::FAULT;
 }
 
+bool DriverStatus::TryApplyDerivedDriverState()
+{
+    auto expected = driver_state.load();
+    if (expected == DriverState::RECOVERING) {
+        return false;
+    }
+    return driver_state.compare_exchange_strong(expected, DeriveDriverState());
+}
+
 //====================================== RECOVERY SEQUENCE =========================================
 
 std::string RecoveryStateName(RecoveryState state)

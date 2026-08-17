@@ -98,10 +98,15 @@ enum class DriverState : uint8_t
 };
 
 /**
- * @brief Robot condition latched by the real-time control loop and read by the recovery node.
+ * @brief Robot condition latched from the robot, shared between the real-time control loop and the
+ * recovery node.
  *
- * read() is the only writer and it only ever stores; the recovery node and the status publisher are
- * the only readers. All members are atomic, so neither side needs a lock on the hot path.
+ * read() latches the condition every control cycle. The recovery node latches it once more when a
+ * recovery sequence ends, so that write() is released without waiting for the next read(). All
+ * members are atomic, so neither side needs a lock on the hot path.
+ *
+ * driver_state is the one field both sides write: recovery claims it for the duration of a
+ * sequence, and read() only re-derives it while that claim is not held.
  */
 struct DriverStatus
 {
@@ -120,9 +125,9 @@ struct DriverStatus
     std::atomic<flexiv::rdk::Mode> control_mode {flexiv::rdk::Mode::UNKNOWN};
 
     /**
-     * @brief [Non-blocking] Latch every condition field from the robot. Called from read(). Does
-     * not touch driver_state; use DeriveDriverState() for that, so that a caller holding the
-     * recovery lock can refresh the condition without releasing it.
+     * @brief [Non-blocking] Latch every condition field from the robot. Does not touch
+     * driver_state; use DeriveDriverState() for that, so that a caller can refresh the condition
+     * without also committing to the driver state it implies.
      */
     void Latch(const RobotSystemControl& robot);
 
@@ -134,6 +139,18 @@ struct DriverStatus
      * latched fields and stores nothing, so the caller decides when to apply it.
      */
     DriverState DeriveDriverState() const;
+
+    /**
+     * @brief [Non-blocking] Apply DeriveDriverState() unless a recovery sequence holds the driver
+     * state. Called from read().
+     *
+     * Compare-exchange rather than a plain store: a recovery starting in the instant between
+     * reading the state and writing it back must not have its RECOVERING claim overwritten, which
+     * would release write() for the rest of the sequence. A lost race just skips this cycle, and
+     * the next read() re-derives.
+     * @return True if the derived state was applied, false if recovery holds the state.
+     */
+    bool TryApplyDerivedDriverState();
 };
 
 //====================================== RECOVERY SEQUENCE =========================================
