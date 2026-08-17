@@ -1,6 +1,7 @@
 /**
- * @file test_operational_status.cpp
- * @brief Unit tests for the recovery policy classification. Needs no robot connection.
+ * @file test_fault_recovery.cpp
+ * @brief Unit tests for the recovery policy classification and the derived driver state. Needs no
+ * robot connection.
  * @copyright Copyright (C) 2016-2025 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
@@ -12,6 +13,8 @@
 using flexiv::rdk::OperationalStatus;
 using flexiv_hardware::ClassifyRecoveryPolicy;
 using flexiv_hardware::DescribeRobotCondition;
+using flexiv_hardware::DriverState;
+using flexiv_hardware::DriverStatus;
 using flexiv_hardware::OperationalStatusName;
 using flexiv_hardware::RecoveryPolicy;
 using flexiv_hardware::RecoveryPolicyName;
@@ -25,6 +28,18 @@ RobotCondition Connected(OperationalStatus status)
     condition.connected = true;
     condition.operational_status = status;
     return condition;
+}
+
+/**
+ * @brief A DriverStatus with the condition fields set as read() would have latched them. Latch()
+ * itself needs a robot, so the fields are stored directly here.
+ */
+void SetLatchedCondition(
+    DriverStatus& status, bool connected, bool operational, OperationalStatus operational_status)
+{
+    status.connected.store(connected);
+    status.operational.store(operational);
+    status.operational_status.store(operational_status);
 }
 
 }
@@ -118,4 +133,65 @@ TEST(OperationalStatus, NamesComeFromTheRdkStrings)
     EXPECT_EQ(OperationalStatusName(OperationalStatus::MINOR_FAULT), "Minor fault occurred");
     // Out-of-range values must not read past the RDK name table.
     EXPECT_EQ(OperationalStatusName(static_cast<OperationalStatus>(200)), "Unknown status");
+}
+
+TEST(DriverStateDerivation, StartsUninitialized)
+{
+    DriverStatus status;
+    EXPECT_EQ(status.driver_state.load(), DriverState::UNINITIALIZED);
+}
+
+TEST(DriverStateDerivation, DisconnectedOutranksEveryOtherCondition)
+{
+    DriverStatus status;
+    SetLatchedCondition(status, false, true, OperationalStatus::READY);
+    EXPECT_EQ(status.DeriveDriverState(), DriverState::DISCONNECTED);
+}
+
+TEST(DriverStateDerivation, OperationalRobotIsReady)
+{
+    DriverStatus status;
+    SetLatchedCondition(status, true, true, OperationalStatus::READY);
+    EXPECT_EQ(status.DeriveDriverState(), DriverState::READY);
+}
+
+TEST(DriverStateDerivation, EstopIsALockoutNotAPlainFault)
+{
+    DriverStatus status;
+    SetLatchedCondition(status, true, false, OperationalStatus::ESTOP_NOT_RELEASED);
+    EXPECT_EQ(status.DeriveDriverState(), DriverState::LOCKOUT);
+}
+
+TEST(DriverStateDerivation, EveryOtherNonOperationalConditionIsAFault)
+{
+    for (const auto operational_status :
+        {OperationalStatus::NOT_ENABLED, OperationalStatus::MINOR_FAULT,
+            OperationalStatus::CRITICAL_FAULT, OperationalStatus::IN_REDUCED_STATE,
+            OperationalStatus::IN_RECOVERY_STATE, OperationalStatus::IN_MANUAL_MODE,
+            OperationalStatus::IN_AUTO_MODE, OperationalStatus::BOOTING,
+            OperationalStatus::RELEASING_BRAKE, OperationalStatus::UNKNOWN}) {
+        DriverStatus status;
+        SetLatchedCondition(status, true, false, operational_status);
+        EXPECT_EQ(status.DeriveDriverState(), DriverState::FAULT)
+            << "status " << OperationalStatusName(operational_status);
+    }
+}
+
+TEST(DriverStateDerivation, ApplyingTheDerivedStateStoresIt)
+{
+    DriverStatus status;
+    SetLatchedCondition(status, true, true, OperationalStatus::READY);
+    EXPECT_TRUE(status.TryApplyDerivedDriverState());
+    EXPECT_EQ(status.driver_state.load(), DriverState::READY);
+}
+
+TEST(DriverStateDerivation, ApplyingTheDerivedStateNeverOverridesRecovery)
+{
+    DriverStatus status;
+    // A recovery sequence holds the state, while the robot itself already reads operational: the
+    // hold must survive, or write() would resume streaming mid-sequence.
+    status.driver_state.store(DriverState::RECOVERING);
+    SetLatchedCondition(status, true, true, OperationalStatus::READY);
+    EXPECT_FALSE(status.TryApplyDerivedDriverState());
+    EXPECT_EQ(status.driver_state.load(), DriverState::RECOVERING);
 }
