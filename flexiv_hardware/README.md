@@ -77,6 +77,26 @@ setpoint.
 So a robot that was switched to Manual mode and back does **not** resume motion by itself. Restart
 the controller with the command above to resume it.
 
+#### What the restart does not protect against
+
+The restart re-initializes the controller's setpoint from the measured position, so nothing jumps at
+the moment motion resumes. It cannot make a *new* command safe: a publisher that keeps sending
+absolute joint trajectories will have its next goal accepted as usual, and the robot will travel
+from wherever it is now to the commanded position. If an operator hand-guided the robot in Manual
+mode, that is a longer move than the trajectory author intended, over the same `time_from_start` —
+so a faster one. In `joint_position` and `joint_impedance` modes the RDK bounds it at 2 rad/s and
+3 rad/s², but it is still an unattended motion. Torque mode has no such bound.
+
+The driver therefore reports the situation rather than second-guessing the command. When the robot
+was moved more than 0.05 rad while the driver was not ready, it warns in the driver log and appends
+the deviation to the `message` field of both the status topic and the recovery result:
+
+> Note: the robot was moved 0.412 rad while the driver was not ready. The controllers hold a
+> setpoint from before that, so the trajectory they resume with will move the robot from where it is
+> now. Verify the program state before restarting them.
+
+Stop the trajectory source before restarting the controllers if that move is not wanted.
+
 ### Recovery policies
 
 The action classifies `operational_status()` before acting, and refuses conditions that need a

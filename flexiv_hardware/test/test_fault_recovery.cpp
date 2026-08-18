@@ -6,6 +6,7 @@
  * @author Flexiv
  */
 
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -18,6 +19,7 @@ using flexiv_hardware::ClassifyRecoveryPolicy;
 using flexiv_hardware::DescribeRobotCondition;
 using flexiv_hardware::DriverState;
 using flexiv_hardware::DriverStatus;
+using flexiv_hardware::MaxJointDeviation;
 using flexiv_hardware::OperationalStatusName;
 using flexiv_hardware::RecoveryPolicy;
 using flexiv_hardware::RecoveryPolicyName;
@@ -461,4 +463,29 @@ TEST(CommandSynchronization, StayingReadyKeepsTheSetpoint)
         EXPECT_TRUE(status.TryApplyDerivedDriverState());
     }
     EXPECT_TRUE(status.commands_synchronized.load());
+}
+
+TEST(JointDeviation, IdenticalPositionsDeviateNotAtAll)
+{
+    EXPECT_DOUBLE_EQ(MaxJointDeviation({0.1, -0.2, 0.3}, {0.1, -0.2, 0.3}), 0.0);
+}
+
+TEST(JointDeviation, ReportsTheLargestAbsoluteChange)
+{
+    // The middle joint moved furthest, and backwards: the sign must not hide it.
+    EXPECT_DOUBLE_EQ(MaxJointDeviation({0.0, 0.5, 0.0}, {0.1, -0.3, 0.05}), 0.8);
+}
+
+TEST(JointDeviation, MismatchedSizesReportNothing)
+{
+    // A buffer that was never populated must not be read as a deviation.
+    EXPECT_DOUBLE_EQ(MaxJointDeviation({}, {0.1, 0.2}), 0.0);
+    EXPECT_DOUBLE_EQ(MaxJointDeviation({0.1, 0.2, 0.3}, {0.1, 0.2}), 0.0);
+}
+
+TEST(JointDeviation, NanEntriesAreIgnored)
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_DOUBLE_EQ(MaxJointDeviation({nan, 0.5}, {0.1, 0.9}), 0.4);
+    EXPECT_DOUBLE_EQ(MaxJointDeviation({nan, nan}, {nan, nan}), 0.0);
 }
