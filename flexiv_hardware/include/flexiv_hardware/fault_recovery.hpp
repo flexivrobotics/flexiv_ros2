@@ -125,6 +125,17 @@ struct DriverStatus
     std::atomic<flexiv::rdk::Mode> control_mode {flexiv::rdk::Mode::UNKNOWN};
 
     /**
+     * Whether the joint command buffers are known to match the robot's measured position.
+     *
+     * Cleared whenever the driver leaves READY, and set again only by a controller restart, which
+     * re-initializes the controller's setpoint. Until then write() withholds motion even once the
+     * robot is operational again: the commands the controller still holds describe where the robot
+     * was before it stopped, and an operator may have hand-guided it elsewhere in the meantime --
+     * in Manual mode, that is exactly what they are expected to do.
+     */
+    std::atomic<bool> commands_synchronized {false};
+
+    /**
      * @brief [Non-blocking] Latch every condition field from the robot. Does not touch
      * driver_state; use DeriveDriverState() for that, so that a caller can refresh the condition
      * without also committing to the driver state it implies.

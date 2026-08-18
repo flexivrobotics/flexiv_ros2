@@ -194,7 +194,13 @@ bool DriverStatus::TryApplyDerivedDriverState()
     if (expected == DriverState::RECOVERING) {
         return false;
     }
-    return driver_state.compare_exchange_strong(expected, DeriveDriverState());
+    const auto derived = DeriveDriverState();
+    // Anything other than READY means the robot is no longer following the commands it was given,
+    // so whatever the controller holds is stale from here on.
+    if (derived != DriverState::READY) {
+        commands_synchronized.store(false);
+    }
+    return driver_state.compare_exchange_strong(expected, derived);
 }
 
 //====================================== RECOVERY SEQUENCE =========================================
