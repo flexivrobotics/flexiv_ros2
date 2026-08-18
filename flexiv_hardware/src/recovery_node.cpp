@@ -224,7 +224,7 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
     // The robot is left in IDLE control mode on purpose: re-entering a control mode has to go
     // through a controller restart, so that the controller re-initializes its own setpoint and
     // cannot apply a stale pre-fault command.
-    result->requires_controller_restart = state_machine.succeeded();
+    result->requires_controller_restart = state_machine.requires_controller_restart();
 
     // Release the recovery hold. The driver state is re-derived from the robot rather than guessed
     // per outcome, so it reports what the robot actually is now regardless of how recovery ended.

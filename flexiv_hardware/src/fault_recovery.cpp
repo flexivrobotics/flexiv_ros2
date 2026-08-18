@@ -271,6 +271,10 @@ bool RecoveryStateMachine::Step()
 
                 switch (policy_) {
                     case RecoveryPolicy::NONE:
+                        message_ = "Robot is ready, nothing to recover.";
+                        TransitionTo(RecoveryState::COMPLETE);
+                        break;
+
                     case RecoveryPolicy::TRANSIENT:
                     case RecoveryPolicy::AUTO_RECOVERABLE:
                         TransitionTo(RecoveryState::STOP);

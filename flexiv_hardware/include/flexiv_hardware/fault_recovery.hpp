@@ -183,9 +183,10 @@ std::string RecoveryStateName(RecoveryState state);
  * @brief Recovery sequence driven one step per Step() call, so the caller stays responsive to
  * cancellation and can publish feedback.
  *
- * The sequence always ends with the robot enabled, operational and in IDLE control mode. Restoring
- * the control mode is deliberately left to a controller restart, which re-initializes the
- * controller's own setpoint and therefore cannot apply a stale pre-fault command.
+ * A robot that needs no recovery is left strictly alone. Otherwise the sequence ends with the robot
+ * enabled, operational and in IDLE control mode. Restoring the control mode is deliberately left to
+ * a controller restart, which re-initializes the controller's own setpoint and therefore cannot
+ * apply a stale pre-fault command.
  */
 class RecoveryStateMachine
 {
@@ -209,6 +210,16 @@ public:
 
     /** @brief [Non-blocking] Whether the sequence finished successfully. */
     bool succeeded() const { return state_ == RecoveryState::COMPLETE; }
+
+    /**
+     * @brief [Non-blocking] Whether the controllers have to be restarted to resume motion. False
+     * for a robot that needed no recovery: it was left untouched and keeps running whatever it was
+     * running.
+     */
+    bool requires_controller_restart() const
+    {
+        return succeeded() && policy_ != RecoveryPolicy::NONE;
+    }
 
     /** @brief [Non-blocking] Operator-facing explanation of the outcome so far. */
     const std::string& message() const { return message_; }
