@@ -103,6 +103,13 @@ private:
     void SynchronizeCommandsWithState();
 
     /** @brief Remove the recovery node from the executor and destroy it. */
+    /**
+     * @brief [Blocking] Stop the robots, but only if the pair is operational. Stop() switches the
+     * control mode internally, which the robots reject unless they are operational -- and a pair
+     * that is not operational is not executing anything, so there is nothing to stop.
+     */
+    void StopIfOperational();
+
     void TeardownRecoveryNode();
 
     // Flexiv DRDK

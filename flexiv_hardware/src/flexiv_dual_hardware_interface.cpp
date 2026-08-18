@@ -382,6 +382,13 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_configure(
     return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+void FlexivDualHardwareInterface::StopIfOperational()
+{
+    if (robot_pair_ && robot_pair_->connected() && robot_pair_->operational()) {
+        robot_pair_->Stop();
+    }
+}
+
 void FlexivDualHardwareInterface::TeardownRecoveryNode()
 {
     if (recovery_node_) {
@@ -413,7 +420,7 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_error(
 
     driver_status_->driver_state.store(DriverState::FAULT);
     try {
-        robot_pair_->Stop();
+        StopIfOperational();
     } catch (const std::exception& e) {
         RCLCPP_ERROR(getLogger(), "Could not stop the robots: %s", e.what());
     }
@@ -536,7 +543,7 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_deactivate(
     driver_status_->driver_state.store(DriverState::FAULT);
 
     try {
-        robot_pair_->Stop();
+        StopIfOperational();
     } catch (const std::exception& e) {
         RCLCPP_ERROR(getLogger(), "Could not stop the robots: %s", e.what());
         return hardware_interface::CallbackReturn::ERROR;
@@ -800,18 +807,18 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
         && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_POSITION)
                != stop_modes_.end()) {
         position_controller_running_ = false;
-        robot_pair_->Stop();
+        StopIfOperational();
     } else if (stop_modes_.size() != 0
                && std::find(
                       stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_VELOCITY)
                       != stop_modes_.end()) {
         velocity_controller_running_ = false;
-        robot_pair_->Stop();
+        StopIfOperational();
     } else if (stop_modes_.size() != 0
                && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_EFFORT)
                       != stop_modes_.end()) {
         torque_controller_running_ = false;
-        robot_pair_->Stop();
+        StopIfOperational();
     }
 
     if (start_modes_.size() != 0

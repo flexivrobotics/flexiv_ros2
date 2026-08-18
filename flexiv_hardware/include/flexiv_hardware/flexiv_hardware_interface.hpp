@@ -104,6 +104,13 @@ private:
      */
     void SynchronizeCommandsWithState();
 
+    /**
+     * @brief [Blocking] Stop the robot, but only if it is operational. Stop() switches the control
+     * mode internally, which the robot rejects unless it is operational -- and a robot that is not
+     * operational is not executing anything, so there is nothing to stop.
+     */
+    void StopIfOperational();
+
     /** @brief Tear down the recovery node and release the robot connection. */
     void Disconnect();
 
