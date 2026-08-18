@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <thread>
 
 #include "flexiv_hardware/recovery_node.hpp"
@@ -27,6 +28,26 @@ std::string SanitizeNamespace(const std::string& robot_sn)
     std::string sanitized = robot_sn;
     std::replace(sanitized.begin(), sanitized.end(), '-', '_');
     return sanitized;
+}
+
+/**
+ * @brief Sentence warning that the robot was moved while the driver was not ready, so that the
+ * operator knows the resumed trajectory will start from somewhere unexpected. Empty when it was
+ * not.
+ */
+std::string DescribeJointDeviation(double deviation)
+{
+    if (deviation <= 0.0) {
+        return {};
+    }
+    char sentence[256];
+    std::snprintf(sentence, sizeof(sentence),
+        " Note: the robot was moved %.3f rad while the driver was not ready. The controllers hold "
+        "a "
+        "setpoint from before that, so the trajectory they resume with will move the robot from "
+        "where it is now. Verify the program state before restarting them.",
+        deviation);
+    return sentence;
 }
 
 }
@@ -139,7 +160,8 @@ flexiv_msgs::msg::OperationalStatus RecoveryNode::BuildStatusMessage()
     message.recovery_state = status_->recovery_state.load();
     message.control_mode = static_cast<int8_t>(status_->control_mode.load());
     message.recovery_policy = static_cast<uint8_t>(ClassifyRecoveryPolicy(condition));
-    message.message = DescribeRobotCondition(condition);
+    message.message = DescribeRobotCondition(condition)
+                      + DescribeJointDeviation(status_->joint_deviation_while_not_ready.load());
 
     std::lock_guard<std::mutex> lock(recent_events_mutex_);
     message.recent_events = recent_events_;
@@ -220,7 +242,8 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
 
     result->recovery_policy = static_cast<uint8_t>(state_machine.policy());
     result->success = state_machine.succeeded();
-    result->message = state_machine.message();
+    result->message = state_machine.message()
+                      + DescribeJointDeviation(status_->joint_deviation_while_not_ready.load());
     // The robot is left in IDLE control mode on purpose: re-entering a control mode has to go
     // through a controller restart, so that the controller re-initializes its own setpoint and
     // cannot apply a stale pre-fault command.
