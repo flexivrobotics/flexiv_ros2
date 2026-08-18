@@ -452,6 +452,9 @@ bool FlexivDualHardwareInterface::WaitUntilOperational(std::chrono::seconds time
 
 void FlexivDualHardwareInterface::SynchronizeCommandsWithState()
 {
+    // Called from perform_command_mode_switch(), which is the controller restart the driver
+    // requires after a fault. Once the buffers hold the measured position, motion may stream again.
+    driver_status_->commands_synchronized.store(true);
     // Position commands start from where the robots actually are, so the first write() after a
     // mode switch commands a hold instead of a stale setpoint.
     hw_commands_joint_positions_ = hw_states_joint_positions_;
@@ -527,6 +530,9 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    // The robots are enabled but in IDLE: a controller start has to establish the control mode and
+    // synchronize the command buffers before any motion may be streamed.
+    driver_status_->commands_synchronized.store(false);
     driver_status_->driver_state.store(DriverState::READY);
 
     RCLCPP_INFO(getLogger(), "System successfully started!");
@@ -660,17 +666,21 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
         }
     }
 
-    if (position_controller_running_
+    // Withhold motion until a controller restart has re-synchronized the command buffers. Digital
+    // outputs further down are unaffected -- they carry no setpoint that can go stale.
+    const bool stream_motion = driver_status_->commands_synchronized.load();
+
+    if (stream_motion && position_controller_running_
         && robot_pair_->mode() == std::pair {rdk_control_mode_, rdk_control_mode_}) {
         robot_pair_->SendJointPosition({target_pos_left, target_pos_right},
             {target_vel_left, target_vel_right}, {max_vel_left, max_vel_right},
             {max_acc_left, max_acc_right});
-    } else if (velocity_controller_running_
+    } else if (stream_motion && velocity_controller_running_
                && robot_pair_->mode() == std::pair {rdk_control_mode_, rdk_control_mode_}) {
         robot_pair_->SendJointPosition({target_pos_left, target_pos_right},
             {target_vel_left, target_vel_right}, {max_vel_left, max_vel_right},
             {max_acc_left, max_acc_right});
-    } else if (torque_controller_running_
+    } else if (stream_motion && torque_controller_running_
                && robot_pair_->mode()
                       == std::pair {
                           flexiv::rdk::Mode::RT_JOINT_TORQUE, flexiv::rdk::Mode::RT_JOINT_TORQUE}) {

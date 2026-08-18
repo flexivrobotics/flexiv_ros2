@@ -226,6 +226,14 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
     // cannot apply a stale pre-fault command.
     result->requires_controller_restart = state_machine.requires_controller_restart();
 
+    // Any sequence that got past classification may have stopped the robot and dropped it to IDLE,
+    // including one that was canceled or failed part way through. Withhold motion until a
+    // controller restart re-synchronizes the command buffers. A robot that needed no recovery was
+    // never touched, so it keeps streaming.
+    if (state_machine.policy() != RecoveryPolicy::NONE) {
+        status_->commands_synchronized.store(false);
+    }
+
     // Release the recovery hold. The driver state is re-derived from the robot rather than guessed
     // per outcome, so it reports what the robot actually is now regardless of how recovery ended.
     // Latching here also means write() is unblocked without waiting for the next read().

@@ -435,6 +435,9 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    // The robot is enabled but in IDLE: a controller start has to establish the control mode and
+    // synchronize the command buffers before any motion may be streamed.
+    driver_status_->commands_synchronized.store(false);
     driver_status_->driver_state.store(DriverState::READY);
 
     RCLCPP_INFO(getLogger(), "System successfully started!");
@@ -537,14 +540,20 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         }
     }
 
-    if (position_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_pos_nan) {
+    // Withhold motion until a controller restart has re-synchronized the command buffers. Digital
+    // outputs further down are unaffected -- they carry no setpoint that can go stale.
+    const bool stream_motion = driver_status_->commands_synchronized.load();
+
+    if (stream_motion && position_controller_running_ && robot_->mode() == rdk_control_mode_
+        && !is_pos_nan) {
         // Map ROS commands to RDK targets
         for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
             size_t ros_idx = rdk_to_ros_map_[rdk_idx];
             target_pos[rdk_idx] = hw_commands_joint_positions_[ros_idx];
         }
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
-    } else if (velocity_controller_running_ && robot_->mode() == rdk_control_mode_ && !is_vel_nan) {
+    } else if (stream_motion && velocity_controller_running_ && robot_->mode() == rdk_control_mode_
+               && !is_vel_nan) {
         // Map ROS commands/states to RDK targets
         for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
             size_t ros_idx = rdk_to_ros_map_[rdk_idx];
@@ -552,8 +561,8 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             target_vel[rdk_idx] = hw_commands_joint_velocities_[ros_idx];
         }
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
-    } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
-               && !is_eff_nan) {
+    } else if (stream_motion && torque_controller_running_
+               && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE && !is_eff_nan) {
         std::vector<double> target_torque(robot_->info().DoF);
         // Map ROS commands to RDK targets
         for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
@@ -594,6 +603,9 @@ hardware_interface::return_type FlexivHardwareInterface::write(
 
 void FlexivHardwareInterface::SynchronizeCommandsWithState()
 {
+    // Called from perform_command_mode_switch(), which is the controller restart the driver
+    // requires after a fault. Once the buffers hold the measured position, motion may stream again.
+    driver_status_->commands_synchronized.store(true);
     // Position commands start from where the robot actually is, so the first write() after a mode
     // switch commands a hold instead of whatever setpoint was left over from before.
     hw_commands_joint_positions_ = hw_states_joint_positions_;
