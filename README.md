@@ -267,6 +267,10 @@ ros2 control switch_controllers \
   --deactivate rizon_arm_controller --activate rizon_arm_controller
 ```
 
+Step 3 is required after **any** interruption, including one resolved on the teach pendant: motion
+stays withheld until a controller restart re-synchronizes the commands with where the robot actually
+is, so it cannot jump back to a stale pre-fault target.
+
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#error-recovery) for the recovery
 policies, the `ClearFault()` guidance and the dual-robot notes.
 

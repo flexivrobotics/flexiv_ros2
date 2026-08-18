@@ -424,3 +424,41 @@ TEST(RecoverySequence, ARealRecoveryRequiresAControllerRestart)
     EXPECT_TRUE(machine.succeeded()) << machine.message();
     EXPECT_TRUE(machine.requires_controller_restart());
 }
+
+TEST(CommandSynchronization, StartsUnsynchronized)
+{
+    // Nothing may be streamed until a controller start has established the control mode.
+    DriverStatus status;
+    EXPECT_FALSE(status.commands_synchronized.load());
+}
+
+TEST(CommandSynchronization, LeavingReadyInvalidatesTheSetpoint)
+{
+    DriverStatus status;
+    status.commands_synchronized.store(true);
+
+    // The robot stayed connected and reports no fault, it was only switched to Manual mode -- the
+    // case where an operator can hand-guide it away from the commanded position.
+    SetLatchedCondition(status, true, false, OperationalStatus::IN_MANUAL_MODE);
+    EXPECT_TRUE(status.TryApplyDerivedDriverState());
+    EXPECT_FALSE(status.commands_synchronized.load());
+
+    // Returning to Auto (Remote) makes the robot ready again, but the setpoint stays invalidated
+    // until a controller restart re-synchronizes it.
+    SetLatchedCondition(status, true, true, OperationalStatus::READY);
+    EXPECT_TRUE(status.TryApplyDerivedDriverState());
+    EXPECT_EQ(status.driver_state.load(), DriverState::READY);
+    EXPECT_FALSE(status.commands_synchronized.load());
+}
+
+TEST(CommandSynchronization, StayingReadyKeepsTheSetpoint)
+{
+    DriverStatus status;
+    SetLatchedCondition(status, true, true, OperationalStatus::READY);
+    status.commands_synchronized.store(true);
+
+    for (int cycle = 0; cycle < 5; ++cycle) {
+        EXPECT_TRUE(status.TryApplyDerivedDriverState());
+    }
+    EXPECT_TRUE(status.commands_synchronized.load());
+}

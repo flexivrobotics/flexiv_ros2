@@ -66,6 +66,17 @@ ros2 control switch_controllers \
 
 The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `NRT_JOINT_POSITION` for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step.
 
+**The restart is required after every interruption, not only after a recovery action.** Once the
+driver has left `READY` for any reason, motion stays withheld until a controller restart, even if
+the robot became operational again on its own or the operator resolved the condition in Flexiv
+Elements. The commands the controller still holds describe where the robot was before it stopped,
+and in Manual mode the operator may well have hand-guided it somewhere else; streaming those
+commands again would jump the robot back. Digital outputs are not affected — they carry no
+setpoint.
+
+So a robot that was switched to Manual mode and back does **not** resume motion by itself. Restart
+the controller with the command above to resume it.
+
 ### Recovery policies
 
 The action classifies `operational_status()` before acting, and refuses conditions that need a
