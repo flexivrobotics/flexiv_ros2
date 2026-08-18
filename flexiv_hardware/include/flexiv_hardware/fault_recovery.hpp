@@ -71,7 +71,7 @@ std::string RecoveryPolicyName(RecoveryPolicy policy);
 
 /**
  * @brief [Non-blocking] Largest absolute per-joint difference between two joint position vectors,
- * in radians. Used to tell whether the robot was moved while the driver was not commanding it.
+ * in radians. Used to report how far the robot ended up from the last position it was commanded to.
  * @return 0 if the vectors differ in size, so an unpopulated buffer never reports a deviation.
  */
 double MaxJointDeviation(const std::vector<double>& before, const std::vector<double>& after);
@@ -143,15 +143,6 @@ struct DriverStatus
     std::atomic<bool> commands_synchronized {false};
 
     /**
-     * How far the robot was moved, in radians, while the driver was not ready -- an operator
-     * hand-guiding it in Manual mode being the usual cause. 0 when it did not move meaningfully.
-     *
-     * Set on the return to READY and cleared by the same controller restart that sets
-     * commands_synchronized, so it describes an interruption that has not been acknowledged yet.
-     */
-    std::atomic<double> joint_deviation_while_not_ready {0.0};
-
-    /**
      * @brief [Non-blocking] Latch every condition field from the robot. Does not touch
      * driver_state; use DeriveDriverState() for that, so that a caller can refresh the condition
      * without also committing to the driver state it implies.
@@ -178,6 +169,12 @@ struct DriverStatus
      * @return True if the derived state was applied, false if recovery holds the state.
      */
     bool TryApplyDerivedDriverState();
+
+    /**
+     * @brief [Non-blocking] Whether the controllers have to be restarted before the robot moves
+     * again: it is ready, but the commands they hold have not been re-synchronized with it.
+     */
+    bool RequiresControllerRestart() const;
 };
 
 //====================================== RECOVERY SEQUENCE =========================================
@@ -237,16 +234,6 @@ public:
 
     /** @brief [Non-blocking] Whether the sequence finished successfully. */
     bool succeeded() const { return state_ == RecoveryState::COMPLETE; }
-
-    /**
-     * @brief [Non-blocking] Whether the controllers have to be restarted to resume motion. False
-     * for a robot that needed no recovery: it was left untouched and keeps running whatever it was
-     * running.
-     */
-    bool requires_controller_restart() const
-    {
-        return succeeded() && policy_ != RecoveryPolicy::NONE;
-    }
 
     /** @brief [Non-blocking] Operator-facing explanation of the outcome so far. */
     const std::string& message() const { return message_; }

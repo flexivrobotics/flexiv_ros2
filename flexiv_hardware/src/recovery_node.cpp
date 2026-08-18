@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstdio>
 #include <thread>
 
 #include "flexiv_hardware/recovery_node.hpp"
@@ -31,23 +30,15 @@ std::string SanitizeNamespace(const std::string& robot_sn)
 }
 
 /**
- * @brief Sentence warning that the robot was moved while the driver was not ready, so that the
- * operator knows the resumed trajectory will start from somewhere unexpected. Empty when it was
- * not.
+ * @brief Sentence appended when the controllers still have to be restarted before the robot moves.
+ * Deliberately short: the default `ros2 topic echo` truncates this field at 128 characters.
  */
-std::string DescribeJointDeviation(double deviation)
+std::string DescribeControllerRestart(bool required)
 {
-    if (deviation <= 0.0) {
+    if (!required) {
         return {};
     }
-    char sentence[256];
-    std::snprintf(sentence, sizeof(sentence),
-        " Note: the robot was moved %.3f rad while the driver was not ready. The controllers hold "
-        "a "
-        "setpoint from before that, so the trajectory they resume with will move the robot from "
-        "where it is now. Verify the program state before restarting them.",
-        deviation);
-    return sentence;
+    return " Restart the controllers to resume motion.";
 }
 
 }
@@ -161,7 +152,7 @@ flexiv_msgs::msg::OperationalStatus RecoveryNode::BuildStatusMessage()
     message.control_mode = static_cast<int8_t>(status_->control_mode.load());
     message.recovery_policy = static_cast<uint8_t>(ClassifyRecoveryPolicy(condition));
     message.message = DescribeRobotCondition(condition)
-                      + DescribeJointDeviation(status_->joint_deviation_while_not_ready.load());
+                      + DescribeControllerRestart(status_->RequiresControllerRestart());
 
     std::lock_guard<std::mutex> lock(recent_events_mutex_);
     message.recent_events = recent_events_;
@@ -240,15 +231,6 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
         std::this_thread::sleep_for(std::chrono::milliseconds(kRecoveryStepPeriodMs));
     }
 
-    result->recovery_policy = static_cast<uint8_t>(state_machine.policy());
-    result->success = state_machine.succeeded();
-    result->message = state_machine.message()
-                      + DescribeJointDeviation(status_->joint_deviation_while_not_ready.load());
-    // The robot is left in IDLE control mode on purpose: re-entering a control mode has to go
-    // through a controller restart, so that the controller re-initializes its own setpoint and
-    // cannot apply a stale pre-fault command.
-    result->requires_controller_restart = state_machine.requires_controller_restart();
-
     // Any sequence that got past classification may have stopped the robot and dropped it to IDLE,
     // including one that was canceled or failed part way through. Withhold motion until a
     // controller restart re-synchronizes the command buffers. A robot that needed no recovery was
@@ -263,10 +245,21 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
     status_->Latch(robot_);
     status_->driver_state.store(status_->DeriveDriverState());
 
+    // Reported only once the hold above is released, so that the gate reflects the robot rather
+    // than the recovery that just finished. The robot is left in IDLE control mode on purpose:
+    // re-entering a control mode goes through a controller restart, so that the controller
+    // re-initializes its own setpoint and cannot apply a stale pre-fault command.
+    const bool restart_required = status_->RequiresControllerRestart();
+
+    result->recovery_policy = static_cast<uint8_t>(state_machine.policy());
+    result->success = state_machine.succeeded();
+    result->message = state_machine.message() + DescribeControllerRestart(restart_required);
+    result->requires_controller_restart = restart_required;
+
     if (canceled) {
         result->success = false;
-        result->message = "Recovery canceled by the caller.";
-        result->requires_controller_restart = false;
+        result->message
+            = "Recovery canceled by the caller." + DescribeControllerRestart(restart_required);
         goal_handle->canceled(result);
         RCLCPP_WARN(this->get_logger(), "Recovery canceled");
     } else if (state_machine.succeeded()) {

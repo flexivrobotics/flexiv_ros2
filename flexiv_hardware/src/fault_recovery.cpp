@@ -222,6 +222,11 @@ bool DriverStatus::TryApplyDerivedDriverState()
     return driver_state.compare_exchange_strong(expected, derived);
 }
 
+bool DriverStatus::RequiresControllerRestart() const
+{
+    return driver_state.load() == DriverState::READY && !commands_synchronized.load();
+}
+
 //====================================== RECOVERY SEQUENCE =========================================
 
 std::string RecoveryStateName(RecoveryState state)
