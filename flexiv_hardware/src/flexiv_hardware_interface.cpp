@@ -29,9 +29,6 @@ constexpr double kMaxJointAcceleration = 3.0;
 constexpr std::chrono::seconds kActivationOperationalTimeout {30};
 constexpr std::chrono::milliseconds kOperationalPollPeriod {200};
 
-// A robot moved further than this while the driver was not ready is reported to the operator.
-constexpr double kJointDeviationWarnThreshold = 0.05; // [rad]
-
 }
 
 namespace flexiv_hardware {
@@ -265,13 +262,10 @@ void FlexivHardwareInterface::TrackPositionChangeAcrossInterruption()
         const double deviation
             = MaxJointDeviation(positions_before_interruption_, hw_states_joint_positions_);
 
-        if (deviation > kJointDeviationWarnThreshold) {
-            RCLCPP_WARN(getLogger(),
-                "The robot came to rest %.3f rad from the last commanded position. Motion stays "
-                "withheld until "
-                "the controllers are restarted.",
-                deviation);
-        }
+        RCLCPP_WARN(getLogger(),
+            "The robot is ready again, %.3f rad from the last commanded "
+            "position. Motion stays withheld until the controllers are restarted.",
+            deviation);
         positions_before_interruption_.clear();
     }
 
