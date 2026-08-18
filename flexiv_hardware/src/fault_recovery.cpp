@@ -300,7 +300,12 @@ bool RecoveryStateMachine::Step()
             case RecoveryState::STOP:
                 // Bring the robot to a complete stop and to IDLE control mode before touching the
                 // fault state, so that no motion command is pending when it becomes operational.
-                robot_.Stop();
+                if (robot_.operational()) {
+                    try {
+                        robot_.Stop();
+                    } catch (const std::exception&) {
+                    }
+                }
                 TransitionTo(robot_.fault() ? RecoveryState::CLEAR_FAULT : RecoveryState::ENABLE);
                 break;
 
