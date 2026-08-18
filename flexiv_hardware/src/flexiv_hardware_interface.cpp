@@ -272,8 +272,8 @@ void FlexivHardwareInterface::TrackPositionChangeAcrossInterruption()
                 "The robot moved %.3f rad while the driver was not ready. The controllers still "
                 "hold their setpoint from before that, so motion stays withheld until they are "
                 "restarted -- and the trajectory they resume with will move the robot from where "
-                "it "
-                "is now, not from where it was. Verify the program state before restarting them.",
+                "it is now, not from where it was. Verify the program state before restarting "
+                "them.",
                 deviation);
         }
         positions_before_interruption_.clear();

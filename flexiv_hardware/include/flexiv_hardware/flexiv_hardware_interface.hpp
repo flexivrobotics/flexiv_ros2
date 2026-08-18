@@ -148,6 +148,7 @@ private:
 
     // GPIO commands and states
     std::vector<double> hw_commands_gpio_out_;
+
     // Joint positions as last measured before the driver left READY, for detecting a robot that
     // was moved while it was not being commanded. Empty while the driver is ready.
     std::vector<double> positions_before_interruption_;
