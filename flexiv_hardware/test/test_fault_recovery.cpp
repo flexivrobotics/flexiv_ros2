@@ -216,6 +216,7 @@ public:
     bool estop_released_ = true;
     bool in_recovery_ = false;
     bool has_external_axes_ = false;
+    bool timeliness_limit_reached_ = false;
     OperationalStatus status_ = OperationalStatus::NOT_ENABLED;
 
     /** Stop() throws the way the RDK does when the robot is not operational. */
@@ -233,7 +234,7 @@ public:
     bool estop_released() const override { return estop_released_; }
     bool recovery() const override { return in_recovery_; }
     bool reduced() const override { return false; }
-    bool reached_timeliness_failure_limit() const override { return false; }
+    bool reached_timeliness_failure_limit() const override { return timeliness_limit_reached_; }
     OperationalStatus operational_status() const override { return status_; }
     flexiv::rdk::Mode mode() const override { return flexiv::rdk::Mode::IDLE; }
     std::vector<flexiv::rdk::RobotEvent> event_log() const override { return {}; }
@@ -301,6 +302,7 @@ TEST(RecoverySequence, StopsARobotThatIsStillOperational)
     FakeRobot robot;
     robot.operational_ = true;
     robot.status_ = OperationalStatus::READY;
+    robot.timeliness_limit_reached_ = true;
 
     RecoveryStateMachine machine(robot, false);
     RunToCompletion(machine);
@@ -314,6 +316,7 @@ TEST(RecoverySequence, AFailedStopDoesNotAbortTheSequence)
     FakeRobot robot;
     robot.operational_ = true;
     robot.status_ = OperationalStatus::READY;
+    robot.timeliness_limit_reached_ = true;
     robot.stop_throws_ = true;
 
     RecoveryStateMachine machine(robot, false);
@@ -387,4 +390,37 @@ TEST(RecoverySequence, RecoveryStateNeedsTheAutoRecoveryOptIn)
     EXPECT_EQ(robot.enable_calls, 0);
     EXPECT_TRUE(opted_in.succeeded()) << opted_in.message();
     EXPECT_NE(opted_in.message().find("Reboot"), std::string::npos);
+}
+
+TEST(RecoverySequence, AHealthyRobotIsLeftStrictlyAlone)
+{
+    // Recovery sent to a robot that is fine must not stop it. It may well be executing a
+    // trajectory, and stopping it would also force a controller restart to resume.
+    FakeRobot robot;
+    robot.operational_ = true;
+    robot.status_ = OperationalStatus::READY;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_EQ(machine.policy(), RecoveryPolicy::NONE);
+    EXPECT_TRUE(machine.succeeded()) << machine.message();
+    EXPECT_FALSE(machine.requires_controller_restart());
+    EXPECT_EQ(robot.stop_calls, 0);
+    EXPECT_EQ(robot.clear_fault_calls, 0);
+    EXPECT_EQ(robot.enable_calls, 0);
+    EXPECT_EQ(robot.auto_recovery_calls, 0);
+}
+
+TEST(RecoverySequence, ARealRecoveryRequiresAControllerRestart)
+{
+    FakeRobot robot;
+    robot.fault_ = true;
+    robot.status_ = OperationalStatus::MINOR_FAULT;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_TRUE(machine.succeeded()) << machine.message();
+    EXPECT_TRUE(machine.requires_controller_restart());
 }

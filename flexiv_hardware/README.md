@@ -50,6 +50,11 @@ deadline, so an unrecoverable robot fails with a message instead of hanging.
 On success the robot is **operational and in `IDLE`**, and the result reports
 `requires_controller_restart: true`.
 
+A robot that needs no recovery is the one exception: the action succeeds immediately without
+issuing a single system control call, and reports `recovery_policy: NONE` with
+`requires_controller_restart: false`. Recovery is safe to send to a healthy robot — it will not
+interrupt a running trajectory.
+
 ### Step 3: Restoring a control mode
 
 Recovery does not restore the control mode. Restart the controller:
@@ -68,6 +73,7 @@ human.
 
 | Condition                                | Policy             | Behavior                                                 |
 | ---------------------------------------- | ------------------ | -------------------------------------------------------- |
+| Robot is already ready                   | `NONE`             | Succeeds immediately, robot is left untouched            |
 | Minor fault, critical fault, not enabled | `AUTO_RECOVERABLE` | Cleared and re-enabled                                   |
 | Booting, releasing brakes                | `TRANSIENT`        | Enabled, then waited out for up to 20 s                  |
 | E-stop pressed                           | `SAFETY_LOCKOUT`   | Refused. Release the E-stop                              |
