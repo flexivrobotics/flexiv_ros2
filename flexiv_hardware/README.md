@@ -40,62 +40,24 @@ and recommended actions.
 ### Step 2: Clearing a fault
 
 ```bash
-ros2 action send_goal /Rizon4_123456/flexiv_recovery_node/error_recovery \
-  flexiv_msgs/action/ErrorRecovery "{}" --feedback
+ros2 action send_goal /Rizon4_123456/flexiv_recovery_node/error_recovery flexiv_msgs/action/ErrorRecovery "{}" --feedback
 ```
 
-The sequence is `Stop` → `ClearFault` → `Enable` → wait for operational. Each step has its own
-deadline, so an unrecoverable robot fails with a message instead of hanging.
+The sequence is `Stop` → `ClearFault` → `Enable` → wait for operational. Each step has its own deadline, so an unrecoverable robot fails with a message instead of hanging.
 
-On success the robot is **operational and in `IDLE`**, and the result reports
-`requires_controller_restart: true`.
-
-A robot that needs no recovery is the one exception: the action succeeds immediately without
-issuing a single system control call, and reports `recovery_policy: NONE` with
-`requires_controller_restart: false`. Recovery is safe to send to a healthy robot — it will not
-interrupt a running trajectory.
+On success the robot is **operational and in `IDLE`**, and the result reports `requires_controller_restart: true`.
 
 ### Step 3: Restoring a control mode
 
 Recovery does not restore the control mode. Restart the controller:
 
 ```bash
-ros2 control switch_controllers \
-  --deactivate rizon_arm_controller --activate rizon_arm_controller
+ros2 control switch_controllers --deactivate rizon_arm_controller --activate rizon_arm_controller
 ```
 
 The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `NRT_JOINT_POSITION` for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step.
 
-**The restart is required after every interruption, not only after a recovery action.** Once the
-driver has left `READY` for any reason, motion stays withheld until a controller restart, even if
-the robot became operational again on its own or the operator resolved the condition in Flexiv
-Elements. The commands the controller still holds describe where the robot was before it stopped,
-and in Manual mode the operator may well have hand-guided it somewhere else; streaming those
-commands again would jump the robot back. Digital outputs are not affected — they carry no
-setpoint.
-
-So a robot that was switched to Manual mode and back does **not** resume motion by itself. Restart
-the controller with the command above to resume it.
-
-#### What the restart does not protect against
-
-The restart re-initializes the controller's setpoint from the measured position, so nothing jumps at
-the moment motion resumes. It cannot make a *new* command safe: a publisher that keeps sending
-absolute joint trajectories will have its next goal accepted as usual, and the robot will travel
-from wherever it is now to the commanded position. If an operator hand-guided the robot in Manual
-mode, that is a longer move than the trajectory author intended, over the same `time_from_start` —
-so a faster one. In `joint_position` and `joint_impedance` modes the RDK bounds it at 2 rad/s and
-3 rad/s², but it is still an unattended motion. Torque mode has no such bound.
-
-The driver therefore reports the situation rather than second-guessing the command. When the robot
-was moved more than 0.05 rad while the driver was not ready, it warns in the driver log and appends
-the deviation to the `message` field of both the status topic and the recovery result:
-
-> Note: the robot was moved 0.412 rad while the driver was not ready. The controllers hold a
-> setpoint from before that, so the trajectory they resume with will move the robot from where it is
-> now. Verify the program state before restarting them.
-
-Stop the trajectory source before restarting the controllers if that move is not wanted.
+**The restart is required after every interruption, not only after a recovery action.** Once the driver has left `READY` for any reason, motion stays withheld until a controller restart, even if the robot became operational again on its own or the operator resolved the condition in Flexiv Elements.
 
 ### Recovery policies
 
