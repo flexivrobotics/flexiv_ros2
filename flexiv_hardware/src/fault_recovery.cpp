@@ -4,6 +4,8 @@
  * @author Flexiv
  */
 
+#include <cmath>
+
 #include "flexiv_hardware/fault_recovery.hpp"
 
 namespace {
@@ -150,6 +152,23 @@ std::string RecoveryPolicyName(RecoveryPolicy policy)
         default:
             return "UNKNOWN";
     }
+}
+
+double MaxJointDeviation(const std::vector<double>& before, const std::vector<double>& after)
+{
+    if (before.size() != after.size()) {
+        return 0.0;
+    }
+    double max_deviation = 0.0;
+    for (size_t i = 0; i < before.size(); ++i) {
+        // A joint buffer that was never populated holds NaN, and every comparison against NaN is
+        // false, so such an entry simply never becomes the maximum.
+        const double deviation = std::fabs(after[i] - before[i]);
+        if (deviation > max_deviation) {
+            max_deviation = deviation;
+        }
+    }
+    return max_deviation;
 }
 
 //========================================= DRIVER STATUS ==========================================

@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "flexiv/rdk/data.hpp"
 #include "flexiv/rdk/mode.hpp"
@@ -67,6 +68,13 @@ std::string OperationalStatusName(flexiv::rdk::OperationalStatus status);
  * @brief [Non-blocking] Name of a recovery policy.
  */
 std::string RecoveryPolicyName(RecoveryPolicy policy);
+
+/**
+ * @brief [Non-blocking] Largest absolute per-joint difference between two joint position vectors,
+ * in radians. Used to tell whether the robot was moved while the driver was not commanding it.
+ * @return 0 if the vectors differ in size, so an unpopulated buffer never reports a deviation.
+ */
+double MaxJointDeviation(const std::vector<double>& before, const std::vector<double>& after);
 
 //========================================= DRIVER STATUS ==========================================
 
@@ -130,10 +138,18 @@ struct DriverStatus
      * Cleared whenever the driver leaves READY, and set again only by a controller restart, which
      * re-initializes the controller's setpoint. Until then write() withholds motion even once the
      * robot is operational again: the commands the controller still holds describe where the robot
-     * was before it stopped, and an operator may have hand-guided it elsewhere in the meantime --
-     * in Manual mode, that is exactly what they are expected to do.
+     * was before it stopped.
      */
     std::atomic<bool> commands_synchronized {false};
+
+    /**
+     * How far the robot was moved, in radians, while the driver was not ready -- an operator
+     * hand-guiding it in Manual mode being the usual cause. 0 when it did not move meaningfully.
+     *
+     * Set on the return to READY and cleared by the same controller restart that sets
+     * commands_synchronized, so it describes an interruption that has not been acknowledged yet.
+     */
+    std::atomic<double> joint_deviation_while_not_ready {0.0};
 
     /**
      * @brief [Non-blocking] Latch every condition field from the robot. Does not touch
