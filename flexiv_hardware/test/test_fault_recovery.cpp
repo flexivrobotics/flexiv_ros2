@@ -407,24 +407,10 @@ TEST(RecoverySequence, AHealthyRobotIsLeftStrictlyAlone)
 
     EXPECT_EQ(machine.policy(), RecoveryPolicy::NONE);
     EXPECT_TRUE(machine.succeeded()) << machine.message();
-    EXPECT_FALSE(machine.requires_controller_restart());
     EXPECT_EQ(robot.stop_calls, 0);
     EXPECT_EQ(robot.clear_fault_calls, 0);
     EXPECT_EQ(robot.enable_calls, 0);
     EXPECT_EQ(robot.auto_recovery_calls, 0);
-}
-
-TEST(RecoverySequence, ARealRecoveryRequiresAControllerRestart)
-{
-    FakeRobot robot;
-    robot.fault_ = true;
-    robot.status_ = OperationalStatus::MINOR_FAULT;
-
-    RecoveryStateMachine machine(robot, false);
-    RunToCompletion(machine);
-
-    EXPECT_TRUE(machine.succeeded()) << machine.message();
-    EXPECT_TRUE(machine.requires_controller_restart());
 }
 
 TEST(CommandSynchronization, StartsUnsynchronized)
@@ -488,4 +474,49 @@ TEST(JointDeviation, NanEntriesAreIgnored)
     const double nan = std::numeric_limits<double>::quiet_NaN();
     EXPECT_DOUBLE_EQ(MaxJointDeviation({nan, 0.5}, {0.1, 0.9}), 0.4);
     EXPECT_DOUBLE_EQ(MaxJointDeviation({nan, nan}, {nan, nan}), 0.0);
+}
+
+TEST(CommandSynchronization, ARestartIsRequiredWhileTheRobotIsReadyButUnsynchronized)
+{
+    DriverStatus status;
+    SetLatchedCondition(status, true, true, OperationalStatus::READY);
+    status.driver_state.store(DriverState::READY);
+
+    status.commands_synchronized.store(false);
+    EXPECT_TRUE(status.RequiresControllerRestart());
+
+    status.commands_synchronized.store(true);
+    EXPECT_FALSE(status.RequiresControllerRestart());
+}
+
+TEST(CommandSynchronization, NoRestartIsReportedWhileTheRobotIsNotReady)
+{
+    // A restart cannot help a robot that is still faulted, so it must not be asked for yet.
+    DriverStatus status;
+    status.commands_synchronized.store(false);
+
+    for (const auto state : {DriverState::UNINITIALIZED, DriverState::FAULT,
+             DriverState::RECOVERING, DriverState::LOCKOUT, DriverState::DISCONNECTED}) {
+        status.driver_state.store(state);
+        EXPECT_FALSE(status.RequiresControllerRestart());
+    }
+}
+
+TEST(CommandSynchronization, AManualModeExcursionLeavesARestartOutstanding)
+{
+    // The exact sequence an operator produces: Auto (Remote) -> Manual -> Auto (Remote), with no
+    // recovery action involved. The restart must still be reported as required afterwards.
+    DriverStatus status;
+    SetLatchedCondition(status, true, true, OperationalStatus::READY);
+    status.TryApplyDerivedDriverState();
+    status.commands_synchronized.store(true);
+    EXPECT_FALSE(status.RequiresControllerRestart());
+
+    SetLatchedCondition(status, true, false, OperationalStatus::IN_MANUAL_MODE);
+    status.TryApplyDerivedDriverState();
+
+    SetLatchedCondition(status, true, true, OperationalStatus::READY);
+    status.TryApplyDerivedDriverState();
+    EXPECT_EQ(status.driver_state.load(), DriverState::READY);
+    EXPECT_TRUE(status.RequiresControllerRestart());
 }
