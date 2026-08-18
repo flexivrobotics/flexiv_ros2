@@ -397,16 +397,12 @@ void FlexivDualHardwareInterface::TrackPositionChangeAcrossInterruption()
     } else if (!was_ready_ && ready && !positions_before_interruption_.empty()) {
         const double deviation
             = MaxJointDeviation(positions_before_interruption_, hw_states_joint_positions_);
-        driver_status_->joint_deviation_while_not_ready.store(
-            deviation > kJointDeviationWarnThreshold ? deviation : 0.0);
 
         if (deviation > kJointDeviationWarnThreshold) {
             RCLCPP_WARN(getLogger(),
-                "A robot moved %.3f rad while the driver was not ready. The controllers still hold "
-                "their setpoint from before that, so motion stays withheld until they are "
-                "restarted "
-                "-- and the trajectory they resume with will move the robots from where they are "
-                "now, not from where they were. Verify the program state before restarting them.",
+                "A robot came to rest %.3f rad from the last commanded position. Motion stays "
+                "withheld until "
+                "the controllers are restarted.",
                 deviation);
         }
         positions_before_interruption_.clear();
@@ -488,7 +484,6 @@ void FlexivDualHardwareInterface::SynchronizeCommandsWithState()
     // Called from perform_command_mode_switch(), which is the controller restart the driver
     // requires after a fault. Once the buffers hold the measured position, motion may stream again.
     driver_status_->commands_synchronized.store(true);
-    driver_status_->joint_deviation_while_not_ready.store(0.0);
     // Position commands start from where the robots actually are, so the first write() after a
     // mode switch commands a hold instead of a stale setpoint.
     hw_commands_joint_positions_ = hw_states_joint_positions_;
