@@ -6,6 +6,9 @@
  * @author Flexiv
  */
 
+#include <stdexcept>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include "flexiv_hardware/fault_recovery.hpp"
@@ -18,7 +21,9 @@ using flexiv_hardware::DriverStatus;
 using flexiv_hardware::OperationalStatusName;
 using flexiv_hardware::RecoveryPolicy;
 using flexiv_hardware::RecoveryPolicyName;
+using flexiv_hardware::RecoveryStateMachine;
 using flexiv_hardware::RobotCondition;
+using flexiv_hardware::RobotSystemControl;
 
 namespace {
 
@@ -194,4 +199,192 @@ TEST(DriverStateDerivation, ApplyingTheDerivedStateNeverOverridesRecovery)
     SetLatchedCondition(status, true, true, OperationalStatus::READY);
     EXPECT_FALSE(status.TryApplyDerivedDriverState());
     EXPECT_EQ(status.driver_state.load(), DriverState::RECOVERING);
+}
+
+namespace {
+
+/**
+ * @brief RobotSystemControl backed by plain fields instead of a robot, so the recovery sequence can
+ * be driven without hardware. Records which system control calls it received.
+ */
+class FakeRobot : public RobotSystemControl
+{
+public:
+    bool connected_ = true;
+    bool fault_ = false;
+    bool operational_ = false;
+    bool estop_released_ = true;
+    bool in_recovery_ = false;
+    bool has_external_axes_ = false;
+    OperationalStatus status_ = OperationalStatus::NOT_ENABLED;
+
+    /** Stop() throws the way the RDK does when the robot is not operational. */
+    bool stop_throws_ = false;
+    bool clear_fault_succeeds_ = true;
+
+    int stop_calls = 0;
+    int clear_fault_calls = 0;
+    int enable_calls = 0;
+    int auto_recovery_calls = 0;
+
+    bool connected() const override { return connected_; }
+    bool fault() const override { return fault_; }
+    bool operational() const override { return operational_; }
+    bool estop_released() const override { return estop_released_; }
+    bool recovery() const override { return in_recovery_; }
+    bool reduced() const override { return false; }
+    bool reached_timeliness_failure_limit() const override { return false; }
+    OperationalStatus operational_status() const override { return status_; }
+    flexiv::rdk::Mode mode() const override { return flexiv::rdk::Mode::IDLE; }
+    std::vector<flexiv::rdk::RobotEvent> event_log() const override { return {}; }
+    bool has_external_axes() const override { return has_external_axes_; }
+
+    void Stop() override
+    {
+        ++stop_calls;
+        if (stop_throws_) {
+            throw std::runtime_error("Robot is not operational: Not enabled");
+        }
+    }
+
+    bool ClearFault() override
+    {
+        ++clear_fault_calls;
+        if (!clear_fault_succeeds_) {
+            return false;
+        }
+        fault_ = false;
+        return true;
+    }
+
+    void Enable() override
+    {
+        ++enable_calls;
+        operational_ = true;
+        status_ = OperationalStatus::READY;
+    }
+
+    void RunAutoRecovery() override { ++auto_recovery_calls; }
+    void UnlockExternalAxes() override { }
+};
+
+/**
+ * @brief Drive the sequence to COMPLETE or FAILED, bounded so a stuck state cannot hang the test.
+ */
+void RunToCompletion(RecoveryStateMachine& machine)
+{
+    for (int step = 0; step < 100 && machine.Step(); ++step) {
+    }
+}
+
+}
+
+TEST(RecoverySequence, DoesNotStopARobotThatIsNotOperational)
+{
+    // An E-stop that was just released leaves the robot NOT_ENABLED. Stop() switches the control
+    // mode internally and the robot rejects that until it is enabled, so the sequence must go
+    // straight to enabling it.
+    FakeRobot robot;
+    robot.stop_throws_ = true;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_EQ(robot.stop_calls, 0);
+    EXPECT_EQ(robot.enable_calls, 1);
+    EXPECT_EQ(machine.policy(), RecoveryPolicy::AUTO_RECOVERABLE);
+    EXPECT_TRUE(machine.succeeded()) << machine.message();
+}
+
+TEST(RecoverySequence, StopsARobotThatIsStillOperational)
+{
+    FakeRobot robot;
+    robot.operational_ = true;
+    robot.status_ = OperationalStatus::READY;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_EQ(robot.stop_calls, 1);
+    EXPECT_TRUE(machine.succeeded()) << machine.message();
+}
+
+TEST(RecoverySequence, AFailedStopDoesNotAbortTheSequence)
+{
+    FakeRobot robot;
+    robot.operational_ = true;
+    robot.status_ = OperationalStatus::READY;
+    robot.stop_throws_ = true;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_EQ(robot.stop_calls, 1);
+    EXPECT_TRUE(machine.succeeded()) << machine.message();
+}
+
+TEST(RecoverySequence, MinorFaultIsClearedAndThenEnabled)
+{
+    FakeRobot robot;
+    robot.fault_ = true;
+    robot.status_ = OperationalStatus::MINOR_FAULT;
+    robot.stop_throws_ = true;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_EQ(robot.stop_calls, 0);
+    EXPECT_EQ(robot.clear_fault_calls, 1);
+    EXPECT_EQ(robot.enable_calls, 1);
+    EXPECT_TRUE(machine.succeeded()) << machine.message();
+}
+
+TEST(RecoverySequence, AFaultThatCannotBeClearedFails)
+{
+    FakeRobot robot;
+    robot.fault_ = true;
+    robot.status_ = OperationalStatus::CRITICAL_FAULT;
+    robot.clear_fault_succeeds_ = false;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_EQ(robot.enable_calls, 0);
+    EXPECT_FALSE(machine.succeeded());
+    EXPECT_NE(machine.message().find("power cycle"), std::string::npos);
+}
+
+TEST(RecoverySequence, APressedEstopIsRefusedWithoutTouchingTheRobot)
+{
+    FakeRobot robot;
+    robot.status_ = OperationalStatus::ESTOP_NOT_RELEASED;
+    robot.estop_released_ = false;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_EQ(machine.policy(), RecoveryPolicy::SAFETY_LOCKOUT);
+    EXPECT_FALSE(machine.succeeded());
+    EXPECT_EQ(robot.stop_calls, 0);
+    EXPECT_EQ(robot.clear_fault_calls, 0);
+    EXPECT_EQ(robot.enable_calls, 0);
+}
+
+TEST(RecoverySequence, RecoveryStateNeedsTheAutoRecoveryOptIn)
+{
+    FakeRobot robot;
+    robot.status_ = OperationalStatus::IN_RECOVERY_STATE;
+    robot.in_recovery_ = true;
+
+    RecoveryStateMachine refused(robot, false);
+    RunToCompletion(refused);
+    EXPECT_FALSE(refused.succeeded());
+    EXPECT_EQ(robot.auto_recovery_calls, 0);
+
+    RecoveryStateMachine opted_in(robot, true);
+    RunToCompletion(opted_in);
+    EXPECT_EQ(robot.auto_recovery_calls, 1);
+    EXPECT_EQ(robot.enable_calls, 0);
+    EXPECT_TRUE(opted_in.succeeded()) << opted_in.message();
+    EXPECT_NE(opted_in.message().find("Reboot"), std::string::npos);
 }
