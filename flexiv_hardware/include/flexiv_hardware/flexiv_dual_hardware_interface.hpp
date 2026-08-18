@@ -102,6 +102,12 @@ private:
      */
     void SynchronizeCommandsWithState();
 
+    /**
+     * @brief Notice a robot that was moved while the driver was not ready, and warn about it once
+     * on the return to READY. Called from read().
+     */
+    void TrackPositionChangeAcrossInterruption();
+
     /** @brief Remove the recovery node from the executor and destroy it. */
     /**
      * @brief [Blocking] Stop the robots, but only if the pair is operational. Stop() switches the
@@ -145,6 +151,11 @@ private:
 
     // GPIO commands and states
     std::vector<double> hw_commands_gpio_out_;
+    // Joint positions as last measured before the driver left READY, for detecting a robot that
+    // was moved while it was not being commanded. Empty while the driver is ready.
+    std::vector<double> positions_before_interruption_;
+    bool was_ready_ = false;
+
     std::vector<double> hw_states_gpio_in_;
 
     // Current digital output map

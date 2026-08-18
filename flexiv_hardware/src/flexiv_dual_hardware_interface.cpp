@@ -25,6 +25,10 @@ constexpr double kMaxJointAcceleration = 3.0;
 // Bounded wait for both robots to become operational during activation.
 constexpr std::chrono::seconds kActivationOperationalTimeout {30};
 constexpr std::chrono::milliseconds kOperationalPollPeriod {200};
+
+// A robot moved further than this while the driver was not ready is reported to the operator. Well
+// below anything hand-guiding produces, well above measurement noise.
+constexpr double kJointDeviationWarnThreshold = 0.05; // [rad]
 }
 
 namespace flexiv_hardware {
@@ -382,6 +386,35 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_configure(
     return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+void FlexivDualHardwareInterface::TrackPositionChangeAcrossInterruption()
+{
+    const bool ready = driver_status_->driver_state.load() == DriverState::READY;
+
+    if (was_ready_ && !ready) {
+        // Joint states stop being refreshed once the pair is no longer operational, so this still
+        // holds the last positions the robots were known to be at before they stopped.
+        positions_before_interruption_ = hw_states_joint_positions_;
+    } else if (!was_ready_ && ready && !positions_before_interruption_.empty()) {
+        const double deviation
+            = MaxJointDeviation(positions_before_interruption_, hw_states_joint_positions_);
+        driver_status_->joint_deviation_while_not_ready.store(
+            deviation > kJointDeviationWarnThreshold ? deviation : 0.0);
+
+        if (deviation > kJointDeviationWarnThreshold) {
+            RCLCPP_WARN(getLogger(),
+                "A robot moved %.3f rad while the driver was not ready. The controllers still hold "
+                "their setpoint from before that, so motion stays withheld until they are "
+                "restarted "
+                "-- and the trajectory they resume with will move the robots from where they are "
+                "now, not from where they were. Verify the program state before restarting them.",
+                deviation);
+        }
+        positions_before_interruption_.clear();
+    }
+
+    was_ready_ = ready;
+}
+
 void FlexivDualHardwareInterface::StopIfOperational()
 {
     if (robot_pair_ && robot_pair_->connected() && robot_pair_->operational()) {
@@ -455,6 +488,7 @@ void FlexivDualHardwareInterface::SynchronizeCommandsWithState()
     // Called from perform_command_mode_switch(), which is the controller restart the driver
     // requires after a fault. Once the buffers hold the measured position, motion may stream again.
     driver_status_->commands_synchronized.store(true);
+    driver_status_->joint_deviation_while_not_ready.store(0.0);
     // Position commands start from where the robots actually are, so the first write() after a
     // mode switch commands a hold instead of a stale setpoint.
     hw_commands_joint_positions_ = hw_states_joint_positions_;
@@ -602,6 +636,9 @@ hardware_interface::return_type FlexivDualHardwareInterface::read(
                 = static_cast<double>(gpio_inputs.second[i]);
         }
     }
+
+    TrackPositionChangeAcrossInterruption();
+
     return hardware_interface::return_type::OK;
 }
 

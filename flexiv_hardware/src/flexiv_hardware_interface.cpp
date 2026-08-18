@@ -29,6 +29,9 @@ constexpr double kMaxJointAcceleration = 3.0;
 constexpr std::chrono::seconds kActivationOperationalTimeout {30};
 constexpr std::chrono::milliseconds kOperationalPollPeriod {200};
 
+// A robot moved further than this while the driver was not ready is reported to the operator.
+constexpr double kJointDeviationWarnThreshold = 0.05; // [rad]
+
 }
 
 namespace flexiv_hardware {
@@ -248,6 +251,35 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_configure(
     executor->add_node(recovery_node_->get_node_base_interface());
 
     return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+void FlexivHardwareInterface::TrackPositionChangeAcrossInterruption()
+{
+    const bool ready = driver_status_->driver_state.load() == DriverState::READY;
+
+    if (was_ready_ && !ready) {
+        // Joint states stop being refreshed once the robot is no longer operational, so this still
+        // holds the last position the robot was known to be at before it stopped.
+        positions_before_interruption_ = hw_states_joint_positions_;
+    } else if (!was_ready_ && ready && !positions_before_interruption_.empty()) {
+        const double deviation
+            = MaxJointDeviation(positions_before_interruption_, hw_states_joint_positions_);
+        driver_status_->joint_deviation_while_not_ready.store(
+            deviation > kJointDeviationWarnThreshold ? deviation : 0.0);
+
+        if (deviation > kJointDeviationWarnThreshold) {
+            RCLCPP_WARN(getLogger(),
+                "The robot moved %.3f rad while the driver was not ready. The controllers still "
+                "hold their setpoint from before that, so motion stays withheld until they are "
+                "restarted -- and the trajectory they resume with will move the robot from where "
+                "it "
+                "is now, not from where it was. Verify the program state before restarting them.",
+                deviation);
+        }
+        positions_before_interruption_.clear();
+    }
+
+    was_ready_ = ready;
 }
 
 void FlexivHardwareInterface::StopIfOperational()
@@ -505,6 +537,8 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         }
     }
 
+    TrackPositionChangeAcrossInterruption();
+
     return hardware_interface::return_type::OK;
 }
 
@@ -540,8 +574,7 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         }
     }
 
-    // Withhold motion until a controller restart has re-synchronized the command buffers. Digital
-    // outputs further down are unaffected -- they carry no setpoint that can go stale.
+    // Withhold motion until a controller restart has re-synchronized the command buffers.
     const bool stream_motion = driver_status_->commands_synchronized.load();
 
     if (stream_motion && position_controller_running_ && robot_->mode() == rdk_control_mode_
@@ -606,6 +639,7 @@ void FlexivHardwareInterface::SynchronizeCommandsWithState()
     // Called from perform_command_mode_switch(), which is the controller restart the driver
     // requires after a fault. Once the buffers hold the measured position, motion may stream again.
     driver_status_->commands_synchronized.store(true);
+    driver_status_->joint_deviation_while_not_ready.store(0.0);
     // Position commands start from where the robot actually is, so the first write() after a mode
     // switch commands a hold instead of whatever setpoint was left over from before.
     hw_commands_joint_positions_ = hw_states_joint_positions_;
