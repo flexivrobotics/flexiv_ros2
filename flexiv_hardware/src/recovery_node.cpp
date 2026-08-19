@@ -274,9 +274,7 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
             RecoveryPolicyName(state_machine.policy()).c_str(), result->message.c_str());
     }
 
-    if (state_machine.policy() != RecoveryPolicy::NONE) {
-        RefreshRecentEvents();
-    }
+    RefreshRecentEvents();
     recovery_in_progress_.store(false);
 }
 
