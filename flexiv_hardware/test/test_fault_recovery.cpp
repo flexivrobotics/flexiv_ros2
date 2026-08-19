@@ -520,3 +520,44 @@ TEST(CommandSynchronization, AManualModeExcursionLeavesARestartOutstanding)
     EXPECT_EQ(status.driver_state.load(), DriverState::READY);
     EXPECT_TRUE(status.RequiresControllerRestart());
 }
+
+TEST(RecoverySequence, ClassificationTouchesNothing)
+{
+    // The recovery node relies on this: it withholds the driver state until after the first step,
+    // so that a robot streaming a trajectory is not interrupted by a recovery that turns out to
+    // have nothing to do. The first step must therefore issue no system control call.
+    FakeRobot robot;
+    robot.fault_ = true;
+    robot.status_ = OperationalStatus::MINOR_FAULT;
+
+    RecoveryStateMachine machine(robot, false);
+    EXPECT_TRUE(machine.Step());
+
+    EXPECT_EQ(robot.stop_calls, 0);
+    EXPECT_EQ(robot.clear_fault_calls, 0);
+    EXPECT_EQ(robot.enable_calls, 0);
+    EXPECT_EQ(robot.auto_recovery_calls, 0);
+}
+
+TEST(RecoverySequence, AHealthyRobotFinishesInTheClassificationStep)
+{
+    // Finishing in one step is what keeps the driver hold from ever being claimed.
+    FakeRobot robot;
+    robot.operational_ = true;
+    robot.status_ = OperationalStatus::READY;
+
+    RecoveryStateMachine machine(robot, false);
+    EXPECT_FALSE(machine.Step());
+    EXPECT_TRUE(machine.succeeded()) << machine.message();
+}
+
+TEST(RecoverySequence, ARefusedConditionFinishesInTheClassificationStep)
+{
+    FakeRobot robot;
+    robot.status_ = OperationalStatus::ESTOP_NOT_RELEASED;
+    robot.estop_released_ = false;
+
+    RecoveryStateMachine machine(robot, false);
+    EXPECT_FALSE(machine.Step());
+    EXPECT_FALSE(machine.succeeded());
+}

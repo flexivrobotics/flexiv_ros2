@@ -204,14 +204,12 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
     auto feedback = std::make_shared<ErrorRecovery::Feedback>();
     auto result = std::make_shared<ErrorRecovery::Result>();
 
-    // Announce the recovery before touching the robot. write() withholds every RDK call while the
-    // driver is RECOVERING, which is what makes it safe to change the control mode from here.
-    status_->driver_state.store(DriverState::RECOVERING);
-
     RCLCPP_INFO(this->get_logger(), "Starting recovery sequence");
     RecoveryStateMachine state_machine(robot_, goal->run_auto_recovery);
 
     bool canceled = false;
+    bool hold_claimed = false;
+
     while (rclcpp::ok()) {
         if (goal_handle->is_canceling()) {
             canceled = true;
@@ -228,22 +226,27 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
         if (!running) {
             break;
         }
+
+        if (!hold_claimed) {
+            status_->driver_state.store(DriverState::RECOVERING);
+            hold_claimed = true;
+        }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(kRecoveryStepPeriodMs));
     }
 
-    // Any sequence that got past classification may have stopped the robot and dropped it to IDLE,
-    // including one that was canceled or failed part way through. Withhold motion until a
-    // controller restart re-synchronizes the command buffers. A robot that needed no recovery was
-    // never touched, so it keeps streaming.
-    if (state_machine.policy() != RecoveryPolicy::NONE) {
+    if (hold_claimed) {
+        // The sequence issued system control calls, so it may have stopped the robot and dropped it
+        // to IDLE -- including one that was canceled or failed part way through. Withhold motion
+        // until a controller restart re-synchronizes the command buffers.
         status_->commands_synchronized.store(false);
-    }
 
-    // Release the recovery hold. The driver state is re-derived from the robot rather than guessed
-    // per outcome, so it reports what the robot actually is now regardless of how recovery ended.
-    // Latching here also means write() is unblocked without waiting for the next read().
-    status_->Latch(robot_);
-    status_->driver_state.store(status_->DeriveDriverState());
+        // Release the claim. The driver state is re-derived from the robot rather than guessed per
+        // outcome, so it reports what the robot actually is now regardless of how recovery ended.
+        // Latching here also means write() is unblocked without waiting for the next read().
+        status_->Latch(robot_);
+        status_->driver_state.store(status_->DeriveDriverState());
+    }
 
     // Reported only once the hold above is released, so that the gate reflects the robot rather
     // than the recovery that just finished. The robot is left in IDLE control mode on purpose:
@@ -271,7 +274,9 @@ void RecoveryNode::ExecuteRecovery(const std::shared_ptr<GoalHandleErrorRecovery
             RecoveryPolicyName(state_machine.policy()).c_str(), result->message.c_str());
     }
 
-    RefreshRecentEvents();
+    if (state_machine.policy() != RecoveryPolicy::NONE) {
+        RefreshRecentEvents();
+    }
     recovery_in_progress_.store(false);
 }
 

@@ -259,13 +259,15 @@ void FlexivHardwareInterface::TrackPositionChangeAcrossInterruption()
         // holds the last position the robot was known to be at before it stopped.
         positions_before_interruption_ = hw_states_joint_positions_;
     } else if (!was_ready_ && ready && !positions_before_interruption_.empty()) {
-        const double deviation
-            = MaxJointDeviation(positions_before_interruption_, hw_states_joint_positions_);
+        if (driver_status_->RequiresControllerRestart()) {
+            const double deviation
+                = MaxJointDeviation(positions_before_interruption_, hw_states_joint_positions_);
 
-        RCLCPP_WARN(getLogger(),
-            "The robot is ready again, %.3f rad from the last commanded "
-            "position. Motion stays withheld until the controllers are restarted.",
-            deviation);
+            RCLCPP_WARN(getLogger(),
+                "The robot is ready again, %.3f rad from the last commanded "
+                "position. Motion stays withheld until the controllers are restarted.",
+                deviation);
+        }
         positions_before_interruption_.clear();
     }
 
