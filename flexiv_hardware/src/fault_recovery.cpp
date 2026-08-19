@@ -65,21 +65,19 @@ RecoveryPolicy ClassifyRecoveryPolicy(const RobotCondition& condition)
 std::string DescribeRobotCondition(const RobotCondition& condition)
 {
     if (!condition.connected) {
-        return "Connection with the robot is lost. Check the network link and the robot power, "
-               "then reconfigure the hardware component.";
+        return "Connection lost. Check the network and robot power, then reconfigure the hardware.";
     }
 
     switch (condition.operational_status) {
         case OperationalStatus::READY:
             if (condition.reached_timeliness_failure_limit) {
-                return "Robot is ready but the real-time command timeliness limit was reached. "
-                       "The control loop is not meeting its 1 kHz deadline; check CPU load and "
-                       "real-time scheduling before resuming a real-time control mode.";
+                return "Robot missed too many 1 kHz deadlines. Check CPU load and real-time "
+                       "scheduling.";
             }
             return "Robot is ready.";
 
         case OperationalStatus::BOOTING:
-            return "Robot system is still booting, please wait.";
+            return "Robot is still booting, please wait.";
 
         case OperationalStatus::RELEASING_BRAKE:
             return "Brake release is in progress, please wait.";
@@ -88,40 +86,31 @@ std::string DescribeRobotCondition(const RobotCondition& condition)
             return "Robot is not enabled. Recovery will enable it.";
 
         case OperationalStatus::MINOR_FAULT:
-            return "Minor fault occurred. Recovery will clear it, which normally takes no more "
-                   "than 3 seconds.";
+            return "Minor fault occurred. Recovery can clear it, normally within 3 seconds.";
 
         case OperationalStatus::CRITICAL_FAULT:
-            return "Critical fault occurred. Recovery will try to clear it, which can take up to "
-                   "30 seconds. Clearing a critical fault without a power cycle requires a "
-                   "dedicated device that may not be installed on older robot models; if it "
-                   "cannot be cleared, power cycle the robot.";
+            return "Critical fault occurred. Recovery can try to clear it; if it fails, power "
+                   "cycle the robot.";
 
         case OperationalStatus::ESTOP_NOT_RELEASED:
-            return "Emergency stop is pressed. Release the E-stop before attempting recovery.";
+            return "Emergency stop is pressed. Release the E-stop, then retry recovery.";
 
         case OperationalStatus::IN_REDUCED_STATE:
-            return "Robot is in reduced state and will not execute commands. The TCP passed "
-                   "through a safety plane or the reduced state safety input went low. Move the "
-                   "robot back inside the allowed region or restore the safety input.";
+            return "Robot is in reduced state. Move the TCP back inside the safety plane or "
+                   "restore the safety input.";
 
         case OperationalStatus::IN_RECOVERY_STATE:
-            return "Robot is in recovery state after a joint position limit violation. This "
-                   "cannot be cleared with ClearFault(). Send the recovery goal with "
-                   "run_auto_recovery set to true to move the affected joints slowly back into "
-                   "the allowed range, then reboot the robot as required by the recovery "
-                   "procedure.";
+            return "Joint position limit violated. Send the goal with run_auto_recovery: true.";
 
         case OperationalStatus::IN_MANUAL_MODE:
-            return "Robot is in Manual mode. Switch it to Auto (Remote) mode in Flexiv Elements.";
+            return "Robot is in Manual mode. Switch to Auto (Remote) in Flexiv Elements.";
 
         case OperationalStatus::IN_AUTO_MODE:
-            return "Robot is in regular Auto mode. Switch it to Auto (Remote) mode in Flexiv "
-                   "Elements so that it accepts RDK commands.";
+            return "Robot is in regular Auto mode. Switch to Auto (Remote) in Flexiv Elements.";
 
         case OperationalStatus::UNKNOWN:
         default:
-            return "Robot operational status is unknown. Check the robot in Flexiv Elements.";
+            return "Robot status is unknown. Check the robot in Flexiv Elements.";
     }
 }
 
@@ -347,8 +336,9 @@ bool RecoveryStateMachine::Step()
                 // ClearFault() blocks until the fault clears or its own timeout elapses, and
                 // reports failure by returning false rather than throwing.
                 if (!robot_.ClearFault()) {
-                    Fail("Fault could not be cleared. " + DescribeRobotCondition(robot_.condition())
-                         + " A power cycle may be required.");
+                    Fail(
+                        "Fault could not be cleared. Power cycle the robot, then restart the "
+                        "driver.");
                     break;
                 }
                 TransitionTo(RecoveryState::WAIT_FAULT_CLEARED);
@@ -358,8 +348,9 @@ bool RecoveryStateMachine::Step()
                 if (!robot_.fault()) {
                     TransitionTo(RecoveryState::ENABLE);
                 } else if (DeadlineExceeded(kWaitFaultClearedTimeout)) {
-                    Fail("Fault still present after it was reported cleared. "
-                         + DescribeRobotCondition(robot_.condition()));
+                    Fail(
+                        "Fault still present after it was reported cleared. Power cycle the "
+                        "robot.");
                 }
                 break;
 
@@ -387,9 +378,7 @@ bool RecoveryStateMachine::Step()
                 if (robot_.has_external_axes()) {
                     robot_.UnlockExternalAxes();
                 }
-                message_
-                    = "Robot recovered and is operational in IDLE control mode. Restart the "
-                      "controllers to resume motion.";
+                message_ = "Robot recovered and is operational in IDLE control mode.";
                 TransitionTo(RecoveryState::COMPLETE);
                 break;
 

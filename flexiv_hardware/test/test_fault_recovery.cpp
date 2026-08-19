@@ -81,11 +81,10 @@ TEST(OperationalStatus, FaultsAreAutoRecoverable)
         RecoveryPolicy::AUTO_RECOVERABLE);
 }
 
-TEST(OperationalStatus, CriticalFaultWarnsAboutTheDedicatedDevice)
+TEST(OperationalStatus, CriticalFaultPointsAtAPowerCycle)
 {
     const auto message = DescribeRobotCondition(Connected(OperationalStatus::CRITICAL_FAULT));
-    EXPECT_NE(message.find("30 seconds"), std::string::npos);
-    EXPECT_NE(message.find("dedicated device"), std::string::npos);
+    EXPECT_NE(message.find("power cycle"), std::string::npos);
 }
 
 TEST(OperationalStatus, TransientStatesJustWait)
@@ -119,7 +118,6 @@ TEST(OperationalStatus, RecoveryStateExplainsTheOptIn)
 {
     const auto message = DescribeRobotCondition(Connected(OperationalStatus::IN_RECOVERY_STATE));
     EXPECT_NE(message.find("run_auto_recovery"), std::string::npos);
-    EXPECT_NE(message.find("reboot"), std::string::npos);
 }
 
 TEST(OperationalStatus, EveryStatusIsClassifiedAndDescribed)
@@ -356,7 +354,7 @@ TEST(RecoverySequence, AFaultThatCannotBeClearedFails)
 
     EXPECT_EQ(robot.enable_calls, 0);
     EXPECT_FALSE(machine.succeeded());
-    EXPECT_NE(machine.message().find("power cycle"), std::string::npos);
+    EXPECT_NE(machine.message().find("Power cycle"), std::string::npos) << machine.message();
 }
 
 TEST(RecoverySequence, APressedEstopIsRefusedWithoutTouchingTheRobot)
