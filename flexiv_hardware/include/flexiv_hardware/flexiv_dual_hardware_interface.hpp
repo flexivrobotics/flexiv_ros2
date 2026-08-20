@@ -10,11 +10,13 @@
 
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 #include <map>
 
 // ROS
 #include <rclcpp/clock.hpp>
+#include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp/duration.hpp>
 #include <rclcpp/macros.hpp>
 #include <rclcpp/logger.hpp>
@@ -30,6 +32,10 @@
 
 // Flexiv
 #include "flexiv/drdk/robot_pair.hpp"
+
+#include "flexiv_hardware/fault_recovery.hpp"
+#include "flexiv_hardware/recovery_node.hpp"
+#include "flexiv_hardware/robot_system_control.hpp"
 
 namespace flexiv_hardware {
 
@@ -49,6 +55,22 @@ public:
     FLEXIV_HARDWARE_PUBLIC
     hardware_interface::CallbackReturn on_init(
         const hardware_interface::HardwareInfo& info) override;
+
+    FLEXIV_HARDWARE_PUBLIC
+    hardware_interface::CallbackReturn on_configure(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    FLEXIV_HARDWARE_PUBLIC
+    hardware_interface::CallbackReturn on_cleanup(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    FLEXIV_HARDWARE_PUBLIC
+    hardware_interface::CallbackReturn on_shutdown(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    FLEXIV_HARDWARE_PUBLIC
+    hardware_interface::CallbackReturn on_error(
+        const rclcpp_lifecycle::State& previous_state) override;
 
     FLEXIV_HARDWARE_PUBLIC
     std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
@@ -83,8 +105,45 @@ public:
         const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
 private:
+    /**
+     * @brief [Blocking] Wait for both robots to become operational, up to [timeout].
+     * @return True if both became operational, false on timeout.
+     */
+    bool WaitUntilOperational(std::chrono::seconds timeout);
+
+    /**
+     * @brief Set the joint command buffers to hold the currently measured position, so that
+     * resuming control cannot apply a stale command.
+     */
+    void SynchronizeCommandsWithState();
+
+    /**
+     * @brief Notice a robot that was moved while the driver was not ready, and warn about it once
+     * on the return to READY. Called from read().
+     */
+    void TrackPositionChangeAcrossInterruption();
+
+    /**
+     * @brief [Blocking] Stop the robots, but only if the pair is operational. Stop() switches the
+     * control mode internally, which the robots reject unless they are operational -- and a pair
+     * that is not operational is not executing anything, so there is nothing to stop.
+     */
+    void StopIfOperational();
+
+    /**
+     * @brief Remove the recovery node from the executor and destroy it.
+     */
+    void TeardownRecoveryNode();
+
     // Flexiv DRDK
     std::unique_ptr<flexiv::drdk::RobotPair> robot_pair_;
+
+    // Recovery interface, hosted on an executor owned here
+    std::unique_ptr<RobotSystemControl> robot_system_control_;
+    std::shared_ptr<DriverStatus> driver_status_;
+    std::shared_ptr<RecoveryNode> recovery_node_;
+    std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor_;
+    std::thread executor_thread_;
 
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;
@@ -110,6 +169,12 @@ private:
 
     // GPIO commands and states
     std::vector<double> hw_commands_gpio_out_;
+
+    // Joint positions as last measured before the driver left READY, for detecting a robot that
+    // was moved while it was not being commanded. Empty while the driver is ready.
+    std::vector<double> positions_before_interruption_;
+    bool was_ready_ = false;
+
     std::vector<double> hw_states_gpio_in_;
 
     // Current digital output map
