@@ -196,7 +196,6 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
     // interface the connection has to stay in on_init. on_configure only brings up the recovery
     // interface on top of it.
     driver_status_ = std::make_shared<DriverStatus>();
-    executor_ = params.executor;
     robot_system_control_ = std::make_unique<DualRobotSystemControl>(*robot_pair_);
 
     // Check the DoF of both robots
@@ -365,19 +364,14 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_configure(
 {
     driver_status_->driver_state.store(DriverState::FAULT);
 
-    auto executor = executor_.lock();
-    if (!executor) {
-        RCLCPP_FATAL(getLogger(),
-            "No executor available to host the recovery interface. The controller manager must "
-            "provide one through HardwareComponentInterfaceParams.");
-        return hardware_interface::CallbackReturn::ERROR;
-    }
-
     // Namespaced by the left robot so that the pair has a single, predictable recovery interface.
     const std::string robot_sn_left = info_.hardware_parameters.at("robot_sn_left");
     recovery_node_
         = std::make_shared<RecoveryNode>(robot_sn_left, *robot_system_control_, driver_status_);
-    executor->add_node(recovery_node_->get_node_base_interface());
+
+    executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+    executor_->add_node(recovery_node_->get_node_base_interface());
+    executor_thread_ = std::thread([this]() { executor_->spin(); });
 
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -415,12 +409,19 @@ void FlexivDualHardwareInterface::StopIfOperational()
 
 void FlexivDualHardwareInterface::TeardownRecoveryNode()
 {
+    if (executor_) {
+        executor_->cancel();
+    }
+    if (executor_thread_.joinable()) {
+        executor_thread_.join();
+    }
     if (recovery_node_) {
-        if (auto executor = executor_.lock()) {
-            executor->remove_node(recovery_node_->get_node_base_interface());
+        if (executor_) {
+            executor_->remove_node(recovery_node_->get_node_base_interface());
         }
         recovery_node_.reset();
     }
+    executor_.reset();
 }
 
 hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_cleanup(

@@ -70,6 +70,11 @@ std::string OperationalStatusName(flexiv::rdk::OperationalStatus status);
 std::string RecoveryPolicyName(RecoveryPolicy policy);
 
 /**
+ * @brief [Non-blocking] Name of a control mode, using the RDK's own strings.
+ */
+std::string ControlModeName(flexiv::rdk::Mode mode);
+
+/**
  * @brief [Non-blocking] Largest absolute per-joint difference between two joint position vectors,
  * in radians. Used to report how far the robot ended up from the last position it was commanded to.
  * @return 0 if the vectors differ in size, so an unpopulated buffer never reports a deviation.

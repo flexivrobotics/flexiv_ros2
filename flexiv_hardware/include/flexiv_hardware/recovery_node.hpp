@@ -31,10 +31,10 @@ namespace flexiv_hardware {
 /**
  * @brief Node that supervises the robot outside the real-time control loop.
  *
- * All blocking RDK system control calls happen here, never in read() or write(). The node is added
- * to the controller manager's executor by the hardware interface, so it needs no thread of its
- * own; the recovery sequence itself runs on a detached worker so that the executor stays
- * responsive while a fault is being cleared.
+ * All blocking RDK system control calls happen here, never in read() or write(). The node is spun
+ * by the hardware interface on an executor it owns, so it needs no thread of its own; the recovery
+ * sequence itself runs on a detached worker so that the executor stays responsive while a fault is
+ * being cleared.
  */
 class RecoveryNode : public rclcpp::Node
 {

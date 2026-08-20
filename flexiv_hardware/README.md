@@ -52,7 +52,8 @@ On success the robot is **operational and in `IDLE`**, and the result reports `r
 Recovery does not restore the control mode. Restart the controller:
 
 ```bash
-ros2 control switch_controllers --deactivate rizon_arm_controller --activate rizon_arm_controller
+ros2 control switch_controllers --deactivate rizon_arm_controller
+ros2 control switch_controllers --activate rizon_arm_controller
 ```
 
 The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `NRT_JOINT_POSITION` for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step.

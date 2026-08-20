@@ -78,7 +78,7 @@ RecoveryNode::RecoveryNode(
             std::shared_ptr<GetOperationalStatus::Response> response) {
             response->status = this->BuildStatusMessage();
         },
-        rclcpp::ServicesQoS(), status_callback_group_);
+        rmw_qos_profile_services_default, status_callback_group_);
 
     // Latched so that a late subscriber immediately sees why the robot is not moving.
     operational_status_publisher_ = this->create_publisher<flexiv_msgs::msg::OperationalStatus>(

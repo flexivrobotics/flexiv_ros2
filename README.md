@@ -265,8 +265,8 @@ ros2 action send_goal /Rizon4_123456/flexiv_recovery_node/error_recovery \
   flexiv_msgs/action/ErrorRecovery "{}" --feedback
 
 # Step 3: Restore the control mode, e.g. NRT_JOINT_POSITION for the position interface
-ros2 control switch_controllers \
-  --deactivate rizon_arm_controller --activate rizon_arm_controller
+ros2 control switch_controllers --deactivate rizon_arm_controller
+ros2 control switch_controllers --activate rizon_arm_controller
 ```
 
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#error-recovery) for the recovery policies, the `ClearFault()` guidance and the dual-robot notes.

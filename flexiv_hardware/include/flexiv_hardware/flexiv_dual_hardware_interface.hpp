@@ -10,11 +10,13 @@
 
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 #include <map>
 
 // ROS
 #include <rclcpp/clock.hpp>
+#include <rclcpp/executors/multi_threaded_executor.hpp>
 #include <rclcpp/duration.hpp>
 #include <rclcpp/macros.hpp>
 #include <rclcpp/logger.hpp>
@@ -54,22 +56,23 @@ public:
     hardware_interface::CallbackReturn on_init(
         const hardware_interface::HardwareInfo& info) override;
 
-<<<<<<< HEAD
     FLEXIV_HARDWARE_PUBLIC
-=======
     hardware_interface::CallbackReturn on_configure(
         const rclcpp_lifecycle::State& previous_state) override;
 
+    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::CallbackReturn on_cleanup(
         const rclcpp_lifecycle::State& previous_state) override;
 
+    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::CallbackReturn on_shutdown(
         const rclcpp_lifecycle::State& previous_state) override;
 
+    FLEXIV_HARDWARE_PUBLIC
     hardware_interface::CallbackReturn on_error(
         const rclcpp_lifecycle::State& previous_state) override;
 
->>>>>>> 9e51e5c (Feature/Add Fault Handling and Recovery (#120))
+    FLEXIV_HARDWARE_PUBLIC
     std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
     FLEXIV_HARDWARE_PUBLIC
@@ -135,11 +138,12 @@ private:
     // Flexiv DRDK
     std::unique_ptr<flexiv::drdk::RobotPair> robot_pair_;
 
-    // Recovery interface, hosted on the controller manager's executor
+    // Recovery interface, hosted on an executor owned here
     std::unique_ptr<RobotSystemControl> robot_system_control_;
     std::shared_ptr<DriverStatus> driver_status_;
     std::shared_ptr<RecoveryNode> recovery_node_;
-    rclcpp::Executor::WeakPtr executor_;
+    std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor_;
+    std::thread executor_thread_;
 
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;

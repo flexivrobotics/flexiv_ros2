@@ -202,7 +202,6 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     // communication with the hardware. This is what lets a lost connection be recovered by
     // cleaning up and reconfiguring, instead of restarting the whole process.
     driver_status_ = std::make_shared<DriverStatus>();
-    executor_ = params.executor;
 
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -233,19 +232,11 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_configure(
     robot_system_control_ = std::make_unique<SingleRobotSystemControl>(*robot_);
     driver_status_->driver_state.store(DriverState::FAULT);
 
-    // Host the recovery interface on the controller manager's executor, so that all blocking
-    // system control calls happen off the real-time control loop without needing a thread here.
-    auto executor = executor_.lock();
-    if (!executor) {
-        RCLCPP_FATAL(getLogger(),
-            "No executor available to host the recovery interface. The controller manager must "
-            "provide one through HardwareComponentInterfaceParams.");
-        Disconnect();
-        return hardware_interface::CallbackReturn::ERROR;
-    }
     recovery_node_
         = std::make_shared<RecoveryNode>(robot_sn, *robot_system_control_, driver_status_);
-    executor->add_node(recovery_node_->get_node_base_interface());
+    executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+    executor_->add_node(recovery_node_->get_node_base_interface());
+    executor_thread_ = std::thread([this]() { executor_->spin(); });
 
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -283,12 +274,19 @@ void FlexivHardwareInterface::StopIfOperational()
 
 void FlexivHardwareInterface::Disconnect()
 {
+    if (executor_) {
+        executor_->cancel();
+    }
+    if (executor_thread_.joinable()) {
+        executor_thread_.join();
+    }
     if (recovery_node_) {
-        if (auto executor = executor_.lock()) {
-            executor->remove_node(recovery_node_->get_node_base_interface());
+        if (executor_) {
+            executor_->remove_node(recovery_node_->get_node_base_interface());
         }
         recovery_node_.reset();
     }
+    executor_.reset();
     robot_system_control_.reset();
     robot_.reset();
     if (driver_status_) {
