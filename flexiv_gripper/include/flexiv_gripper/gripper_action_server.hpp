@@ -30,12 +30,17 @@
 #include "flexiv/rdk/robot.hpp"
 #include "flexiv/rdk/tool.hpp"
 
+#include "flexiv_hardware/fault_recovery.hpp"
+
 namespace {
 
 const int kDefaultStatePublishRate = 30;    // [Hz]
 const int kDefaultFeedbackPublishRate = 10; // [Hz]
 const double kDefaultVelocity = 0.1;        // [m/s]
 const double kDefaultMaxForce = 20;         // [N]
+
+// Bounded wait for the robot to become operational when using a normal RDK instance.
+const std::chrono::seconds kOperationalTimeout {30};
 }
 
 namespace flexiv_gripper {
