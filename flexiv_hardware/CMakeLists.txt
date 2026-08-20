@@ -14,9 +14,11 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(flexiv_msgs REQUIRED)
 find_package(flexiv_rdk REQUIRED)
 find_package(flexiv_drdk QUIET)
 
@@ -24,6 +26,8 @@ add_library(
   ${PROJECT_NAME}
   SHARED
   src/flexiv_hardware_interface.cpp
+  src/fault_recovery.cpp
+  src/recovery_node.cpp
 )
 
 if(flexiv_drdk_FOUND)
@@ -32,8 +36,9 @@ endif()
 
 target_include_directories(
   ${PROJECT_NAME}
-  PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -51,9 +56,11 @@ endif()
 # Link ROS packages
 ament_target_dependencies(
   ${PROJECT_NAME}
+  flexiv_msgs
   hardware_interface
   pluginlib
   rclcpp
+  rclcpp_action
   rclcpp_lifecycle
 )
 
@@ -78,6 +85,9 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_fault_recovery test/test_fault_recovery.cpp)
+  target_include_directories(test_fault_recovery PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_link_libraries(test_fault_recovery ${PROJECT_NAME} flexiv::flexiv_rdk)
 endif()
 
 # EXPORTS
@@ -90,9 +100,11 @@ ament_export_libraries(
 )
 
 ament_export_dependencies(
+  flexiv_msgs
   hardware_interface
   pluginlib
   rclcpp
+  rclcpp_action
   rclcpp_lifecycle
 )
 

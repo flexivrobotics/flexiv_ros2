@@ -251,6 +251,26 @@ The robot driver (`rizon.launch.py`) publishes the following feedback states to 
 - `/${robot_sn}/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 - `/${robot_sn}/external_wrench_in_world`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 
+### Fault Handling and Recovery
+
+A fault stops the robot and drops it to `IDLE` control mode. The driver keeps running, publishes the
+reason, and exposes a recovery action:
+
+```bash
+# Step 1: Diagnose the fault
+ros2 topic echo /Rizon4_123456/flexiv_recovery_node/operational_status
+
+# Step 2: Clear the fault and re-enable
+ros2 action send_goal /Rizon4_123456/flexiv_recovery_node/error_recovery \
+  flexiv_msgs/action/ErrorRecovery "{}" --feedback
+
+# Step 3: Restore the control mode, e.g. NRT_JOINT_POSITION for the position interface
+ros2 control switch_controllers \
+  --deactivate rizon_arm_controller --activate rizon_arm_controller
+```
+
+See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#error-recovery) for the recovery policies, the `ClearFault()` guidance and the dual-robot notes.
+
 ### GPIO
 
 All digital inputs on the robot control box can be accessed via the ROS topic `/{robot_sn}/gpio_inputs`, which publishes the current state of all the 18 *(16 on control box + 2 inside the wrist connector)* digital input ports *(True: port high, false: port low)*.
