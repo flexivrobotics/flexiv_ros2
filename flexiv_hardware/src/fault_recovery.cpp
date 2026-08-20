@@ -123,6 +123,15 @@ std::string OperationalStatusName(flexiv::rdk::OperationalStatus status)
     return flexiv::rdk::kOpStatusNames[index];
 }
 
+std::string ControlModeName(flexiv::rdk::Mode mode)
+{
+    const auto index = static_cast<size_t>(mode);
+    if (index >= flexiv::rdk::kModeNames.size()) {
+        return "UNKNOWN";
+    }
+    return flexiv::rdk::kModeNames[index];
+}
+
 std::string RecoveryPolicyName(RecoveryPolicy policy)
 {
     switch (policy) {
@@ -378,7 +387,8 @@ bool RecoveryStateMachine::Step()
                 if (robot_.has_external_axes()) {
                     robot_.UnlockExternalAxes();
                 }
-                message_ = "Robot recovered and is operational in IDLE control mode.";
+                message_ = "Robot recovered and is operational in " + ControlModeName(robot_.mode())
+                           + " control mode.";
                 TransitionTo(RecoveryState::COMPLETE);
                 break;
 

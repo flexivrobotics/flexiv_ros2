@@ -16,6 +16,7 @@
 
 using flexiv::rdk::OperationalStatus;
 using flexiv_hardware::ClassifyRecoveryPolicy;
+using flexiv_hardware::ControlModeName;
 using flexiv_hardware::DescribeRobotCondition;
 using flexiv_hardware::DriverState;
 using flexiv_hardware::DriverStatus;
@@ -218,6 +219,7 @@ public:
     bool has_external_axes_ = false;
     bool timeliness_limit_reached_ = false;
     OperationalStatus status_ = OperationalStatus::NOT_ENABLED;
+    flexiv::rdk::Mode mode_ = flexiv::rdk::Mode::IDLE;
 
     /** Stop() throws the way the RDK does when the robot is not operational. */
     bool stop_throws_ = false;
@@ -236,7 +238,7 @@ public:
     bool reduced() const override { return false; }
     bool reached_timeliness_failure_limit() const override { return timeliness_limit_reached_; }
     OperationalStatus operational_status() const override { return status_; }
-    flexiv::rdk::Mode mode() const override { return flexiv::rdk::Mode::IDLE; }
+    flexiv::rdk::Mode mode() const override { return mode_; }
     std::vector<flexiv::rdk::RobotEvent> event_log() const override { return {}; }
     bool has_external_axes() const override { return has_external_axes_; }
 
@@ -246,6 +248,7 @@ public:
         if (stop_throws_) {
             throw std::runtime_error("Robot is not operational: Not enabled");
         }
+        mode_ = flexiv::rdk::Mode::IDLE;
     }
 
     bool ClearFault() override
@@ -340,6 +343,54 @@ TEST(RecoverySequence, MinorFaultIsClearedAndThenEnabled)
     EXPECT_EQ(robot.clear_fault_calls, 1);
     EXPECT_EQ(robot.enable_calls, 1);
     EXPECT_TRUE(machine.succeeded()) << machine.message();
+}
+
+TEST(RecoverySequence, ReportsTheControlModeTheRobotIsActuallyIn)
+{
+    // A minor fault leaves the robot non-operational, so the STOP step never calls Stop() and the
+    // pre-fault control mode survives the recovery. The message must say so rather than claim IDLE.
+    FakeRobot robot;
+    robot.fault_ = true;
+    robot.status_ = OperationalStatus::MINOR_FAULT;
+    robot.mode_ = flexiv::rdk::Mode::NRT_JOINT_POSITION;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_EQ(robot.stop_calls, 0);
+    EXPECT_TRUE(machine.succeeded()) << machine.message();
+    EXPECT_NE(machine.message().find("NRT_JOINT_POSITION"), std::string::npos) << machine.message();
+    EXPECT_EQ(machine.message().find("IDLE"), std::string::npos) << machine.message();
+}
+
+TEST(RecoverySequence, ReportsIdleWhenTheSequenceStoppedTheRobot)
+{
+    // An operational robot that reached the timeliness failure limit is stopped by the STOP step,
+    // which does transit it to IDLE.
+    FakeRobot robot;
+    robot.operational_ = true;
+    robot.status_ = OperationalStatus::READY;
+    robot.timeliness_limit_reached_ = true;
+    robot.mode_ = flexiv::rdk::Mode::RT_JOINT_POSITION;
+
+    RecoveryStateMachine machine(robot, false);
+    RunToCompletion(machine);
+
+    EXPECT_EQ(robot.stop_calls, 1);
+    EXPECT_TRUE(machine.succeeded()) << machine.message();
+    EXPECT_NE(machine.message().find("IDLE"), std::string::npos) << machine.message();
+}
+
+TEST(ControlMode, NamesComeFromTheRdkStrings)
+{
+    EXPECT_EQ(ControlModeName(flexiv::rdk::Mode::IDLE), "IDLE");
+    EXPECT_EQ(ControlModeName(flexiv::rdk::Mode::NRT_JOINT_POSITION), "NRT_JOINT_POSITION");
+    EXPECT_EQ(ControlModeName(flexiv::rdk::Mode::UNKNOWN), "UNKNOWN");
+}
+
+TEST(ControlMode, AnOutOfRangeModeReportsUnknown)
+{
+    EXPECT_EQ(ControlModeName(static_cast<flexiv::rdk::Mode>(255)), "UNKNOWN");
 }
 
 TEST(RecoverySequence, AFaultThatCannotBeClearedFails)
