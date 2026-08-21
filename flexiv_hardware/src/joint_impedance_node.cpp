@@ -456,6 +456,9 @@ void JointImpedanceNode::HandleSetJointImpedance(
                 in_effect_ = false;
                 response->setting = BuildJointImpedanceMessage();
             }
+            // Published, so a subscriber does not keep reading in_effect as true after a delivery
+            // the robot refused.
+            PublishAll();
             RCLCPP_ERROR(this->get_logger(), "%s", response->message.c_str());
             return;
         }
@@ -528,6 +531,9 @@ void JointImpedanceNode::HandleSetMaxContactTorque(
                 in_effect_ = false;
                 response->setting = BuildMaxContactTorqueMessage();
             }
+            // Published, so a subscriber does not keep reading in_effect as true after a delivery
+            // the robot refused.
+            PublishAll();
             RCLCPP_ERROR(this->get_logger(), "%s", response->message.c_str());
             return;
         }
@@ -594,6 +600,9 @@ void JointImpedanceNode::HandleSetJointInertiaScale(
                 in_effect_ = false;
                 response->setting = BuildJointInertiaScaleMessage();
             }
+            // Published, so a subscriber does not keep reading in_effect as true after a delivery
+            // the robot refused.
+            PublishAll();
             RCLCPP_ERROR(this->get_logger(), "%s", response->message.c_str());
             return;
         }
