@@ -247,6 +247,39 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_configure(
         = std::make_shared<RecoveryNode>(robot_sn, *robot_system_control_, driver_status_);
     executor->add_node(recovery_node_->get_node_base_interface());
 
+    // The impedance setters only apply to the joint impedance control modes, but the interface is
+    // advertised either way so that a request made against a joint_position driver is answered with
+    // an explanation instead of a missing service.
+    std::vector<std::string> joint_names;
+    joint_names.reserve(info_.joints.size());
+    for (const auto& joint : info_.joints) {
+        joint_names.push_back(joint.name);
+    }
+
+    JointImpedanceBounds bounds;
+    bounds.k_q_nom = GatherRdkToRos(robot_->info().K_q_nom, rdk_to_ros_map_);
+    bounds.tau_max = GatherRdkToRos(robot_->info().tau_max, rdk_to_ros_map_);
+
+    // The node works in ROS joint order and knows nothing about the RDK; these three closures are
+    // where the order is translated and the RDK is actually called.
+    JointImpedanceSetters setters;
+    setters.set_joint_impedance
+        = [this](const std::vector<double>& k_q, const std::vector<double>& z_q) {
+              robot_->SetJointImpedance(
+                  PermuteRosToRdk(k_q, rdk_to_ros_map_), PermuteRosToRdk(z_q, rdk_to_ros_map_));
+          };
+    setters.set_max_contact_torque = [this](const std::vector<double>& max_torques) {
+        robot_->SetMaxContactTorque(PermuteRosToRdk(max_torques, rdk_to_ros_map_));
+    };
+    setters.set_joint_inertia_scale = [this](const std::vector<double>& inertia_scales) {
+        robot_->SetJointInertiaScale(PermuteRosToRdk(inertia_scales, rdk_to_ros_map_));
+    };
+
+    joint_impedance_node_ = std::make_shared<JointImpedanceNode>(robot_sn, std::move(joint_names),
+        std::move(bounds), rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE,
+        driver_status_, std::move(setters));
+    executor->add_node(joint_impedance_node_->get_node_base_interface());
+
     return hardware_interface::CallbackReturn::SUCCESS;
 }
 
@@ -288,6 +321,13 @@ void FlexivHardwareInterface::Disconnect()
             executor->remove_node(recovery_node_->get_node_base_interface());
         }
         recovery_node_.reset();
+    }
+    // Torn down before robot_ below, since its closures capture this and call through it.
+    if (joint_impedance_node_) {
+        if (auto executor = executor_.lock()) {
+            executor->remove_node(joint_impedance_node_->get_node_base_interface());
+        }
+        joint_impedance_node_.reset();
     }
     robot_system_control_.reset();
     robot_.reset();
@@ -733,6 +773,17 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         // Set to joint position or joint impedance mode
         robot_->SwitchMode(rdk_control_mode_);
 
+        // The robot resets its joint impedance properties on mode entry, so whatever was set has to
+        // be re-applied before any motion is streamed.
+        if (joint_impedance_node_ && !joint_impedance_node_->Reapply()) {
+            RCLCPP_FATAL(getLogger(),
+                "Could not re-apply the joint impedance properties. The robot would run at nominal "
+                "stiffness instead of the requested one, so the controller start is refused.");
+            driver_status_->commands_synchronized.store(false);
+            StopIfOperational();
+            return hardware_interface::return_type::ERROR;
+        }
+
         position_controller_running_ = true;
     } else if (start_modes_.size() != 0
                && std::find(
@@ -746,6 +797,17 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
 
         // Set to joint position or joint impedance mode
         robot_->SwitchMode(rdk_control_mode_);
+
+        // The robot resets its joint impedance properties on mode entry, so whatever was set has to
+        // be re-applied before any motion is streamed.
+        if (joint_impedance_node_ && !joint_impedance_node_->Reapply()) {
+            RCLCPP_FATAL(getLogger(),
+                "Could not re-apply the joint impedance properties. The robot would run at nominal "
+                "stiffness instead of the requested one, so the controller start is refused.");
+            driver_status_->commands_synchronized.store(false);
+            StopIfOperational();
+            return hardware_interface::return_type::ERROR;
+        }
 
         velocity_controller_running_ = true;
     } else if (start_modes_.size() != 0
@@ -763,6 +825,12 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         // RT_JOINT_TORQUE after a fault: recovery leaves the robot operational in IDLE, and
         // restarting the effort controller lands here with a freshly synchronized command buffer.
         robot_->SwitchMode(flexiv::rdk::Mode::RT_JOINT_TORQUE);
+
+        // The joint impedance properties do not govern RT_JOINT_TORQUE, so what the driver holds is
+        // no longer in effect while the effort controller runs.
+        if (joint_impedance_node_) {
+            joint_impedance_node_->MarkNotInEffect();
+        }
 
         torque_controller_running_ = true;
     }
