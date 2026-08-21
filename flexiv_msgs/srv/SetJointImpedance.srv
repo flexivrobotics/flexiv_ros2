@@ -1,0 +1,23 @@
+# Set impedance properties of the robot's joint motion controller. Requires the driver to run with
+# rdk_control_mode:=joint_impedance.
+#
+# k_q must hold one entry per joint of the hardware component, in URDF order. z_q may be left empty
+# to use the nominal damping ratio 0.7, matching the RDK argument default. An invalid request is
+# rejected as a whole and nothing changes.
+
+# Joint motion stiffness K_q, one entry per joint in URDF order. Valid range [0, k_q_nom]. Setting a
+# joint to 0 makes it free-floating, which in this position-streaming driver means the joint will sag
+# under gravity. [Nm/rad]
+float64[] k_q
+
+# Joint motion damping ratio Z_q, one entry per joint in URDF order, or empty for the nominal 0.7.
+# Valid range [0.3, 0.8]. Values away from nominal may lead to performance and stability issues.
+float64[] z_q
+---
+bool success
+
+# Operator-facing explanation of the outcome, naming the joint and the bound on a rejection
+string message
+
+# The values now held by the driver, unchanged from before on a rejection
+JointImpedance setting
