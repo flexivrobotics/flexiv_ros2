@@ -18,18 +18,6 @@ constexpr int kRecoveryStepPeriodMs = 100;
 constexpr size_t kMaxRecentEvents = 10;
 
 /**
- * @brief Make a robot serial number usable as a ROS namespace. Serial numbers contain a hyphen,
- * e.g. Rizon4s-123456, which is not a valid character in a ROS name. This is the same substitution
- * the broadcasters and the GPIO controller apply to build their topic names.
- */
-std::string SanitizeNamespace(const std::string& robot_sn)
-{
-    std::string sanitized = robot_sn;
-    std::replace(sanitized.begin(), sanitized.end(), '-', '_');
-    return sanitized;
-}
-
-/**
  * @brief Sentence appended when the controllers still have to be restarted before the robot moves.
  * Deliberately short: the default `ros2 topic echo` truncates this field at 128 characters.
  */

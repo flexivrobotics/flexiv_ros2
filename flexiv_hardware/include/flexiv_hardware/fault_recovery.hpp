@@ -75,6 +75,13 @@ std::string RecoveryPolicyName(RecoveryPolicy policy);
 std::string ControlModeName(flexiv::rdk::Mode mode);
 
 /**
+ * @brief [Non-blocking] Make a robot serial number usable as a ROS namespace. Serial numbers
+ * contain a hyphen, e.g. Rizon4s-123456, which is not a valid character in a ROS name. This is the
+ * same substitution the broadcasters and the GPIO controller apply to build their topic names.
+ */
+std::string SanitizeNamespace(const std::string& robot_sn);
+
+/**
  * @brief [Non-blocking] Largest absolute per-joint difference between two joint position vectors,
  * in radians. Used to report how far the robot ended up from the last position it was commanded to.
  * @return 0 if the vectors differ in size, so an unpopulated buffer never reports a deviation.
