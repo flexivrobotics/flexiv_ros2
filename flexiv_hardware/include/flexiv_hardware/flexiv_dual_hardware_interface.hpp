@@ -32,7 +32,7 @@
 #include "flexiv/drdk/robot_pair.hpp"
 
 #include "flexiv_hardware/fault_recovery.hpp"
-#include "flexiv_hardware/joint_impedance_node.hpp"
+#include "flexiv_hardware/joint_impedance_config_node.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
 #include "flexiv_hardware/robot_system_control.hpp"
 
@@ -132,7 +132,7 @@ private:
 
     // Joint impedance interface, hosted on the same executor. Only brought up when the driver runs
     // in a joint impedance control mode.
-    std::shared_ptr<JointImpedanceNode> joint_impedance_node_;
+    std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
 
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;

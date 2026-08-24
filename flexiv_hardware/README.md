@@ -108,7 +108,7 @@ In the joint impedance control modes the robot tracks the streamed positions wit
 
 The node is namespaced like the recovery interface, by the robot serial number with `-` replaced by
 `_`. For `Rizon4-123456`, the first service is
-`/Rizon4_123456/flexiv_joint_impedance_node/set_joint_impedance`.
+`/Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance`.
 
 Requires `rdk_control_mode:=joint_impedance`. The services are advertised either way, and explain
 themselves rather than disappearing when the driver runs in `joint_position` mode.
@@ -123,9 +123,9 @@ themselves rather than disappearing when the driver runs in `joint_position` mod
 The bounds are per joint and differ per robot model, so read them from the topics rather than assuming:
 
 ```bash
-ros2 topic echo /Rizon4_123456/flexiv_joint_impedance_node/joint_impedance --once
+ros2 topic echo /Rizon4_123456/flexiv_joint_impedance_config_node/joint_impedance --once
 
-ros2 service call /Rizon4_123456/flexiv_joint_impedance_node/set_joint_impedance \
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance \
   flexiv_msgs/srv/SetJointImpedance "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
 ```
 

@@ -275,20 +275,20 @@ In joint impedance control mode (`rdk_control_mode:=joint_impedance`) the impeda
 
 ```bash
 # Read the joint order and the per-joint bounds first, they differ per robot model
-ros2 topic echo /Rizon4_123456/flexiv_joint_impedance_node/joint_impedance --once
+ros2 topic echo /Rizon4_123456/flexiv_joint_impedance_config_node/joint_impedance --once
 
 # Joint motion stiffness K_q and damping ratio Z_q, one value per joint in URDF order
-ros2 service call /Rizon4_123456/flexiv_joint_impedance_node/set_joint_impedance \
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance \
   flexiv_msgs/srv/SetJointImpedance "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
 
 # Maximum contact torque
-ros2 service call /Rizon4_123456/flexiv_joint_impedance_node/set_max_contact_torque \
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_max_contact_torque \
   flexiv_msgs/srv/SetMaxContactTorque \
-  "{max_contact_torque: [50.0, 50.0, 30.0, 30.0, 10.0, 10.0, 10.0]}"
+  "{max_contact_torques: [50.0, 50.0, 30.0, 30.0, 10.0, 10.0, 10.0]}"
 
 # Inertia shaping scale
-ros2 service call /Rizon4_123456/flexiv_joint_impedance_node/set_joint_inertia_scale \
-  flexiv_msgs/srv/SetJointInertiaScale "{inertia_scale: [1.0, 1.0, 0.9, 0.9, 0.8, 0.8, 0.8]}"
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_inertia_scale \
+  flexiv_msgs/srv/SetJointInertiaScale "{inertia_scales: [1.0, 1.0, 0.9, 0.9, 0.8, 0.8, 0.8]}"
 ```
 
 The robot resets these properties whenever it enters a control mode, so the driver re-applies what was set on every controller start.

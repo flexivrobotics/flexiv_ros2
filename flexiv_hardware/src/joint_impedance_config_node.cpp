@@ -1,5 +1,5 @@
 /**
- * @file joint_impedance_node.cpp
+ * @file joint_impedance_config_node.cpp
  * @copyright Copyright (C) 2016-2025 Flexiv Ltd. All Rights Reserved.
  * @author Flexiv
  */
@@ -8,7 +8,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "flexiv_hardware/joint_impedance_node.hpp"
+#include "flexiv_hardware/joint_impedance_config_node.hpp"
 
 namespace {
 
@@ -31,7 +31,7 @@ namespace flexiv_hardware {
 
 //======================================== JOINT ORDERING ==========================================
 
-std::vector<double> PermuteRosToRdk(
+std::vector<double> ConvertROSToRDKOrder(
     const std::vector<double>& ros_values, const std::vector<size_t>& rdk_to_ros_map)
 {
     std::vector<double> rdk_values(rdk_to_ros_map.size());
@@ -39,37 +39,37 @@ std::vector<double> PermuteRosToRdk(
         const size_t ros_idx = rdk_to_ros_map[rdk_idx];
         if (ros_idx >= ros_values.size()) {
             throw std::invalid_argument(
-                "PermuteRosToRdk: joint index out of range for the provided values");
+                "ConvertROSToRDKOrder: joint index out of range for the provided values");
         }
         rdk_values[rdk_idx] = ros_values[ros_idx];
     }
     return rdk_values;
 }
 
-std::vector<double> GatherRdkToRos(
+std::vector<double> ConvertRDKToROSOrder(
     const std::vector<double>& rdk_values, const std::vector<size_t>& rdk_to_ros_map)
 {
     std::vector<double> ros_values(rdk_to_ros_map.size(), 0.0);
     for (size_t rdk_idx = 0; rdk_idx < rdk_to_ros_map.size(); ++rdk_idx) {
         if (rdk_idx >= rdk_values.size()) {
             throw std::invalid_argument(
-                "GatherRdkToRos: RDK index out of range for the provided values");
+                "ConvertRDKToROSOrder: RDK index out of range for the provided values");
         }
         const size_t ros_idx = rdk_to_ros_map[rdk_idx];
         if (ros_idx >= ros_values.size()) {
-            throw std::invalid_argument("GatherRdkToRos: joint index out of range");
+            throw std::invalid_argument("ConvertRDKToROSOrder: joint index out of range");
         }
         ros_values[ros_idx] = rdk_values[rdk_idx];
     }
     return ros_values;
 }
 
-std::pair<std::vector<double>, std::vector<double>> SplitRosToPair(
+std::pair<std::vector<double>, std::vector<double>> ConvertROSToDRDKOrder(
     const std::vector<double>& ros_values, const std::vector<PairJointIndex>& joint_map,
     const std::vector<double>& fill_left, const std::vector<double>& fill_right)
 {
     if (ros_values.size() != joint_map.size()) {
-        throw std::invalid_argument("SplitRosToPair: values and joint map differ in size");
+        throw std::invalid_argument("ConvertROSToDRDKOrder: values and joint map differ in size");
     }
 
     // Start from the fill values so that a joint of either robot that no ROS joint maps to keeps a
@@ -80,14 +80,15 @@ std::pair<std::vector<double>, std::vector<double>> SplitRosToPair(
         auto& target = joint_map[i].robot_index == 0 ? split.first : split.second;
         const auto dof_idx = static_cast<size_t>(joint_map[i].dof_index);
         if (joint_map[i].dof_index < 0 || dof_idx >= target.size()) {
-            throw std::invalid_argument("SplitRosToPair: joint index out of range for its robot");
+            throw std::invalid_argument(
+                "ConvertROSToDRDKOrder: joint index out of range for its robot");
         }
         target[dof_idx] = ros_values[i];
     }
     return split;
 }
 
-std::vector<double> GatherPairToRos(const std::vector<double>& left,
+std::vector<double> ConvertDRDKToROSOrder(const std::vector<double>& left,
     const std::vector<double>& right, const std::vector<PairJointIndex>& joint_map)
 {
     std::vector<double> ros_values(joint_map.size(), 0.0);
@@ -95,7 +96,8 @@ std::vector<double> GatherPairToRos(const std::vector<double>& left,
         const auto& source = joint_map[i].robot_index == 0 ? left : right;
         const auto dof_idx = static_cast<size_t>(joint_map[i].dof_index);
         if (joint_map[i].dof_index < 0 || dof_idx >= source.size()) {
-            throw std::invalid_argument("GatherPairToRos: joint index out of range for its robot");
+            throw std::invalid_argument(
+                "ConvertDRDKToROSOrder: joint index out of range for its robot");
         }
         ros_values[i] = source[dof_idx];
     }
@@ -159,11 +161,11 @@ bool ValidateJointValues(const std::vector<double>& values,
 
 //========================================== THE NODE ==============================================
 
-JointImpedanceNode::JointImpedanceNode(const std::string& robot_sn,
+JointImpedanceConfigNode::JointImpedanceConfigNode(const std::string& robot_sn,
     std::vector<std::string> joint_names, JointImpedanceBounds bounds,
     bool impedance_mode_configured, std::shared_ptr<DriverStatus> status,
     JointImpedanceSetters setters)
-: rclcpp::Node("flexiv_joint_impedance_node", SanitizeNamespace(robot_sn))
+: rclcpp::Node("flexiv_joint_impedance_config_node", SanitizeNamespace(robot_sn))
 , joint_names_(std::move(joint_names))
 , bounds_(std::move(bounds))
 , impedance_mode_configured_(impedance_mode_configured)
@@ -174,8 +176,8 @@ JointImpedanceNode::JointImpedanceNode(const std::string& robot_sn,
     // from the first request onwards.
     k_q_ = bounds_.k_q_nom;
     z_q_.assign(joint_names_.size(), kNominalDampingRatio);
-    max_contact_torque_ = bounds_.tau_max;
-    inertia_scale_.assign(joint_names_.size(), kNominalInertiaScale);
+    max_contact_torques_ = bounds_.tau_max;
+    inertia_scales_.assign(joint_names_.size(), kNominalInertiaScale);
 
     // One group for all three services: each issues a blocking RDK call, and two of those must
     // never be in flight at the same time.
@@ -231,16 +233,16 @@ JointImpedanceNode::JointImpedanceNode(const std::string& robot_sn,
     }
 }
 
-JointImpedanceNode::~JointImpedanceNode() = default;
+JointImpedanceConfigNode::~JointImpedanceConfigNode() = default;
 
-bool JointImpedanceNode::InImpedanceMode() const
+bool JointImpedanceConfigNode::InImpedanceMode() const
 {
     const auto mode = status_->control_mode.load();
     return mode == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE
            || mode == flexiv::rdk::Mode::RT_JOINT_IMPEDANCE;
 }
 
-bool JointImpedanceNode::CheckPreconditions(std::string& message, bool& deliverable) const
+bool JointImpedanceConfigNode::CheckPreconditions(std::string& message, bool& deliverable) const
 {
     deliverable = false;
 
@@ -290,7 +292,7 @@ bool JointImpedanceNode::CheckPreconditions(std::string& message, bool& delivera
     return true;
 }
 
-flexiv_msgs::msg::JointImpedance JointImpedanceNode::BuildJointImpedanceMessage() const
+flexiv_msgs::msg::JointImpedance JointImpedanceConfigNode::BuildJointImpedanceMessage() const
 {
     flexiv_msgs::msg::JointImpedance message;
     message.header.stamp = this->now();
@@ -302,28 +304,28 @@ flexiv_msgs::msg::JointImpedance JointImpedanceNode::BuildJointImpedanceMessage(
     return message;
 }
 
-flexiv_msgs::msg::MaxContactTorque JointImpedanceNode::BuildMaxContactTorqueMessage() const
+flexiv_msgs::msg::MaxContactTorque JointImpedanceConfigNode::BuildMaxContactTorqueMessage() const
 {
     flexiv_msgs::msg::MaxContactTorque message;
     message.header.stamp = this->now();
     message.joint_names = joint_names_;
-    message.max_contact_torque = max_contact_torque_;
+    message.max_contact_torques = max_contact_torques_;
     message.tau_max = bounds_.tau_max;
     message.in_effect = in_effect_;
     return message;
 }
 
-flexiv_msgs::msg::JointInertiaScale JointImpedanceNode::BuildJointInertiaScaleMessage() const
+flexiv_msgs::msg::JointInertiaScale JointImpedanceConfigNode::BuildJointInertiaScaleMessage() const
 {
     flexiv_msgs::msg::JointInertiaScale message;
     message.header.stamp = this->now();
     message.joint_names = joint_names_;
-    message.inertia_scale = inertia_scale_;
+    message.inertia_scales = inertia_scales_;
     message.in_effect = in_effect_;
     return message;
 }
 
-void JointImpedanceNode::PublishAll()
+void JointImpedanceConfigNode::PublishAll()
 {
     std::lock_guard<std::mutex> lock(setting_mutex_);
     joint_impedance_publisher_->publish(BuildJointImpedanceMessage());
@@ -331,7 +333,7 @@ void JointImpedanceNode::PublishAll()
     joint_inertia_scale_publisher_->publish(BuildJointInertiaScaleMessage());
 }
 
-void JointImpedanceNode::MarkNotInEffect()
+void JointImpedanceConfigNode::MarkNotInEffect()
 {
     {
         std::lock_guard<std::mutex> lock(setting_mutex_);
@@ -343,15 +345,15 @@ void JointImpedanceNode::MarkNotInEffect()
     PublishAll();
 }
 
-bool JointImpedanceNode::Reapply()
+bool JointImpedanceConfigNode::Reapply()
 {
     bool apply_max_contact_torque = false;
     bool apply_inertia_scale = false;
     bool apply_joint_impedance = false;
     std::vector<double> k_q;
     std::vector<double> z_q;
-    std::vector<double> max_contact_torque;
-    std::vector<double> inertia_scale;
+    std::vector<double> max_contact_torques;
+    std::vector<double> inertia_scales;
     {
         std::lock_guard<std::mutex> lock(setting_mutex_);
         apply_max_contact_torque = customized_max_contact_torque_;
@@ -364,8 +366,8 @@ bool JointImpedanceNode::Reapply()
         }
         k_q = k_q_;
         z_q = z_q_;
-        max_contact_torque = max_contact_torque_;
-        inertia_scale = inertia_scale_;
+        max_contact_torques = max_contact_torques_;
+        inertia_scales = inertia_scales_;
     }
 
     // Only the properties a request changed, but all of them: mode entry reset every property to
@@ -376,11 +378,11 @@ bool JointImpedanceNode::Reapply()
         if (apply_max_contact_torque) {
             // Contact torque first, so the clamp is tightened before the stiffness is lowered.
             property = "maximum contact torque";
-            setters_.set_max_contact_torque(max_contact_torque);
+            setters_.set_max_contact_torque(max_contact_torques);
         }
         if (apply_inertia_scale) {
             property = "inertia shaping scale";
-            setters_.set_joint_inertia_scale(inertia_scale);
+            setters_.set_joint_inertia_scale(inertia_scales);
         }
         if (apply_joint_impedance) {
             property = "stiffness and damping ratio";
@@ -408,17 +410,17 @@ bool JointImpedanceNode::Reapply()
     }
     if (apply_max_contact_torque) {
         RCLCPP_WARN(this->get_logger(), "Re-applied maximum contact torque %s",
-            Vec2Str(max_contact_torque).c_str());
+            Vec2Str(max_contact_torques).c_str());
     }
     if (apply_inertia_scale) {
         RCLCPP_WARN(this->get_logger(), "Re-applied inertia shaping scale %s",
-            Vec2Str(inertia_scale).c_str());
+            Vec2Str(inertia_scales).c_str());
     }
 
     return true;
 }
 
-void JointImpedanceNode::HandleSetJointImpedance(
+void JointImpedanceConfigNode::HandleSetJointImpedance(
     const std::shared_ptr<SetJointImpedance::Request> request,
     std::shared_ptr<SetJointImpedance::Response> response)
 {
@@ -500,15 +502,15 @@ void JointImpedanceNode::HandleSetJointImpedance(
     PublishAll();
 }
 
-void JointImpedanceNode::HandleSetMaxContactTorque(
+void JointImpedanceConfigNode::HandleSetMaxContactTorque(
     const std::shared_ptr<SetMaxContactTorque::Request> request,
     std::shared_ptr<SetMaxContactTorque::Response> response)
 {
     std::string message;
     bool deliverable = false;
 
-    const bool valid = ValidateJointValues(request->max_contact_torque, joint_names_, 0.0,
-        bounds_.tau_max, "max_contact_torque", message);
+    const bool valid = ValidateJointValues(request->max_contact_torques, joint_names_, 0.0,
+        bounds_.tau_max, "max_contact_torques", message);
 
     if (!valid || !CheckPreconditions(message, deliverable)) {
         response->success = false;
@@ -521,7 +523,7 @@ void JointImpedanceNode::HandleSetMaxContactTorque(
 
     if (deliverable) {
         try {
-            setters_.set_max_contact_torque(request->max_contact_torque);
+            setters_.set_max_contact_torque(request->max_contact_torques);
         } catch (const std::exception& e) {
             response->success = false;
             response->message
@@ -542,13 +544,13 @@ void JointImpedanceNode::HandleSetMaxContactTorque(
     bool raised = false;
     {
         std::lock_guard<std::mutex> lock(setting_mutex_);
-        for (size_t i = 0; i < request->max_contact_torque.size(); ++i) {
-            if (request->max_contact_torque[i] > max_contact_torque_[i]) {
+        for (size_t i = 0; i < request->max_contact_torques.size(); ++i) {
+            if (request->max_contact_torques[i] > max_contact_torques_[i]) {
                 raised = true;
                 break;
             }
         }
-        max_contact_torque_ = request->max_contact_torque;
+        max_contact_torques_ = request->max_contact_torques;
         customized_max_contact_torque_ = true;
         in_effect_ = deliverable;
         response->setting = BuildMaxContactTorqueMessage();
@@ -558,7 +560,7 @@ void JointImpedanceNode::HandleSetMaxContactTorque(
     response->message = deliverable ? "Maximum contact torque applied." : message;
 
     RCLCPP_WARN(this->get_logger(), "Maximum contact torque set to %s%s",
-        Vec2Str(request->max_contact_torque).c_str(),
+        Vec2Str(request->max_contact_torques).c_str(),
         deliverable ? "" : " (held until the controllers are started)");
     if (raised) {
         RCLCPP_WARN(this->get_logger(),
@@ -569,15 +571,15 @@ void JointImpedanceNode::HandleSetMaxContactTorque(
     PublishAll();
 }
 
-void JointImpedanceNode::HandleSetJointInertiaScale(
+void JointImpedanceConfigNode::HandleSetJointInertiaScale(
     const std::shared_ptr<SetJointInertiaScale::Request> request,
     std::shared_ptr<SetJointInertiaScale::Response> response)
 {
     std::string message;
     bool deliverable = false;
 
-    const bool valid = ValidateJointValues(request->inertia_scale, joint_names_, kMinInertiaScale,
-        kMaxInertiaScale, "inertia_scale", message);
+    const bool valid = ValidateJointValues(request->inertia_scales, joint_names_, kMinInertiaScale,
+        kMaxInertiaScale, "inertia_scales", message);
 
     if (!valid || !CheckPreconditions(message, deliverable)) {
         response->success = false;
@@ -590,7 +592,7 @@ void JointImpedanceNode::HandleSetJointInertiaScale(
 
     if (deliverable) {
         try {
-            setters_.set_joint_inertia_scale(request->inertia_scale);
+            setters_.set_joint_inertia_scale(request->inertia_scales);
         } catch (const std::exception& e) {
             response->success = false;
             response->message
@@ -610,7 +612,7 @@ void JointImpedanceNode::HandleSetJointInertiaScale(
 
     {
         std::lock_guard<std::mutex> lock(setting_mutex_);
-        inertia_scale_ = request->inertia_scale;
+        inertia_scales_ = request->inertia_scales;
         customized_inertia_scale_ = true;
         in_effect_ = deliverable;
         response->setting = BuildJointInertiaScaleMessage();
@@ -620,7 +622,7 @@ void JointImpedanceNode::HandleSetJointInertiaScale(
     response->message = deliverable ? "Inertia shaping scale applied." : message;
 
     RCLCPP_WARN(this->get_logger(), "Inertia shaping scale set to %s%s",
-        Vec2Str(request->inertia_scale).c_str(),
+        Vec2Str(request->inertia_scales).c_str(),
         deliverable ? "" : " (held until the controllers are started)");
 
     PublishAll();

@@ -1,5 +1,5 @@
 /**
- * @file test_joint_impedance_node.cpp
+ * @file test_joint_impedance_config_node.cpp
  * @brief Unit tests for the joint order conversions and the range validation used by the joint
  * impedance interface. Needs no robot connection.
  * @copyright Copyright (C) 2016-2025 Flexiv Ltd. All Rights Reserved.
@@ -19,17 +19,17 @@
 
 #include <gtest/gtest.h>
 
-#include "flexiv_hardware/joint_impedance_node.hpp"
+#include "flexiv_hardware/joint_impedance_config_node.hpp"
 
-using flexiv_hardware::GatherPairToRos;
-using flexiv_hardware::GatherRdkToRos;
+using flexiv_hardware::ConvertDRDKToROSOrder;
+using flexiv_hardware::ConvertRDKToROSOrder;
+using flexiv_hardware::ConvertROSToDRDKOrder;
+using flexiv_hardware::ConvertROSToRDKOrder;
 using flexiv_hardware::kMaxDampingRatio;
 using flexiv_hardware::kMaxInertiaScale;
 using flexiv_hardware::kMinDampingRatio;
 using flexiv_hardware::kMinInertiaScale;
 using flexiv_hardware::PairJointIndex;
-using flexiv_hardware::PermuteRosToRdk;
-using flexiv_hardware::SplitRosToPair;
 using flexiv_hardware::ValidateJointValues;
 
 namespace {
@@ -155,15 +155,15 @@ TEST(JointImpedanceValidation, InertiaScaleBoundsAreInclusive)
 {
     std::string message;
     EXPECT_TRUE(ValidateJointValues(std::vector<double>(7, kMinInertiaScale), JointNames(7),
-        kMinInertiaScale, kMaxInertiaScale, "inertia_scale", message))
+        kMinInertiaScale, kMaxInertiaScale, "inertia_scales", message))
         << message;
     EXPECT_TRUE(ValidateJointValues(std::vector<double>(7, kMaxInertiaScale), JointNames(7),
-        kMinInertiaScale, kMaxInertiaScale, "inertia_scale", message))
+        kMinInertiaScale, kMaxInertiaScale, "inertia_scales", message))
         << message;
     EXPECT_FALSE(ValidateJointValues(std::vector<double>(7, 0.74), JointNames(7), kMinInertiaScale,
-        kMaxInertiaScale, "inertia_scale", message));
+        kMaxInertiaScale, "inertia_scales", message));
     EXPECT_FALSE(ValidateJointValues(std::vector<double>(7, 1.01), JointNames(7), kMinInertiaScale,
-        kMaxInertiaScale, "inertia_scale", message));
+        kMaxInertiaScale, "inertia_scales", message));
 }
 
 //===================================== SINGLE ROBOT ORDERING ======================================
@@ -171,7 +171,7 @@ TEST(JointImpedanceValidation, InertiaScaleBoundsAreInclusive)
 TEST(JointOrderSingle, IdentityMapPassesValuesThrough)
 {
     const std::vector<double> ros {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0};
-    EXPECT_EQ(PermuteRosToRdk(ros, IdentityMap(7)), ros);
+    EXPECT_EQ(ConvertROSToRDKOrder(ros, IdentityMap(7)), ros);
 }
 
 TEST(JointOrderSingle, ExternalAxisComesFirstInRdkOrder)
@@ -181,7 +181,7 @@ TEST(JointOrderSingle, ExternalAxisComesFirstInRdkOrder)
     const std::vector<size_t> map {7, 0, 1, 2, 3, 4, 5, 6};
     const std::vector<double> ros {10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 99.0};
 
-    const auto rdk = PermuteRosToRdk(ros, map);
+    const auto rdk = ConvertROSToRDKOrder(ros, map);
     ASSERT_EQ(rdk.size(), 8u);
     EXPECT_DOUBLE_EQ(rdk[0], 99.0);
     EXPECT_DOUBLE_EQ(rdk[1], 10.0);
@@ -192,13 +192,13 @@ TEST(JointOrderSingle, PermuteAndGatherRoundTrip)
 {
     const std::vector<size_t> map {7, 0, 1, 2, 3, 4, 5, 6};
     const std::vector<double> ros {10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 99.0};
-    EXPECT_EQ(GatherRdkToRos(PermuteRosToRdk(ros, map), map), ros);
+    EXPECT_EQ(ConvertRDKToROSOrder(ConvertROSToRDKOrder(ros, map), map), ros);
 }
 
 TEST(JointOrderSingle, ThrowsWhenTheMapExceedsTheValues)
 {
-    EXPECT_THROW(PermuteRosToRdk({1.0, 2.0}, IdentityMap(7)), std::invalid_argument);
-    EXPECT_THROW(GatherRdkToRos({1.0, 2.0}, IdentityMap(7)), std::invalid_argument);
+    EXPECT_THROW(ConvertROSToRDKOrder({1.0, 2.0}, IdentityMap(7)), std::invalid_argument);
+    EXPECT_THROW(ConvertRDKToROSOrder({1.0, 2.0}, IdentityMap(7)), std::invalid_argument);
 }
 
 //====================================== ROBOT PAIR ORDERING =======================================
@@ -211,8 +211,8 @@ TEST(JointOrderPair, SplitsContiguousLeftRightMap)
         ros[i] = static_cast<double>(i);
     }
 
-    const auto split
-        = SplitRosToPair(ros, map, std::vector<double>(7, -1.0), std::vector<double>(7, -1.0));
+    const auto split = ConvertROSToDRDKOrder(
+        ros, map, std::vector<double>(7, -1.0), std::vector<double>(7, -1.0));
     ASSERT_EQ(split.first.size(), 7u);
     ASSERT_EQ(split.second.size(), 7u);
     EXPECT_DOUBLE_EQ(split.first[0], 0.0);
@@ -232,8 +232,8 @@ TEST(JointOrderPair, SplitFollowsTheMapNotThePosition)
     }
     const std::vector<double> ros {0.0, 100.0, 1.0, 101.0, 2.0, 102.0};
 
-    const auto split
-        = SplitRosToPair(ros, map, std::vector<double>(3, -1.0), std::vector<double>(3, -1.0));
+    const auto split = ConvertROSToDRDKOrder(
+        ros, map, std::vector<double>(3, -1.0), std::vector<double>(3, -1.0));
     EXPECT_EQ(split.first, std::vector<double>({0.0, 1.0, 2.0}));
     EXPECT_EQ(split.second, std::vector<double>({100.0, 101.0, 102.0}));
 }
@@ -256,7 +256,7 @@ TEST(JointOrderPair, UnmappedRobotJointsKeepTheirFillValue)
     const std::vector<double> nominal_right(9, 2500.0);
     const std::vector<double> ros(16, 10.0);
 
-    const auto split = SplitRosToPair(ros, map, nominal_left, nominal_right);
+    const auto split = ConvertROSToDRDKOrder(ros, map, nominal_left, nominal_right);
     ASSERT_EQ(split.second.size(), 9u);
     EXPECT_DOUBLE_EQ(split.second[0], 2500.0);
     EXPECT_DOUBLE_EQ(split.second[1], 2500.0);
@@ -272,21 +272,21 @@ TEST(JointOrderPair, SplitAndGatherRoundTrip)
     }
 
     const auto split
-        = SplitRosToPair(ros, map, std::vector<double>(7, 0.0), std::vector<double>(7, 0.0));
-    EXPECT_EQ(GatherPairToRos(split.first, split.second, map), ros);
+        = ConvertROSToDRDKOrder(ros, map, std::vector<double>(7, 0.0), std::vector<double>(7, 0.0));
+    EXPECT_EQ(ConvertDRDKToROSOrder(split.first, split.second, map), ros);
 }
 
 TEST(JointOrderPair, ThrowsOnSizeMismatch)
 {
     const auto map = ContiguousPairMap(7, 7);
-    EXPECT_THROW(
-        SplitRosToPair({1.0, 2.0}, map, std::vector<double>(7, 0.0), std::vector<double>(7, 0.0)),
+    EXPECT_THROW(ConvertROSToDRDKOrder(
+                     {1.0, 2.0}, map, std::vector<double>(7, 0.0), std::vector<double>(7, 0.0)),
         std::invalid_argument);
 
     // A joint mapped past the end of its robot's vector.
     const std::vector<PairJointIndex> bad_map {{0, 9}};
-    EXPECT_THROW(
-        SplitRosToPair({1.0}, bad_map, std::vector<double>(7, 0.0), std::vector<double>(7, 0.0)),
+    EXPECT_THROW(ConvertROSToDRDKOrder(
+                     {1.0}, bad_map, std::vector<double>(7, 0.0), std::vector<double>(7, 0.0)),
         std::invalid_argument);
 }
 
@@ -297,15 +297,16 @@ namespace {
 using flexiv_hardware::DriverState;
 using flexiv_hardware::DriverStatus;
 using flexiv_hardware::JointImpedanceBounds;
-using flexiv_hardware::JointImpedanceNode;
+using flexiv_hardware::JointImpedanceConfigNode;
 using flexiv_hardware::JointImpedanceSetters;
 using flexiv_hardware::SanitizeNamespace;
 
 constexpr size_t kDoF = 7;
 
 /**
- * @brief Spins a JointImpedanceNode against stub setters, so the service handlers and Reapply() are
- * exercised without a robot. The stubs count calls, which is what the re-apply tests assert on.
+ * @brief Spins a JointImpedanceConfigNode against stub setters, so the service handlers and
+ * Reapply() are exercised without a robot. The stubs count calls, which is what the re-apply tests
+ * assert on.
  */
 class JointImpedanceServiceTest : public ::testing::Test
 {
@@ -358,7 +359,7 @@ protected:
         const std::string robot_sn = "Rizon4-90000" + std::to_string(++instance);
         namespace_ = flexiv_hardware::SanitizeNamespace(robot_sn);
 
-        node_ = std::make_shared<JointImpedanceNode>(
+        node_ = std::make_shared<JointImpedanceConfigNode>(
             robot_sn, JointNames(kDoF), bounds, impedance_mode_configured, status_, setters);
         client_node_ = std::make_shared<rclcpp::Node>("joint_impedance_test_client");
 
@@ -399,7 +400,7 @@ protected:
 
     std::string Endpoint(const std::string& name) const
     {
-        return "/" + namespace_ + "/flexiv_joint_impedance_node/" + name;
+        return "/" + namespace_ + "/flexiv_joint_impedance_config_node/" + name;
     }
 
     /** @brief Call one of the services and return the response, failing the test on a timeout. */
@@ -422,7 +423,7 @@ protected:
 
     std::string namespace_;
     std::shared_ptr<DriverStatus> status_;
-    std::shared_ptr<JointImpedanceNode> node_;
+    std::shared_ptr<JointImpedanceConfigNode> node_;
     std::shared_ptr<rclcpp::Node> client_node_;
     std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
     std::thread spin_thread_;
@@ -549,7 +550,7 @@ TEST_F(JointImpedanceServiceTest, ReapplySendsOnlyThePropertiesThatWereSet)
     StartNode(true, flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE);
 
     auto request = std::make_shared<flexiv_msgs::srv::SetJointInertiaScale::Request>();
-    request->inertia_scale = std::vector<double>(kDoF, 0.8);
+    request->inertia_scales = std::vector<double>(kDoF, 0.8);
     auto response
         = Call<flexiv_msgs::srv::SetJointInertiaScale>("set_joint_inertia_scale", request);
     ASSERT_NE(response, nullptr);
@@ -573,7 +574,7 @@ TEST_F(JointImpedanceServiceTest, ReapplySendsEveryPropertyThatWasEverSet)
             ->success);
 
     auto torque_request = std::make_shared<flexiv_msgs::srv::SetMaxContactTorque::Request>();
-    torque_request->max_contact_torque = std::vector<double>(kDoF, 10.0);
+    torque_request->max_contact_torques = std::vector<double>(kDoF, 10.0);
     ASSERT_TRUE(
         Call<flexiv_msgs::srv::SetMaxContactTorque>("set_max_contact_torque", torque_request)
             ->success);

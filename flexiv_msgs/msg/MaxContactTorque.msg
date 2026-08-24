@@ -8,9 +8,9 @@ std_msgs/Header header
 string[] joint_names
 
 # Maximum contact torque the controller regulates its output to maintain. [Nm]
-float64[] max_contact_torque
+float64[] max_contact_torques
 
-# Upper software limits of joint torques, the upper bound of max_contact_torque. [Nm]
+# Upper software limits of joint torques, the upper bound of max_contact_torques. [Nm]
 float64[] tau_max
 
 # Whether these values are in effect on the robot. False while the robot is not in a joint impedance
