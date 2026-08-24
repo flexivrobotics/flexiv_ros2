@@ -291,7 +291,7 @@ ros2 service call /Rizon4_123456/flexiv_joint_impedance_node/set_joint_inertia_s
   flexiv_msgs/srv/SetJointInertiaScale "{inertia_scale: [1.0, 1.0, 0.9, 0.9, 0.8, 0.8, 0.8]}"
 ```
 
-The robot resets these properties whenever it enters a control mode, so the driver re-applies what was set on every controller start. Note that a stiffness of 0 makes that joint free-floating, and it will sag under gravity because this driver streams position commands.
+The robot resets these properties whenever it enters a control mode, so the driver re-applies what was set on every controller start.
 
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance) for the valid ranges, the hold-and-reapply behaviour and the dual-robot notes.
 
