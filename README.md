@@ -269,7 +269,7 @@ ros2 control switch_controllers \
 
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#error-recovery) for the recovery policies, the `ClearFault()` guidance and the dual-robot notes.
 
-### Joint Impedance
+### Joint Impedance Configuration
 
 In joint impedance control mode (`rdk_control_mode:=joint_impedance`) the impedance properties of the robot's joint motion controller can be set at runtime, one service per RDK call:
 
@@ -278,22 +278,18 @@ In joint impedance control mode (`rdk_control_mode:=joint_impedance`) the impeda
 ros2 topic echo /Rizon4_123456/flexiv_joint_impedance_config_node/joint_impedance --once
 
 # Joint motion stiffness K_q and damping ratio Z_q, one value per joint in URDF order
-ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance \
-  flexiv_msgs/srv/SetJointImpedance "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance flexiv_msgs/srv/SetJointImpedance "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
 
 # Maximum contact torque
-ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_max_contact_torque \
-  flexiv_msgs/srv/SetMaxContactTorque \
-  "{max_contact_torques: [50.0, 50.0, 30.0, 30.0, 10.0, 10.0, 10.0]}"
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_max_contact_torque flexiv_msgs/srv/SetMaxContactTorque "{max_contact_torques: [50.0, 50.0, 30.0, 30.0, 10.0, 10.0, 10.0]}"
 
 # Inertia shaping scale
-ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_inertia_scale \
-  flexiv_msgs/srv/SetJointInertiaScale "{inertia_scales: [1.0, 1.0, 0.9, 0.9, 0.8, 0.8, 0.8]}"
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_inertia_scale flexiv_msgs/srv/SetJointInertiaScale "{inertia_scales: [1.0, 1.0, 0.9, 0.9, 0.8, 0.8, 0.8]}"
 ```
 
 The robot resets these properties whenever it enters a control mode, so the driver re-applies what was set on every controller start.
 
-See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance) for the valid ranges, the hold-and-reapply behaviour and the dual-robot notes.
+See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance-configuration) for the valid ranges, the hold-and-reapply behaviour and the dual-robot notes.
 
 ### GPIO
 

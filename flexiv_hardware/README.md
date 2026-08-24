@@ -96,7 +96,7 @@ one unit: either robot faulted means the pair is faulted, and both must clear fo
 considered clear. DRDK exposes no timeliness accessor for a pair, so that field is always false;
 a timeliness failure surfaces as an exception from the streaming call instead.
 
-## Joint impedance
+## Joint impedance configuration
 
 In the joint impedance control modes the robot tracks the streamed positions with its joint impedance controller instead of its position controller. Three properties of that controller can be set at runtime, one service per RDK call:
 
@@ -125,8 +125,7 @@ The bounds are per joint and differ per robot model, so read them from the topic
 ```bash
 ros2 topic echo /Rizon4_123456/flexiv_joint_impedance_config_node/joint_impedance --once
 
-ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance \
-  flexiv_msgs/srv/SetJointImpedance "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance flexiv_msgs/srv/SetJointImpedance "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
 ```
 
 Notes:
