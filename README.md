@@ -19,7 +19,7 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 
 | **ROS 2 Distro**   | Humble                                                              | Jazzy                                                 |
 | ------------------ | ------------------------------------------------------------------- | ----------------------------------------------------- |
-| **Branch**         | [humble](https://github.com/flexivrobotics/flexiv_ros2/tree/humble) | [jazzy](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy) |
+| **Branch**         | [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) | [jazzy-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy-v1) |
 | **Release Status** | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) | [![Jazzy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml/badge.svg?branch=jazzy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml) |
 
 ## Getting Started
