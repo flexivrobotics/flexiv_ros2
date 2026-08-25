@@ -4,6 +4,7 @@
  * @author Flexiv
  */
 
+#include <algorithm>
 #include <cmath>
 
 #include "flexiv_hardware/fault_recovery.hpp"
@@ -167,6 +168,13 @@ double MaxJointDeviation(const std::vector<double>& before, const std::vector<do
         }
     }
     return max_deviation;
+}
+
+std::string SanitizeNamespace(const std::string& robot_sn)
+{
+    std::string sanitized = robot_sn;
+    std::replace(sanitized.begin(), sanitized.end(), '-', '_');
+    return sanitized;
 }
 
 //========================================= DRIVER STATUS ==========================================
