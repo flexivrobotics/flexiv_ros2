@@ -190,7 +190,7 @@ JointImpedanceConfigNode::JointImpedanceConfigNode(const std::string& robot_sn,
             std::shared_ptr<SetJointImpedance::Response> response) {
             this->HandleSetJointImpedance(request, response);
         },
-        rclcpp::ServicesQoS(), service_callback_group_);
+        rmw_qos_profile_services_default, service_callback_group_);
 
     set_max_contact_torque_service_ = this->create_service<SetMaxContactTorque>(
         "~/set_max_contact_torque",
@@ -198,7 +198,7 @@ JointImpedanceConfigNode::JointImpedanceConfigNode(const std::string& robot_sn,
             std::shared_ptr<SetMaxContactTorque::Response> response) {
             this->HandleSetMaxContactTorque(request, response);
         },
-        rclcpp::ServicesQoS(), service_callback_group_);
+        rmw_qos_profile_services_default, service_callback_group_);
 
     set_joint_inertia_scale_service_ = this->create_service<SetJointInertiaScale>(
         "~/set_joint_inertia_scale",
@@ -206,7 +206,7 @@ JointImpedanceConfigNode::JointImpedanceConfigNode(const std::string& robot_sn,
             std::shared_ptr<SetJointInertiaScale::Response> response) {
             this->HandleSetJointInertiaScale(request, response);
         },
-        rclcpp::ServicesQoS(), service_callback_group_);
+        rmw_qos_profile_services_default, service_callback_group_);
 
     // Latched, so that a late subscriber immediately sees the joint order, the bounds and what is
     // currently set. These change only when something changes them, so there is no republish timer.

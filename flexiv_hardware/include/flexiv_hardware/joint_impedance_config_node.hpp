@@ -129,9 +129,9 @@ struct JointImpedanceBounds
  * held and delivered by Reapply() on the next control mode switch, so a configuration never has to
  * be re-sent by hand after a recovery.
  *
- * The node is added to the controller manager's executor by the hardware interface, so it needs no
- * thread of its own. Every RDK call it makes is blocking and happens on an executor thread or, for
- * Reapply(), on the controller manager's update thread.
+ * The node is spun by the hardware interface on an executor it owns, so it needs no thread of its
+ * own. Every RDK call it makes is blocking and happens on an executor thread or, for Reapply(), on
+ * the controller manager's update thread.
  */
 class JointImpedanceConfigNode : public rclcpp::Node
 {

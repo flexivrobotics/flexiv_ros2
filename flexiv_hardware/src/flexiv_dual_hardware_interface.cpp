@@ -433,7 +433,7 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_configure(
         = std::make_shared<JointImpedanceConfigNode>(robot_sn_left, std::move(joint_names),
             std::move(bounds), rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE,
             driver_status_, std::move(setters));
-    executor->add_node(joint_impedance_config_node_->get_node_base_interface());
+    executor_->add_node(joint_impedance_config_node_->get_node_base_interface());
 
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -483,17 +483,14 @@ void FlexivDualHardwareInterface::TeardownRecoveryNode()
         }
         recovery_node_.reset();
     }
-<<<<<<< HEAD
-    executor_.reset();
-=======
     // Torn down here too, since its closures capture this and call through robot_pair_.
     if (joint_impedance_config_node_) {
-        if (auto executor = executor_.lock()) {
-            executor->remove_node(joint_impedance_config_node_->get_node_base_interface());
+        if (executor_) {
+            executor_->remove_node(joint_impedance_config_node_->get_node_base_interface());
         }
         joint_impedance_config_node_.reset();
     }
->>>>>>> e90a0e0 (Feature/Add service requests to set joint impedance controller properties (#123))
+    executor_.reset();
 }
 
 hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_cleanup(
