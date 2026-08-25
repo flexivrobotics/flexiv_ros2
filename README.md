@@ -149,7 +149,7 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
 - `robot_type` (default: *Rizon4*) - type of the Flexiv robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10, Rizon10s or Rizon10R)
-- `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*
+- `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*. In joint impedance mode the controller's impedance properties can be set at runtime, see [Joint Impedance](#joint-impedance)
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
 - `start_rviz` (default: *true*) - starts RViz automatically with the launch file.
@@ -268,6 +268,28 @@ ros2 control switch_controllers \
 ```
 
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#error-recovery) for the recovery policies, the `ClearFault()` guidance and the dual-robot notes.
+
+### Joint Impedance Configuration
+
+In joint impedance control mode (`rdk_control_mode:=joint_impedance`) the impedance properties of the robot's joint motion controller can be set at runtime, one service per RDK call:
+
+```bash
+# Read the joint order and the per-joint bounds first, they differ per robot model
+ros2 topic echo /Rizon4_123456/flexiv_joint_impedance_config_node/joint_impedance --once
+
+# Joint motion stiffness K_q and damping ratio Z_q, one value per joint in URDF order
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance flexiv_msgs/srv/SetJointImpedance "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
+
+# Maximum contact torque
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_max_contact_torque flexiv_msgs/srv/SetMaxContactTorque "{max_contact_torques: [50.0, 50.0, 30.0, 30.0, 10.0, 10.0, 10.0]}"
+
+# Inertia shaping scale
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_inertia_scale flexiv_msgs/srv/SetJointInertiaScale "{inertia_scales: [1.0, 1.0, 0.9, 0.9, 0.8, 0.8, 0.8]}"
+```
+
+The robot resets these properties whenever it enters a control mode, so the driver re-applies what was set on every controller start.
+
+See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance-configuration) for the valid ranges, the hold-and-reapply behaviour and the dual-robot notes.
 
 ### GPIO
 

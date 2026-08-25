@@ -55,7 +55,7 @@ Recovery does not restore the control mode. Restart the controller:
 ros2 control switch_controllers --deactivate rizon_arm_controller --activate rizon_arm_controller
 ```
 
-The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `NRT_JOINT_POSITION` for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step.
+The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `NRT_JOINT_POSITION` for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step. In a joint impedance control mode it also re-applies whatever joint impedance properties were set, see [Joint impedance](#joint-impedance).
 
 **The restart is required after every interruption, not only after a recovery action.** Once the driver has left `READY` for any reason, motion stays withheld until a controller restart, even if the robot became operational again on its own or the operator resolved the condition in Flexiv Elements.
 
@@ -95,3 +95,47 @@ The recovery interface is namespaced by the **left** robot's serial number and a
 one unit: either robot faulted means the pair is faulted, and both must clear for the pair to be
 considered clear. DRDK exposes no timeliness accessor for a pair, so that field is always false;
 a timeliness failure surfaces as an exception from the streaming call instead.
+
+## Joint impedance configuration
+
+In the joint impedance control modes the robot tracks the streamed positions with its joint impedance controller instead of its position controller. Three properties of that controller can be set at runtime, one service per RDK call:
+
+| RDK call | Service | Latched topic |
+| -------- | ------- | ------------- |
+| `SetJointImpedance()`    | `~/set_joint_impedance`     | `~/joint_impedance`     |
+| `SetMaxContactTorque()`  | `~/set_max_contact_torque`  | `~/max_contact_torque`  |
+| `SetJointInertiaScale()` | `~/set_joint_inertia_scale` | `~/joint_inertia_scale` |
+
+The node is namespaced like the recovery interface, by the robot serial number with `-` replaced by
+`_`. For `Rizon4-123456`, the first service is
+`/Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance`.
+
+Requires `rdk_control_mode:=joint_impedance`. The services are advertised either way, and explain
+themselves rather than disappearing when the driver runs in `joint_position` mode.
+
+| Property | Valid range | Unit |
+| -------- | ----------- | ---- |
+| Joint motion stiffness `K_q`     | `[0, RobotInfo::k_q_nom]`, per joint | Nm/rad |
+| Joint motion damping ratio `Z_q` | `[0.3, 0.8]`, nominal 0.7 | –      |
+| Maximum contact torque           | `[0, RobotInfo::tau_max]`, per joint | Nm     |
+| Inertia shaping scale            | `[0.75, 1.0]`, nominal 1.0 | –     |
+
+The bounds are per joint and differ per robot model, so read them from the topics rather than assuming:
+
+```bash
+ros2 topic echo /Rizon4_123456/flexiv_joint_impedance_config_node/joint_impedance --once
+
+ros2 service call /Rizon4_123456/flexiv_joint_impedance_config_node/set_joint_impedance flexiv_msgs/srv/SetJointImpedance "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
+```
+
+Notes:
+- A stiffness of 0 makes that joint free-floating. This driver streams position commands, so such a joint will sag under gravity, the trajectory controller will accumulate tracking error, and the joint can drift into a soft limit and trigger a safety fault.
+- A damping ratio away from the nominal 0.7 may lead to performance and stability issues.
+
+### Dual robot setups
+
+DRDK sets both robots in a single call, so the pair has one joint impedance interface, namespaced by
+the **left** robot's serial number. A request covers every joint of both arms in URDF order, and the
+`left_`/`right_` joint name prefixes on the topics tell you which entry is which. Both halves are
+always sent in full, because an empty half means "nominal" to DRDK and would silently reset the
+other arm.
