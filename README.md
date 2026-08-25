@@ -12,20 +12,19 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 
 | **Supported OS** | **Supported ROS 2 distribution**                              |
 | ---------------- | ------------------------------------------------------------- |
-| Ubuntu 20.04     | [Foxy Fitzroy](https://docs.ros.org/en/foxy/index.html)       |
 | Ubuntu 22.04     | [Humble Hawksbill](https://docs.ros.org/en/humble/index.html) |
 | Ubuntu 24.04     | [Jazzy Jalisco](https://docs.ros.org/en/jazzy/index.html)     |
 
 ### Release Status
 
-| **ROS 2 Distro**   | Foxy                 | Humble               | Jazzy                |
-| ------------------ | -------------------- | -------------------- | -------------------- |
-| **Branch**         | [foxy](https://github.com/flexivrobotics/flexiv_ros2/tree/foxy) *Last release: v0.9* | [humble](https://github.com/flexivrobotics/flexiv_ros2/tree/humble) | [jazzy](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy) |
-| **Release Status** | [![Foxy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml/badge.svg?branch=foxy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/foxy-binary-build.yml) | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) | [![Jazzy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml/badge.svg?branch=jazzy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml) |
+| **ROS 2 Distro**   | Humble               | Jazzy                |
+| ------------------ | -------------------- | -------------------- |
+| **Branch**         | [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) | [jazzy-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy-v1) |
+| **Release Status** | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) | [![Jazzy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml/badge.svg?branch=jazzy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml) |
 
 ## Getting Started
 
-This project was developed for ROS 2 Foxy (Ubuntu 20.04), Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
+This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
 
 1. Install [ROS 2 Humble via Debian Packages](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html)
 
