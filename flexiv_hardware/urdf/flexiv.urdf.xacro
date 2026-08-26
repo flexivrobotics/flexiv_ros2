@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  flexiv_description model + the ros2_control block for flexiv_hardware.
+  Use flexiv_description's entry point for visualization, this one for control.
+
+  This release supports the Rizon and AICO models only. flexiv_description hosts
+  every Flexiv model, so asking for an unsupported one is rejected below.
+
+  robot_type must be passed on the command line: it names the robot element,
+  which xacro resolves before <xacro:arg> defaults are read.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg robot_type)">
+
+  <xacro:arg name="robot_type" default="Rizon4" />
+
+  <!-- Other args come from the description entry point included below. -->
+  <xacro:arg name="ros2_control" default="true" />
+  <xacro:arg name="rdk_control_mode" default="joint_position" />
+  <xacro:arg name="use_fake_hardware" default="false" />
+  <xacro:arg name="fake_sensor_commands" default="false" />
+  <xacro:arg name="initial_positions_file" default="" />
+
+  <!-- Robot model, including the arg declarations this file relies on
+       (robot_sn, robot_sn_left/right, arm_type*, arm_prefix, external_axis_prefix). -->
+  <xacro:include filename="$(find flexiv_description)/urdf/flexiv.urdf.xacro" />
+
+  <xacro:if value="$(arg ros2_control)">
+    <xacro:include filename="$(find flexiv_description)/urdf/common/flexiv_common.xacro" />
+    <xacro:include filename="$(find flexiv_hardware)/ros2_control/flexiv.ros2_control.xacro" />
+    <xacro:include filename="$(find flexiv_hardware)/ros2_control/rizon_dual.ros2_control.xacro" />
+
+    <xacro:property name="cfg" value="$(find flexiv_description)/config" />
+    <xacro:property name="rtype" value="$(arg robot_type)" />
+
+    <xacro:property name="single_arms"
+      value="${['Rizon4', 'Rizon4s', 'Rizon4M', 'Rizon4R', 'Rizon10', 'Rizon10s', 'Rizon10R']}" />
+    <xacro:property name="is_single" value="${rtype in single_arms}" />
+    <xacro:property name="is_aico1" value="${rtype in ['AICO1-4-V1', 'AICO1-4-V2']}" />
+    <xacro:property name="is_aico2"
+      value="${rtype in ['AICO2-4-V1', 'AICO2-4-V2', 'AICO2-10-V1']}" />
+    <xacro:property name="is_rizon_dual" value="${rtype == 'Rizon-Dual'}" />
+    <!-- Two robots with two serial numbers, as opposed to one robot with two arms. -->
+    <xacro:property name="is_paired" value="${is_rizon_dual or is_aico2}" />
+
+    <xacro:unless value="${is_single or is_aico1 or is_paired}">
+      ${xacro.error('robot_type ' + rtype + ' is not supported by this release. Supported: '
+        + ', '.join(single_arms + ['AICO1-4-V1', 'AICO1-4-V2', 'Rizon-Dual', 'AICO2-4-V1', 'AICO2-4-V2', 'AICO2-10-V1']))}
+    </xacro:unless>
+
+    <!-- The hardware interface takes the external axis as a lowercase name. -->
+    <xacro:property name="external_axis_type"
+      value="${rtype.lower().replace('-', '_') if (is_aico1 or is_aico2) else ''}" />
+
+    <!-- Arms carried by an external axis or paired platform. Empty means 'use the
+         arm this model actually carries', matching the description's defaults. -->
+    <xacro:property name="aico1_arm"
+      value="${'$(arg arm_type)' if '$(arg arm_type)' != '' else 'Rizon4'}" />
+    <xacro:property name="paired_default_left" value="${'Rizon10' if rtype == 'AICO2-10-V1' else 'Rizon4'}" />
+    <xacro:property name="paired_default_right" value="${'Rizon10R' if rtype == 'AICO2-10-V1' else 'Rizon4R'}" />
+    <xacro:property name="arm_left"
+      value="${'$(arg arm_type_left)' if '$(arg arm_type_left)' != '' else paired_default_left}" />
+    <xacro:property name="arm_right"
+      value="${'$(arg arm_type_right)' if '$(arg arm_type_right)' != '' else paired_default_right}" />
+
+    <!-- Rizon has 18 digital IO ports: 16 on the control box plus 2 in its wrist connector. -->
+    <xacro:property name="num_gpio_ports" value="18" />
+
+    <!-- ===================== SINGLE ARM ON A MOUNT ===================== -->
+    <xacro:if value="${is_single}">
+      <xacro:compute_arm_prefix arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)" />
+      <xacro:property name="prefix" value="${computed_arm_prefix}" lazy_eval="false" />
+      <xacro:property name="init_file"
+        value="${'$(arg initial_positions_file)' if '$(arg initial_positions_file)' != '' else cfg + '/' + rtype + '/initial_positions.yaml'}" />
+
+      <xacro:flexiv_ros2_control
+        prefix="${prefix}"
+        robot_sn="$(arg robot_sn)"
+        rdk_control_mode="$(arg rdk_control_mode)"
+        use_fake_hardware="$(arg use_fake_hardware)"
+        fake_sensor_commands="$(arg fake_sensor_commands)"
+        initial_positions_file="${init_file}"
+        num_gpio_ports="${num_gpio_ports}" />
+    </xacro:if>
+
+    <!-- ============ SINGLE ARM ON AN EXTERNAL AXIS (AICO1) ============ -->
+    <xacro:if value="${is_aico1}">
+      <xacro:compute_arm_prefix arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)" />
+      <xacro:property name="prefix" value="${computed_arm_prefix}" lazy_eval="false" />
+
+      <xacro:flexiv_ros2_control
+        prefix="${prefix}"
+        robot_sn="$(arg robot_sn)"
+        rdk_control_mode="$(arg rdk_control_mode)"
+        use_fake_hardware="$(arg use_fake_hardware)"
+        fake_sensor_commands="$(arg fake_sensor_commands)"
+        initial_positions_file="${cfg}/${aico1_arm}/initial_positions.yaml"
+        num_gpio_ports="${num_gpio_ports}"
+        external_axis_type="${external_axis_type}"
+        external_axis_prefix="$(arg external_axis_prefix)" />
+    </xacro:if>
+
+    <!-- ============ TWO PAIRED ROBOTS (Rizon-Dual, AICO2) ============ -->
+    <xacro:if value="${is_paired}">
+      <xacro:compute_arm_prefix arm_prefix="left" robot_sn="$(arg robot_sn_left)" />
+      <xacro:property name="pair_left" value="${computed_arm_prefix}" lazy_eval="false" />
+      <xacro:compute_arm_prefix arm_prefix="right" robot_sn="$(arg robot_sn_right)" />
+      <xacro:property name="pair_right" value="${computed_arm_prefix}" lazy_eval="false" />
+
+      <xacro:rizon_dual_ros2_control
+        prefix_left="${pair_left}"
+        prefix_right="${pair_right}"
+        robot_sn_left="$(arg robot_sn_left)"
+        robot_sn_right="$(arg robot_sn_right)"
+        rdk_control_mode="$(arg rdk_control_mode)"
+        use_fake_hardware="$(arg use_fake_hardware)"
+        fake_sensor_commands="$(arg fake_sensor_commands)"
+        initial_positions_file_left="${cfg}/${arm_left}/initial_positions.yaml"
+        initial_positions_file_right="${cfg}/${arm_right}/initial_positions.yaml"
+        external_axis_type="${external_axis_type}"
+        external_axis_prefix="$(arg external_axis_prefix)" />
+    </xacro:if>
+  </xacro:if>
+
+</robot>

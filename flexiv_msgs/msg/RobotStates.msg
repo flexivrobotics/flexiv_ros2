@@ -19,9 +19,6 @@ float64[] dtheta
 # Measured joint torques
 float64[] tau
 
-# Desired joint torques
-float64[] tau_des
-
 # Numerical derivative of measured joint torques
 float64[] tau_dot
 

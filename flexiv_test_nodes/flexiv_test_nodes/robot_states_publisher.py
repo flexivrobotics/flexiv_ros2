@@ -187,7 +187,6 @@ class RobotStatesPublisher(Node):
             msg.dq = list(robot_states.dq)  # Joint velocities (link-side)
             msg.dtheta = list(robot_states.dtheta)  # Joint velocities (motor-side)
             msg.tau = list(robot_states.tau)  # Joint torques
-            msg.tau_des = list(robot_states.tau_des)  # Desired joint torques
             msg.tau_dot = list(robot_states.tau_dot)  # Joint torque derivatives
             msg.tau_ext = list(robot_states.tau_ext)  # External joint torques
             msg.tau_interact = list(

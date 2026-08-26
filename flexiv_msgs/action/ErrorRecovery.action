@@ -1,0 +1,41 @@
+# Recover the robot from a fault back to an operational state.
+# On success the robot is enabled, operational and in IDLE control mode. Restoring the control
+# mode is deliberately left to a controller restart, which re-initializes the controller's own
+# setpoint and so cannot apply a stale pre-fault command.
+
+# Run RunAutoRecovery() if the robot is in recovery state after a joint position limit violation.
+# This moves the involved joints slowly back into the allowed range and requires a robot reboot
+# afterwards, so it is opt-in.
+bool run_auto_recovery false
+---
+bool success
+
+# Operator-facing explanation of the outcome
+string message
+
+# True when the robot is operational again but controllers must be restarted to resume motion
+bool requires_controller_restart
+
+# Policy that applied to the condition found, values defined in RecoveryPolicy.msg
+uint8 recovery_policy
+---
+# Current step of the recovery sequence
+uint8 STATE_IDLE                  = 0
+uint8 STATE_CLASSIFY              = 1
+uint8 STATE_STOP                  = 2
+uint8 STATE_CLEAR_FAULT           = 3
+uint8 STATE_WAIT_FAULT_CLEARED    = 4
+uint8 STATE_ENABLE                = 5
+uint8 STATE_WAIT_OPERATIONAL      = 6
+uint8 STATE_UNLOCK_EXTERNAL_AXES  = 7
+uint8 STATE_RUN_AUTO_RECOVERY     = 8
+uint8 STATE_COMPLETE              = 9
+uint8 STATE_FAILED                = 10
+
+uint8 recovery_state
+
+# Human-readable name of the recovery state above
+string recovery_state_name
+
+# Seconds elapsed since the recovery started
+float32 elapsed_seconds

@@ -114,7 +114,6 @@ public:
         message.dq = flexiv_robot_states_ptr->dq;
         message.dtheta = flexiv_robot_states_ptr->dtheta;
         message.tau = flexiv_robot_states_ptr->tau;
-        message.tau_des = flexiv_robot_states_ptr->tau_des;
         message.tau_dot = flexiv_robot_states_ptr->tau_dot;
         message.tau_ext = flexiv_robot_states_ptr->tau_ext;
         message.tau_interact = flexiv_robot_states_ptr->tau_interact;

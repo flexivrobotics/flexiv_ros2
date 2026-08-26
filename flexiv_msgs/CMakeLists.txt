@@ -10,22 +10,33 @@ find_package(builtin_interfaces REQUIRED)
 set(msg_files
   msg/Digital.msg
   msg/GPIOStates.msg
+  msg/JointImpedance.msg
+  msg/JointInertiaScale.msg
   msg/JointPosVel.msg
+  msg/MaxContactTorque.msg
   msg/Mode.msg
+  msg/OperationalStatus.msg
+  msg/RecoveryPolicy.msg
+  msg/RobotEvent.msg
   msg/RobotStates.msg
 )
 
-# set(srv_files
-# )
+set(srv_files
+  srv/GetOperationalStatus.srv
+  srv/SetJointImpedance.srv
+  srv/SetJointInertiaScale.srv
+  srv/SetMaxContactTorque.srv
+)
 
 set(action_files
+  action/ErrorRecovery.action
   action/Grasp.action
   action/Move.action
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
-  # ${srv_files}
+  ${srv_files}
   ${action_files}
   DEPENDENCIES
     std_msgs

@@ -1,0 +1,18 @@
+# Set maximum contact torques of the robot's joint motion controller. The controller regulates its
+# output to keep contact torques with the environment under these values. Requires the driver to run
+# with rdk_control_mode:=joint_impedance.
+#
+# max_contact_torques must hold one entry per joint of the hardware component, in URDF order. An
+# invalid request is rejected as a whole and nothing changes.
+
+# Maximum contact torque, one entry per joint in URDF order. Valid range [0, tau_max]. Raising this
+# increases the force the robot may exert on its surroundings. [Nm]
+float64[] max_contact_torques
+---
+bool success
+
+# Operator-facing explanation of the outcome, naming the joint and the bound on a rejection
+string message
+
+# The values now held by the driver, unchanged from before on a rejection
+MaxContactTorque setting

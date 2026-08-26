@@ -1,32 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro" name="aico1">
     <!-- parameters -->
-    <xacro:arg name="external_axis_type" default="aico1_4_v1" />
+    <xacro:arg name="robot_type" default="AICO1-4-V1" />
+    <!-- Axis macro/link names are the robot type lowercased with dashes as
+         underscores, e.g. AICO2-10-V1 -> aico2_10_v1. -->
+    <xacro:property name="axis_name"
+      value="${'$(arg robot_type)'.lower().replace('-', '_')}" />
     <xacro:arg name="external_axis_prefix" default="" />
-    <xacro:arg name="arm_prefix" default="" />
     <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper" default="false" />
     <xacro:arg name="load_mounted_ft_sensor" default="false" />
 
     <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
 
-    <!-- Arm -->
-    <xacro:rizon_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
-        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" use_virtual_joint="false" />
-
     <!-- Prefixes -->
-    <xacro:property name="prefix" value="$(arg arm_prefix)$(arg robot_sn)_" />
+    <xacro:compute_prefix robot_sn="$(arg robot_sn)" />
+    <xacro:property name="prefix" value="${computed_prefix}" lazy_eval="false" />
+
+    <!-- Arm -->
+    <xacro:rizon_srdf prefix="${prefix}"
+        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" use_virtual_joint="false" />
     <xacro:property name="external_axis_prefix" value="$(arg external_axis_prefix)" />
 
     <!-- Virtual Joint and Platform Group -->
-    <xacro:if value="${'$(arg external_axis_type)' == 'aico1_4_v1'}">
+    <xacro:if value="${axis_name == 'aico1_4_v1'}">
         <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
             child_link="${external_axis_prefix}aico1_4_v1_base_link" />
         <group name="${external_axis_prefix}aico1_4_v1_platform_${prefix}arm">
             <chain base_link="${external_axis_prefix}aico1_4_v1_base_link" tip_link="${prefix}flange" />
         </group>
     </xacro:if>
-    <xacro:if value="${'$(arg external_axis_type)' == 'aico1_4_v2'}">
+    <xacro:if value="${axis_name == 'aico1_4_v2'}">
         <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
             child_link="${external_axis_prefix}aico1_4_v2_base_link" />
         <group name="${external_axis_prefix}aico1_4_v2_platform_${prefix}arm">
@@ -35,7 +39,7 @@
     </xacro:if>
 
     <!-- Platform Collisions -->
-    <xacro:if value="${'$(arg external_axis_type)' == 'aico1_4_v1'}">
+    <xacro:if value="${axis_name == 'aico1_4_v1'}">
         <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_4_v1_link2" reason="Adjacent" />
         <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_4_v1_link1" reason="Never" />
         <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_4_v1_base_link" reason="Never" />
@@ -47,7 +51,7 @@
         <disable_collisions link1="${external_axis_prefix}aico1_4_v1_link1" link2="${external_axis_prefix}aico1_4_v1_link2" reason="Adjacent" />
     </xacro:if>
 
-    <xacro:if value="${'$(arg external_axis_type)' == 'aico1_4_v2'}">
+    <xacro:if value="${axis_name == 'aico1_4_v2'}">
         <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_4_v2_link1" reason="Adjacent" />
         <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_4_v2_base_link" reason="Never" />
         <disable_collisions link1="${prefix}base_link" link2="${external_axis_prefix}aico1_4_v2_neck_link" reason="Never" />
@@ -67,7 +71,7 @@
     <!-- Load gripper -->
     <xacro:if value="$(arg load_gripper)">
         <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf arm_prefix="$(arg arm_prefix)" robot_sn="$(arg robot_sn)"
+        <xacro:grav_srdf prefix="${prefix}"
             load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
     </xacro:if>
 

@@ -26,6 +26,17 @@ from launch.substitutions import (
 )
 
 
+def arm_prefix(side, robot_sn):
+    """Build a link/joint name prefix, matching compute_arm_prefix in
+    flexiv_description's flexiv_common.xacro: the separating underscore only
+    appears when the part it separates is non-empty."""
+    if side and robot_sn:
+        return side + "_" + robot_sn + "_"
+    if side or robot_sn:
+        return side + robot_sn + "_"
+    return ""
+
+
 def load_yaml(package_name, file_path, replacements=None):
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
@@ -47,7 +58,7 @@ def load_yaml(package_name, file_path, replacements=None):
 
 def launch_setup(context):
     # Initialize Arguments
-    rizon_type = LaunchConfiguration("rizon_type")
+    arm_type = LaunchConfiguration("arm_type")
     robot_sn_left = LaunchConfiguration("robot_sn_left")
     robot_sn_right = LaunchConfiguration("robot_sn_right")
 
@@ -66,6 +77,22 @@ def launch_setup(context):
 
     load_mounted_ft_sensor_left = LaunchConfiguration("load_mounted_ft_sensor_left")
     load_mounted_ft_sensor_right = LaunchConfiguration("load_mounted_ft_sensor_right")
+    kinematics_params_file_left = LaunchConfiguration(
+        "kinematics_params_file_left"
+    ).perform(context)
+    kinematics_params_file_right = LaunchConfiguration(
+        "kinematics_params_file_right"
+    ).perform(context)
+    # Passing an empty path through would reach xacro.load_yaml('') and abort.
+    kinematics_xacro_args = ""
+    if kinematics_params_file_left:
+        kinematics_xacro_args += (
+            f" kinematics_parameters_file_left:={kinematics_params_file_left}"
+        )
+    if kinematics_params_file_right:
+        kinematics_xacro_args += (
+            f" kinematics_parameters_file_right:={kinematics_params_file_right}"
+        )
     left_gripper_ready_gate_condition = PythonExpression(
         [
             "'",
@@ -85,18 +112,18 @@ def launch_setup(context):
         ]
     )
 
-    external_axis_type = LaunchConfiguration("external_axis_type")
+    robot_type = LaunchConfiguration("robot_type")
     external_axis_prefix = LaunchConfiguration("external_axis_prefix")
 
     warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
 
-    external_axis_type_str = external_axis_type.perform(context)
+    robot_type_str = robot_type.perform(context)
     external_axis_prefix_str = external_axis_prefix.perform(context)
 
     # Construct prefixes
-    prefix_left_str = "left_" + robot_sn_left_str + "_"
+    prefix_left_str = arm_prefix("left", robot_sn_left_str)
 
-    prefix_right_str = "right_" + robot_sn_right_str + "_"
+    prefix_right_str = arm_prefix("right", robot_sn_right_str)
 
     set_prefix_left = SetLaunchConfiguration(name="prefix_left", value=prefix_left_str)
     set_prefix_right = SetLaunchConfiguration(
@@ -105,7 +132,7 @@ def launch_setup(context):
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
-        [FindPackageShare("flexiv_description"), "urdf", "aico2.urdf.xacro"]
+        [FindPackageShare("flexiv_hardware"), "urdf", "flexiv.urdf.xacro"]
     )
 
     robot_description_content = ParameterValue(
@@ -115,8 +142,21 @@ def launch_setup(context):
                 " ",
                 flexiv_urdf_xacro,
                 " ",
-                "rizon_type:=",
-                rizon_type,
+                "arm_type_left:=",
+                arm_type,
+                " ",
+                "arm_type_right:=",
+                PythonExpression(
+                    [
+                        "'Rizon4R' if '",
+                        arm_type,
+                        "' == 'Rizon4' else 'Rizon10R' if '",
+                        arm_type,
+                        "' == 'Rizon10' else '",
+                        arm_type,
+                        "'",
+                    ]
+                ),
                 " ",
                 "robot_sn_left:=",
                 robot_sn_left,
@@ -152,13 +192,12 @@ def launch_setup(context):
                 "fake_sensor_commands:=",
                 fake_sensor_commands,
                 " ",
-                "external_axis_type:=",
-                PythonExpression(
-                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
-                ),
+                "robot_type:=",
+                robot_type,
                 " ",
                 "external_axis_prefix:=",
                 external_axis_prefix,
+                kinematics_xacro_args,
             ]
         ),
         value_type=str,
@@ -197,15 +236,13 @@ def launch_setup(context):
                 load_mounted_ft_sensor_right,
                 " ",
                 "arm_prefix_left:=",
-                "left_",
+                "left",
                 " ",
                 "arm_prefix_right:=",
-                "right_",
+                "right",
                 " ",
-                "external_axis_type:=",
-                PythonExpression(
-                    ["'", external_axis_type, "'.lower().replace('-', '_')"]
-                ),
+                "robot_type:=",
+                robot_type,
                 " ",
                 "external_axis_prefix:=",
                 external_axis_prefix,
@@ -252,9 +289,9 @@ def launch_setup(context):
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
     controllers_file = "config/aico/aico2_4_v1_moveit_controllers.yaml"
-    if external_axis_type_str == "AICO2-10-V1":
+    if robot_type_str == "AICO2-10-V1":
         controllers_file = "config/aico/aico2_10_v1_moveit_controllers.yaml"
-    elif external_axis_type_str == "AICO2-4-V2":
+    elif robot_type_str == "AICO2-4-V2":
         controllers_file = "config/aico/aico2_4_v2_moveit_controllers.yaml"
 
     moveit_simple_controllers_yaml = load_yaml(
@@ -375,9 +412,9 @@ def launch_setup(context):
 
     # Robot controllers
     ros2_controllers_file = "aico2_4_v1_controllers.yaml"
-    if external_axis_type_str == "AICO2-10-V1":
+    if robot_type_str == "AICO2-10-V1":
         ros2_controllers_file = "aico2_10_v1_controllers.yaml"
-    elif external_axis_type_str == "AICO2-4-V2":
+    elif robot_type_str == "AICO2-4-V2":
         ros2_controllers_file = "aico2_4_v2_controllers.yaml"
     robot_controllers = PathJoinSubstitution(
         [FindPackageShare("flexiv_bringup"), "config", ros2_controllers_file]
@@ -660,9 +697,9 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "rizon_type",
+            "arm_type",
             default_value="Rizon4",
-            description="Type of the Flexiv Rizon robot.",
+            description="Type of the arm carried by the external axis.",
             choices=["Rizon4", "Rizon10"],
         )
     )
@@ -750,7 +787,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "load_mounted_ft_sensor_left",
             default_value="false",
-            description="Flag to load the mounted force torque sensor for the left robot. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor for the left robot. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.",
         )
     )
 
@@ -758,13 +795,13 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "load_mounted_ft_sensor_right",
             default_value="false",
-            description="Flag to load the mounted force torque sensor for the right robot. Only available for Rizon4, Rizon4R and Rizon10.",
+            description="Flag to load the mounted force torque sensor for the right robot. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "external_axis_type",
+            "robot_type",
             default_value="AICO2-4-V1",
             description="Type of the AICO2 platform.",
             choices=["AICO2-4-V1", "AICO2-4-V2", "AICO2-10-V1"],
@@ -784,6 +821,22 @@ def generate_launch_description():
             "warehouse_sqlite_path",
             default_value=os.path.expanduser("~/.ros/warehouse_ros.sqlite"),
             description="Path to the warehouse database",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "kinematics_params_file_left",
+            default_value="",
+            description="Kinematics YAML file holding the left robot's measured parameters, as generated by flexiv_calibration. Defaults to the nominal values shipped in flexiv_description.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "kinematics_params_file_right",
+            default_value="",
+            description="Kinematics YAML file holding the right robot's measured parameters, as generated by flexiv_calibration. Defaults to the nominal values shipped in flexiv_description.",
         )
     )
 
