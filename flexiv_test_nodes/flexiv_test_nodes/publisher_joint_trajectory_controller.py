@@ -26,6 +26,7 @@ class PublisherJointTrajectory(Node):
         # Declare all parameters
         self.declare_parameter("controller_name", "joint_trajectory_controller")
         self.declare_parameter("wait_sec_between_publish", 6)
+        self.declare_parameter("goal_duration_sec", 1.0)
         self.declare_parameter("goal_names", ["pos1", "pos2"])
         self.declare_parameter("joints", [""])
         self.declare_parameter("check_starting_point", False)
@@ -34,6 +35,7 @@ class PublisherJointTrajectory(Node):
         # Read parameters
         controller_name = self.get_parameter("controller_name").value
         wait_sec_between_publish = self.get_parameter("wait_sec_between_publish").value
+        self.goal_duration_sec = float(self.get_parameter("goal_duration_sec").value)
         goal_names = self.get_parameter("goal_names").value
         self.joints = self.get_parameter("joints").value
         self.check_starting_point = self.get_parameter("check_starting_point").value
@@ -94,7 +96,10 @@ class PublisherJointTrajectory(Node):
             traj.joint_names = self.joints
             point = JointTrajectoryPoint()
             point.positions = self.goals[self.i]
-            point.time_from_start = Duration(sec=1)
+            point.time_from_start = Duration(
+                sec=int(self.goal_duration_sec),
+                nanosec=int((self.goal_duration_sec % 1.0) * 1e9),
+            )
 
             traj.points.append(point)
             self.publisher_.publish(traj)
@@ -116,6 +121,8 @@ class PublisherJointTrajectory(Node):
             # check start state
             limit_exceeded = [False] * len(msg.name)
             for idx, enum in enumerate(msg.name):
+                if enum not in self.starting_point:
+                    continue
                 if (msg.position[idx] < self.starting_point[enum][0]) or (
                     msg.position[idx] > self.starting_point[enum][1]
                 ):
