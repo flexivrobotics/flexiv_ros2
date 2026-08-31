@@ -1,12 +1,11 @@
-# MICO-Plus / MICO-Ultra. One 16-joint flexiv_arm_controller covers the two arms plus the 2-DoF
-# torso (pan-tilt / waist). The arm planning groups (left_arm, right_arm, both_arms) command a
-# joint subset via allow_partial_joints_goal (enabled controller-side).
 controller_names:
-  - flexiv_arm_controller
+  - left_flexiv_arm_controller
+  - right_flexiv_arm_controller
+  - flexiv_torso_controller
   - left_flexiv_gripper_node
   - right_flexiv_gripper_node
 
-flexiv_arm_controller:
+left_flexiv_arm_controller:
   action_ns: follow_joint_trajectory
   type: FollowJointTrajectory
   default: true
@@ -18,6 +17,12 @@ flexiv_arm_controller:
     - left_$(var robot_sn)_joint5
     - left_$(var robot_sn)_joint6
     - left_$(var robot_sn)_joint7
+
+right_flexiv_arm_controller:
+  action_ns: follow_joint_trajectory
+  type: FollowJointTrajectory
+  default: true
+  joints:
     - right_$(var robot_sn)_joint1
     - right_$(var robot_sn)_joint2
     - right_$(var robot_sn)_joint3
@@ -25,6 +30,12 @@ flexiv_arm_controller:
     - right_$(var robot_sn)_joint5
     - right_$(var robot_sn)_joint6
     - right_$(var robot_sn)_joint7
+
+flexiv_torso_controller:
+  action_ns: follow_joint_trajectory
+  type: FollowJointTrajectory
+  default: true
+  joints:
     - $(var robot_sn)_torso_joint1
     - $(var robot_sn)_torso_joint2
 

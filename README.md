@@ -128,7 +128,7 @@ The launch file to start the single-arm robot driver is `flexiv.launch.py` - it 
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
 - `start_rviz` (default: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
-- `robot_controller` (default: *flexiv_arm_controller*) - robot controller to start. Available controllers: *flexiv_arm_controller*
+- `robot_controller` (default: *empty*) - robot controller(s) to start, overriding the default set for the robot type. Leave unset to get the default: *flexiv_arm_controller* on a single-arm robot, *left_flexiv_arm_controller, right_flexiv_arm_controller* on a dual-arm robot, plus *flexiv_torso_controller* on *MICO-Plus* / *MICO-Ultra*.
 
 ### Example Commands
 
@@ -158,6 +158,8 @@ The launch file to start the single-arm robot driver is `flexiv.launch.py` - it 
      ```
 
      The joint position goals can be changed in `flexiv_bringup/config/joint_trajectory_position_publisher.yaml`
+
+     On a dual-arm robot, pass `arm:=left`, `arm:=right` or `arm:=both` to drive the per-arm controllers instead.
 
 ### Using MoveIt
 
