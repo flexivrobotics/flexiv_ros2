@@ -9,6 +9,8 @@
 #ifndef FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 #define FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <map>
 #include <string>
@@ -42,6 +44,24 @@ enum StoppingInterface
     STOP_EFFORT
 };
 
+/**
+ * Maximum number of RDK-commandable joint groups this interface can drive: an optional external
+ * axis group plus up to two single arms (EXT_AXIS, ARM_1, ARM_2).
+ */
+constexpr size_t kMaxJointGroups = 3;
+
+/**
+ * ROS 2 command interface types that this hardware interface can claim and drive.
+ * kInterfaceNone means the group is unclaimed.
+ */
+enum CommandInterfaceType : uint8_t
+{
+    kInterfaceNone = 0,
+    kInterfacePosition,
+    kInterfaceVelocity,
+    kInterfaceEffort,
+};
+
 class FlexivHardwareInterface : public hardware_interface::SystemInterface
 {
 public:
@@ -66,6 +86,9 @@ public:
         const rclcpp_lifecycle::State& previous_state) override;
 
     hardware_interface::CallbackReturn on_deactivate(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    hardware_interface::CallbackReturn on_error(
         const rclcpp_lifecycle::State& previous_state) override;
 
     hardware_interface::return_type read(
@@ -114,7 +137,32 @@ private:
     // Current digital output map
     std::map<unsigned int, bool> current_digital_outputs_;
 
-    static rclcpp::Logger getLogger();
+    static const rclcpp::Logger& getLogger();
+
+    // Clock for the throttled logging macros on error paths.
+    rclcpp::Clock log_clock_ {RCL_STEADY_TIME};
+
+    /**
+     * Resolve which joint groups a set of command interface names fully claims, and with which
+     * interface type.
+     * @param[in] keys Command interface names to resolve.
+     * @param[out] claimed Per joint group, the claimed CommandInterfaceType
+     * @return False when a joint group would be only partially claimed, or claimed with more than
+     *         one interface type at once.
+     */
+    bool resolve_claimed_groups(
+        const std::vector<std::string>& keys, std::array<uint8_t, kMaxJointGroups>& claimed) const;
+
+    /** RDK control mode implied by the interfaces currently claimed on each joint group.
+     * Mode::UNKNOWN when no joint group is claimed at all. */
+    flexiv::rdk::Mode required_rdk_mode() const;
+
+    // Active RDK joint groups and their DoF, ordered [EXT_AXIS, ARM_1, ARM_2] to match
+    // rdk_to_ros_map_.
+    std::vector<std::pair<flexiv::rdk::JointGroup, size_t>> active_groups_;
+
+    // CommandInterfaceType currently claimed on each joint group, parallel to active_groups_.
+    std::array<uint8_t, kMaxJointGroups> claimed_interfaces_;
 
     // Control modes
     bool controllers_initialized_;

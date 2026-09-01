@@ -162,6 +162,18 @@ GroupDofList determine_active_groups(
     return active_groups;
 }
 
+/** Interface a joint group ends up claimed with, given what a mode switch starts and stops. */
+uint8_t next_claimed_interface(uint8_t current, uint8_t starting, uint8_t stopping)
+{
+    if (starting != flexiv_hardware::kInterfaceNone) {
+        return starting;
+    }
+    if (stopping != flexiv_hardware::kInterfaceNone) {
+        return flexiv_hardware::kInterfaceNone;
+    }
+    return current;
+}
+
 }
 
 namespace flexiv_hardware {
@@ -227,13 +239,15 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     hw_commands_joint_efforts_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-    target_pos_buffer_.resize(info_.joints.size(), 0.0);
+    target_pos_buffer_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     target_vel_buffer_.resize(info_.joints.size(), 0.0);
     target_torque_buffer_.resize(info_.joints.size(), 0.0);
     hw_states_gpio_in_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
     hw_commands_gpio_out_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
     rt_joint_position_cmds_.clear();
     rt_joint_torque_cmds_.clear();
+    active_groups_.clear();
+    claimed_interfaces_.fill(kInterfaceNone);
     stop_modes_ = {};
     start_modes_ = {};
     position_controller_running_ = false;
@@ -350,6 +364,36 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     rdk_to_ros_map_.insert(rdk_to_ros_map_.end(), ext_indices.begin(), ext_indices.end());
     rdk_to_ros_map_.insert(rdk_to_ros_map_.end(), arm_indices.begin(), arm_indices.end());
 
+    // Partition the joints into RDK joint groups. Every ROS joint is either an arm joint or an
+    // external axis, so rdk_to_ros_map_ is a permutation of [0, n) and each group owns one
+    // contiguous slice of it.
+    // Order must match determine_active_groups(): external axes first, then arm 1, then arm 2.
+    std::vector<size_t> group_dofs;
+    if (!ext_indices.empty()) {
+        group_dofs.push_back(ext_indices.size());
+    }
+    for (size_t i = 0; i < arm_prefixes.size(); ++i) {
+        group_dofs.push_back(flexiv::rdk::kSerialJointDoF);
+    }
+
+    if (group_dofs.size() > kMaxJointGroups) {
+        RCLCPP_FATAL(getLogger(), "Resolved %zu joint groups. Expected at most %zu.",
+            group_dofs.size(), kMaxJointGroups);
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    size_t total_group_dof = 0;
+    for (const auto group_dof : group_dofs) {
+        active_groups_.emplace_back(flexiv::rdk::JointGroup::UNKNOWN, group_dof);
+        total_group_dof += group_dof;
+    }
+
+    if (total_group_dof != rdk_to_ros_map_.size()) {
+        RCLCPP_FATAL(getLogger(), "Joint groups cover %zu of %zu joints", total_group_dof,
+            rdk_to_ros_map_.size());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
     std::string robot_sn;
     try {
         robot_sn = info_.hardware_parameters["robot_sn"];
@@ -445,9 +489,10 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     return hardware_interface::CallbackReturn::SUCCESS;
 }
 
-rclcpp::Logger FlexivHardwareInterface::getLogger()
+const rclcpp::Logger& FlexivHardwareInterface::getLogger()
 {
-    return rclcpp::get_logger("FlexivHardwareInterface");
+    static const rclcpp::Logger logger = rclcpp::get_logger("FlexivHardwareInterface");
+    return logger;
 }
 
 std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_state_interfaces()
@@ -587,6 +632,68 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         RCLCPP_INFO(getLogger(), "Robot is now operational");
+
+        GroupDofList robot_groups;
+        if (ext_dof_it != robot_info.DoF.end() && ext_dof_it->second > 0) {
+            robot_groups.emplace_back(flexiv::rdk::JointGroup::EXT_AXIS, ext_dof_it->second);
+        }
+        for (const auto& [group, name] : robot_info.single_arm_groups) {
+            const auto dof_it = robot_info.DoF.find(group);
+            if (dof_it != robot_info.DoF.end() && dof_it->second > 0) {
+                robot_groups.emplace_back(group, dof_it->second);
+            }
+        }
+        if (robot_groups.empty()) {
+            for (int attempt = 0; attempt < 100 && robot_groups.empty(); ++attempt) {
+                robot_groups = determine_active_groups(
+                    robot_->states(), rdk_to_ros_map_.size(), getLogger());
+                if (robot_groups.empty()) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+            }
+        }
+
+        if (robot_groups.size() != active_groups_.size()) {
+            RCLCPP_FATAL(getLogger(),
+                "Robot reports %zu commandable joint groups, but the URDF resolved %zu",
+                robot_groups.size(), active_groups_.size());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+        size_t group_offset = 0;
+        for (size_t g = 0; g < active_groups_.size(); ++g) {
+            if (robot_groups[g].second != active_groups_[g].second) {
+                RCLCPP_FATAL(getLogger(),
+                    "Joint group %s has %zu joints on the robot, but %zu in the URDF",
+                    joint_group_name_string(robot_groups[g].first).c_str(), robot_groups[g].second,
+                    active_groups_[g].second);
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+            active_groups_[g].first = robot_groups[g].first;
+            RCLCPP_INFO(getLogger(), "Joint group %s drives %zu joints, starting at '%s'",
+                joint_group_name_string(active_groups_[g].first).c_str(), active_groups_[g].second,
+                info_.joints[rdk_to_ros_map_[group_offset]].name.c_str());
+            group_offset += active_groups_[g].second;
+        }
+
+        rt_joint_position_cmds_.clear();
+        rt_joint_torque_cmds_.clear();
+        for (const auto& [group, group_dof] : active_groups_) {
+            auto& pos_cmd = rt_joint_position_cmds_[group];
+            pos_cmd.q_d.assign(group_dof, 0.0);
+            pos_cmd.dq_d.assign(group_dof, 0.0);
+            pos_cmd.ddq_d.assign(group_dof, 0.0);
+
+            auto& torque_cmd = rt_joint_torque_cmds_[group];
+            torque_cmd.tau_d.assign(group_dof, 0.0);
+            torque_cmd.enable_gravity_comp = true;
+            torque_cmd.enable_soft_limits = true;
+        }
+
+        // Start from a known state: no joint group claimed, robot idle, every hold target latched.
+        if (robot_->mode() != flexiv::rdk::Mode::IDLE) {
+            robot_->Stop();
+        }
+        claimed_interfaces_.fill(kInterfaceNone);
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable robot.");
         RCLCPP_FATAL(getLogger(), e.what());
@@ -604,85 +711,159 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_deactivate(
     RCLCPP_INFO(getLogger(), "Stopping... please wait...");
 
     robot_->Stop();
+    claimed_interfaces_.fill(kInterfaceNone);
 
     RCLCPP_INFO(getLogger(), "System successfully stopped!");
 
     return hardware_interface::CallbackReturn::SUCCESS;
 }
 
+hardware_interface::CallbackReturn FlexivHardwareInterface::on_error(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    RCLCPP_ERROR(getLogger(), "Hardware interface entered the error state, stopping the robot");
+
+    claimed_interfaces_.fill(kInterfaceNone);
+
+    if (robot_) {
+        try {
+            robot_->Stop();
+        } catch (const std::exception& e) {
+            RCLCPP_ERROR(getLogger(), "Failed to stop the robot: %s", e.what());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+    }
+
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+bool FlexivHardwareInterface::resolve_claimed_groups(
+    const std::vector<std::string>& keys, std::array<uint8_t, kMaxJointGroups>& claimed) const
+{
+    claimed.fill(kInterfaceNone);
+    std::array<size_t, kMaxJointGroups> claimed_counts {};
+
+    size_t offset = 0;
+    for (size_t g = 0; g < active_groups_.size(); ++g) {
+        for (size_t k = 0; k < active_groups_[g].second; ++k) {
+            const std::string& joint_name = info_.joints[rdk_to_ros_map_[offset + k]].name;
+            for (const auto& key : keys) {
+                uint8_t interface_type = kInterfaceNone;
+                if (key == joint_name + "/" + hardware_interface::HW_IF_POSITION) {
+                    interface_type = kInterfacePosition;
+                } else if (key == joint_name + "/" + hardware_interface::HW_IF_VELOCITY) {
+                    interface_type = kInterfaceVelocity;
+                } else if (key == joint_name + "/" + hardware_interface::HW_IF_EFFORT) {
+                    interface_type = kInterfaceEffort;
+                } else {
+                    continue;
+                }
+
+                if (claimed[g] == kInterfaceNone) {
+                    claimed[g] = interface_type;
+                } else if (claimed[g] != interface_type) {
+                    RCLCPP_ERROR(getLogger(),
+                        "Joint group %s would be claimed with more than one command interface type "
+                        "at once. All joints of one arm or external axis group must use the same "
+                        "interface type.",
+                        joint_group_name_string(active_groups_[g].first).c_str());
+                    return false;
+                }
+                claimed_counts[g]++;
+            }
+        }
+        offset += active_groups_[g].second;
+    }
+
+    // A joint group is the smallest unit RDK accepts a command for, so it must be claimed whole.
+    for (size_t g = 0; g < active_groups_.size(); ++g) {
+        if (claimed_counts[g] != 0 && claimed_counts[g] != active_groups_[g].second) {
+            RCLCPP_ERROR(getLogger(),
+                "Joint group %s would have %zu of its %zu joints claimed. Claim all joints of a "
+                "group, or none of them.",
+                joint_group_name_string(active_groups_[g].first).c_str(), claimed_counts[g],
+                active_groups_[g].second);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+flexiv::rdk::Mode FlexivHardwareInterface::required_rdk_mode() const
+{
+    size_t effort_groups = 0;
+    size_t motion_groups = 0;
+    for (size_t g = 0; g < active_groups_.size(); ++g) {
+        if (claimed_interfaces_[g] == kInterfaceEffort) {
+            effort_groups++;
+        } else if (claimed_interfaces_[g] != kInterfaceNone) {
+            motion_groups++;
+        }
+    }
+
+    if (effort_groups == 0 && motion_groups == 0) {
+        return flexiv::rdk::Mode::UNKNOWN;
+    }
+    return effort_groups != 0 ? flexiv::rdk::Mode::RT_JOINT_TORQUE : rdk_control_mode_;
+}
+
 hardware_interface::return_type FlexivHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    if (robot_->operational()) {
-        const size_t dof = rdk_to_ros_map_.size();
-        auto states_by_group = robot_->states();
-        if (states_by_group.empty()) {
-            return hardware_interface::return_type::OK;
-        }
+    if (!robot_->operational()) {
+        return hardware_interface::return_type::OK;
+    }
 
-        auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
-        if (active_groups.empty()) {
+    const auto states_by_group = robot_->states();
+    if (states_by_group.empty()) {
+        return hardware_interface::return_type::OK;
+    }
+
+    // Read joint states straight into the exported state interfaces, one joint group at a time,
+    // mapping RDK order onto ROS order as we go.
+    size_t offset = 0;
+    for (const auto& [group, group_dof] : active_groups_) {
+        const auto it = states_by_group.find(group);
+        if (it == states_by_group.end()) {
+            RCLCPP_ERROR_THROTTLE(getLogger(), log_clock_, 1000,
+                "Joint group %s is missing from the robot states",
+                joint_group_name_string(group).c_str());
             return hardware_interface::return_type::ERROR;
         }
 
-        std::vector<double> q;
-        std::vector<double> dtheta;
-        std::vector<double> tau;
-        q.reserve(dof);
-        dtheta.reserve(dof);
-        tau.reserve(dof);
-
-        for (const auto& [group, group_dof] : active_groups) {
-            const auto& group_states = states_by_group.at(group);
-            if (group_states.q.size() < group_dof || group_states.dtheta.size() < group_dof
-                || group_states.tau.size() < group_dof) {
-                RCLCPP_ERROR(getLogger(),
-                    "Group state vector size mismatch for group %d (q=%ld dtheta=%ld tau=%ld "
-                    "expected=%ld)",
-                    static_cast<int>(group), group_states.q.size(), group_states.dtheta.size(),
-                    group_states.tau.size(), group_dof);
-                return hardware_interface::return_type::ERROR;
-            }
-            q.insert(q.end(), group_states.q.begin(), group_states.q.begin() + group_dof);
-            dtheta.insert(
-                dtheta.end(), group_states.dtheta.begin(), group_states.dtheta.begin() + group_dof);
-            tau.insert(tau.end(), group_states.tau.begin(), group_states.tau.begin() + group_dof);
-        }
-
-        if (q.size() != dof || dtheta.size() != dof || tau.size() != dof) {
-            RCLCPP_ERROR(getLogger(),
-                "Resolved joint state size mismatch (q=%ld dtheta=%ld tau=%ld expected=%ld)",
-                q.size(), dtheta.size(), tau.size(), dof);
+        const auto& group_states = it->second;
+        if (group_states.q.size() < group_dof || group_states.dtheta.size() < group_dof
+            || group_states.tau.size() < group_dof) {
+            RCLCPP_ERROR_THROTTLE(getLogger(), log_clock_, 1000,
+                "Joint group %s state vector size mismatch (q=%ld dtheta=%ld tau=%ld expected=%ld)",
+                joint_group_name_string(group).c_str(), group_states.q.size(),
+                group_states.dtheta.size(), group_states.tau.size(), group_dof);
             return hardware_interface::return_type::ERROR;
         }
 
-        // Refresh every exported per-group robot-states handle the robot reports, so the
-        // robot-states broadcaster(s) publish fresh data regardless of which group name they read:
-        // a single-arm broadcaster reads the ARMS-named (robot_sn) handle while commands use ARM_1,
-        // and dual-arm broadcasters read the ARM_1/ARM_2 (left_/right_) handles.
-        for (auto& [group, group_states] : hw_flexiv_robot_states_by_group_) {
-            const auto it = states_by_group.find(group);
-            if (it != states_by_group.end()) {
-                group_states = it->second;
-            }
+        for (size_t k = 0; k < group_dof; ++k) {
+            const size_t ros_idx = rdk_to_ros_map_[offset + k];
+            hw_states_joint_positions_[ros_idx] = group_states.q[k];
+            hw_states_joint_velocities_[ros_idx] = group_states.dtheta[k];
+            hw_states_joint_efforts_[ros_idx] = group_states.tau[k];
         }
+        offset += group_dof;
+    }
 
-        // Read joint states
-        // Map RDK states (RDK order) to Hardware Interface states (ROS order)
-        for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
-            size_t ros_idx = rdk_to_ros_map_[rdk_idx];
-            if (ros_idx < info_.joints.size()) {
-                hw_states_joint_positions_[ros_idx] = q[rdk_idx];
-                hw_states_joint_velocities_[ros_idx] = dtheta[rdk_idx];
-                hw_states_joint_efforts_[ros_idx] = tau[rdk_idx];
-            }
+    // a single-arm broadcaster reads the ARMS-named (robot_sn) handle while commands use ARM_1,
+    // and dual-arm broadcasters read the ARM_1/ARM_2 (left_/right_) handles.
+    for (auto& [group, group_states] : hw_flexiv_robot_states_by_group_) {
+        const auto it = states_by_group.find(group);
+        if (it != states_by_group.end()) {
+            group_states = it->second;
         }
+    }
 
-        // Read GPIO input states
-        auto gpio_in = robot_->digital_inputs();
-        for (size_t i = 0; i < hw_states_gpio_in_.size(); i++) {
-            hw_states_gpio_in_[i] = static_cast<double>(gpio_in[i]);
-        }
+    // Read GPIO input states
+    auto gpio_in = robot_->digital_inputs();
+    for (size_t i = 0; i < hw_states_gpio_in_.size(); i++) {
+        hw_states_gpio_in_[i] = static_cast<double>(gpio_in[i]);
     }
 
     return hardware_interface::return_type::OK;
@@ -691,156 +872,112 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 hardware_interface::return_type FlexivHardwareInterface::write(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    const size_t dof = rdk_to_ros_map_.size();
+    const auto required_mode = required_rdk_mode();
+    if (required_mode != flexiv::rdk::Mode::UNKNOWN && robot_->mode() != required_mode) {
+        RCLCPP_ERROR_THROTTLE(getLogger(), log_clock_, 1000,
+            "Robot is no longer in the expected RDK control mode, skipping joint commands");
+        return hardware_interface::return_type::ERROR;
+    }
 
-    // Reuse preallocated target buffers to keep the control loop allocation-free.
+    const bool torque_control = required_mode == flexiv::rdk::Mode::RT_JOINT_TORQUE;
+
     auto& target_pos = target_pos_buffer_;
     auto& target_vel = target_vel_buffer_;
     auto& target_torque = target_torque_buffer_;
 
-    bool is_pos_nan = false;
-    bool is_vel_nan = false;
-    bool is_eff_nan = false;
-    for (std::size_t i = 0; i < dof; i++) {
-        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
-            is_pos_nan = true;
+    size_t commanded_groups = 0;
+    bool targets_valid = true;
+    size_t offset = 0;
+    for (size_t g = 0; required_mode != flexiv::rdk::Mode::UNKNOWN && g < active_groups_.size();
+         ++g) {
+        const auto& [group, group_dof] = active_groups_[g];
+        const auto begin = static_cast<std::ptrdiff_t>(offset);
+
+        if (torque_control) {
+            bool commanded = claimed_interfaces_[g] == kInterfaceEffort;
+            for (size_t k = 0; k < group_dof && commanded; ++k) {
+                const double tau = hw_commands_joint_efforts_[rdk_to_ros_map_[offset + k]];
+                commanded = std::isfinite(tau);
+                target_torque[offset + k] = tau;
+            }
+            if (!commanded) {
+                targets_valid = false;
+                break;
+            }
+            std::copy_n(target_torque.begin() + begin, group_dof,
+                rt_joint_torque_cmds_.at(group).tau_d.begin());
+            commanded_groups++;
+            offset += group_dof;
+            continue;
         }
-        if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i]) {
-            is_vel_nan = true;
+
+        // Check the whole group before writing any target, so a group that is not fully commanded
+        // keeps the previous targets it is holding at.
+        bool commanded = claimed_interfaces_[g] == kInterfacePosition
+                         || claimed_interfaces_[g] == kInterfaceVelocity;
+        for (size_t k = 0; k < group_dof && commanded; ++k) {
+            const size_t ros_idx = rdk_to_ros_map_[offset + k];
+            commanded = claimed_interfaces_[g] == kInterfacePosition
+                            ? std::isfinite(hw_commands_joint_positions_[ros_idx])
+                            : std::isfinite(hw_commands_joint_velocities_[ros_idx])
+                                  && std::isfinite(hw_states_joint_positions_[ros_idx]);
         }
-        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i]) {
-            is_eff_nan = true;
+
+        if (commanded) {
+            for (size_t k = 0; k < group_dof; ++k) {
+                const size_t ros_idx = rdk_to_ros_map_[offset + k];
+                if (claimed_interfaces_[g] == kInterfacePosition) {
+                    target_pos[offset + k] = hw_commands_joint_positions_[ros_idx];
+                    target_vel[offset + k] = 0.0;
+                } else {
+                    // Velocity control feeds the measured position forward with the commanded
+                    // velocity, as the position interface has no velocity to track.
+                    target_pos[offset + k] = hw_states_joint_positions_[ros_idx];
+                    target_vel[offset + k] = hw_commands_joint_velocities_[ros_idx];
+                }
+            }
+            commanded_groups++;
+        } else {
+            for (size_t k = 0; k < group_dof && targets_valid; ++k) {
+                if (!std::isfinite(target_pos[offset + k])) {
+                    // Seed the hold target from the measured position, both on the first cycle and
+                    // after a Stop()/SwitchMode() invalidated it.
+                    const double q = hw_states_joint_positions_[rdk_to_ros_map_[offset + k]];
+                    targets_valid = std::isfinite(q);
+                    target_pos[offset + k] = q;
+                }
+                target_vel[offset + k] = 0.0;
+            }
+            if (!targets_valid) {
+                break;
+            }
         }
+
+        auto& cmd = rt_joint_position_cmds_.at(group);
+        std::copy_n(target_pos.begin() + begin, group_dof, cmd.q_d.begin());
+        std::copy_n(target_vel.begin() + begin, group_dof, cmd.dq_d.begin());
+        offset += group_dof;
     }
 
-    if (robot_->mode() == rdk_control_mode_
-        && ((position_controller_running_ && !is_pos_nan)
-            || (velocity_controller_running_ && !is_vel_nan))) {
-        auto states_by_group = robot_->states();
-        auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
-        if (active_groups.empty()) {
+    // Stream every joint group in a single call
+    if (commanded_groups > 0 && targets_valid) {
+        try {
+            if (torque_control) {
+                robot_->StreamJointTorque(rt_joint_torque_cmds_);
+            } else {
+                robot_->StreamJointPosition(rt_joint_position_cmds_);
+            }
+        } catch (const std::exception& e) {
+            RCLCPP_ERROR_THROTTLE(
+                getLogger(), log_clock_, 1000, "Failed to stream joint commands: %s", e.what());
             return hardware_interface::return_type::ERROR;
         }
-
-        if (position_controller_running_ && !is_pos_nan) {
-            std::fill(target_vel.begin(), target_vel.end(), 0.0);
-
-            // Map ROS commands to RDK targets.
-            for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
-                size_t ros_idx = rdk_to_ros_map_[rdk_idx];
-                target_pos[rdk_idx] = hw_commands_joint_positions_[ros_idx];
-            }
-        } else {
-            // Map ROS commands/states to RDK targets.
-            for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
-                size_t ros_idx = rdk_to_ros_map_[rdk_idx];
-                target_pos[rdk_idx] = hw_states_joint_positions_[ros_idx];
-                target_vel[rdk_idx] = hw_commands_joint_velocities_[ros_idx];
-            }
-        }
-
-        // Stream real-time joint position commands.
-        bool rebuild_rt_joint_position_cmds
-            = rt_joint_position_cmds_.size() != active_groups.size();
-        if (!rebuild_rt_joint_position_cmds) {
-            auto cmd_it = rt_joint_position_cmds_.begin();
-            for (const auto& [group, group_dof] : active_groups) {
-                if (cmd_it == rt_joint_position_cmds_.end() || cmd_it->first != group
-                    || cmd_it->second.q_d.size() != group_dof
-                    || cmd_it->second.dq_d.size() != group_dof
-                    || cmd_it->second.ddq_d.size() != group_dof) {
-                    rebuild_rt_joint_position_cmds = true;
-                    break;
-                }
-                ++cmd_it;
-            }
-        }
-
-        if (rebuild_rt_joint_position_cmds) {
-            rt_joint_position_cmds_.clear();
-            for (const auto& [group, group_dof] : active_groups) {
-                auto& cmd = rt_joint_position_cmds_[group];
-                cmd.q_d.resize(group_dof);
-                cmd.dq_d.resize(group_dof);
-                cmd.ddq_d.assign(group_dof, 0.0);
-            }
-        }
-
-        if (active_groups.size() == 1
-            && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
-            auto& cmd = rt_joint_position_cmds_.at(flexiv::rdk::JointGroup::ARMS);
-            std::copy(target_pos.begin(), target_pos.end(), cmd.q_d.begin());
-            std::copy(target_vel.begin(), target_vel.end(), cmd.dq_d.begin());
-        } else {
-            size_t offset = 0;
-            for (const auto& [group, group_dof] : active_groups) {
-                auto& cmd = rt_joint_position_cmds_.at(group);
-                const auto begin = static_cast<std::vector<double>::difference_type>(offset);
-                std::copy_n(target_pos.begin() + begin, group_dof, cmd.q_d.begin());
-                std::copy_n(target_vel.begin() + begin, group_dof, cmd.dq_d.begin());
-                offset += group_dof;
-            }
-        }
-
-        robot_->StreamJointPosition(rt_joint_position_cmds_);
-    } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
-               && !is_eff_nan) {
-        auto states_by_group = robot_->states();
-        auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
-        if (active_groups.empty()) {
-            return hardware_interface::return_type::ERROR;
-        }
-
-        // Map ROS commands to RDK targets.
-        for (size_t rdk_idx = 0; rdk_idx < dof; ++rdk_idx) {
-            size_t ros_idx = rdk_to_ros_map_[rdk_idx];
-            target_torque[rdk_idx] = hw_commands_joint_efforts_[ros_idx];
-        }
-
-        bool rebuild_rt_joint_torque_cmds = rt_joint_torque_cmds_.size() != active_groups.size();
-        if (!rebuild_rt_joint_torque_cmds) {
-            auto cmd_it = rt_joint_torque_cmds_.begin();
-            for (const auto& [group, group_dof] : active_groups) {
-                if (cmd_it == rt_joint_torque_cmds_.end() || cmd_it->first != group
-                    || cmd_it->second.tau_d.size() != group_dof) {
-                    rebuild_rt_joint_torque_cmds = true;
-                    break;
-                }
-                ++cmd_it;
-            }
-        }
-
-        if (rebuild_rt_joint_torque_cmds) {
-            rt_joint_torque_cmds_.clear();
-            for (const auto& [group, group_dof] : active_groups) {
-                auto& cmd = rt_joint_torque_cmds_[group];
-                cmd.tau_d.resize(group_dof);
-                cmd.enable_gravity_comp = true;
-                cmd.enable_soft_limits = true;
-            }
-        }
-
-        if (active_groups.size() == 1
-            && active_groups.front().first == flexiv::rdk::JointGroup::ARMS) {
-            auto& cmd = rt_joint_torque_cmds_.at(flexiv::rdk::JointGroup::ARMS);
-            std::copy(target_torque.begin(), target_torque.end(), cmd.tau_d.begin());
-        } else {
-            size_t offset = 0;
-            for (const auto& [group, group_dof] : active_groups) {
-                auto& cmd = rt_joint_torque_cmds_.at(group);
-                const auto begin = static_cast<std::vector<double>::difference_type>(offset);
-                std::copy_n(target_torque.begin() + begin, group_dof, cmd.tau_d.begin());
-                offset += group_dof;
-            }
-        }
-
-        robot_->StreamJointTorque(rt_joint_torque_cmds_);
     }
 
     // Write digital output
     std::map<unsigned int, bool> digital_outputs;
     for (size_t i = 0; i < hw_commands_gpio_out_.size(); i++) {
-        if (hw_commands_gpio_out_[i] != hw_commands_gpio_out_[i]) {
+        if (!std::isfinite(hw_commands_gpio_out_[i])) {
             continue;
         }
         digital_outputs[i] = static_cast<bool>(hw_commands_gpio_out_[i]);
@@ -850,7 +987,13 @@ hardware_interface::return_type FlexivHardwareInterface::write(
 
     // Set digital outputs
     if (digital_outputs_changed && !digital_outputs.empty()) {
-        robot_->SetDigitalOutputs(digital_outputs);
+        try {
+            robot_->SetDigitalOutputs(digital_outputs);
+        } catch (const std::exception& e) {
+            RCLCPP_ERROR_THROTTLE(
+                getLogger(), log_clock_, 5000, "Failed to set digital outputs: %s", e.what());
+            return hardware_interface::return_type::ERROR;
+        }
     }
 
     return hardware_interface::return_type::OK;
@@ -877,15 +1020,6 @@ hardware_interface::return_type FlexivHardwareInterface::prepare_command_mode_sw
             }
         }
     }
-    // All joints must be given new command mode at the same time
-    if (start_modes_.size() != 0 && start_modes_.size() != info_.joints.size()) {
-        return hardware_interface::return_type::ERROR;
-    }
-    // All joints must have the same command mode
-    if (start_modes_.size() != 0
-        && !std::equal(start_modes_.begin() + 1, start_modes_.end(), start_modes_.begin())) {
-        return hardware_interface::return_type::ERROR;
-    }
 
     // Stop motion on all relevant joints that are stopping
     for (const auto& key : stop_interfaces) {
@@ -901,10 +1035,51 @@ hardware_interface::return_type FlexivHardwareInterface::prepare_command_mode_sw
             }
         }
     }
-    // stop all interfaces at the same time
-    if (stop_modes_.size() != 0
-        && (stop_modes_.size() != info_.joints.size()
-            || !std::equal(stop_modes_.begin() + 1, stop_modes_.end(), stop_modes_.begin()))) {
+
+    // Joints are claimed per RDK joint group rather than all at once, so that each arm of a
+    // dual-arm robot can be driven by its own controller. A group must still be claimed whole and
+    // with a single interface type.
+    std::array<uint8_t, kMaxJointGroups> starting {};
+    std::array<uint8_t, kMaxJointGroups> stopping {};
+    if (!resolve_claimed_groups(start_interfaces, starting)
+        || !resolve_claimed_groups(stop_interfaces, stopping)) {
+        return hardware_interface::return_type::ERROR;
+    }
+
+    size_t effort_groups = 0;
+    size_t motion_groups = 0;
+    size_t idle_groups = 0;
+    for (size_t g = 0; g < active_groups_.size(); ++g) {
+        switch (next_claimed_interface(claimed_interfaces_[g], starting[g], stopping[g])) {
+            case kInterfaceEffort:
+                effort_groups++;
+                break;
+            case kInterfaceNone:
+                idle_groups++;
+                break;
+            default:
+                motion_groups++;
+                break;
+        }
+    }
+
+    // One RDK control mode applies to the whole robot, so the effort interface cannot be in use at
+    // the same time as the position/velocity interfaces. Position on one arm and velocity on the
+    // other is fine: both are served by the same RDK control mode.
+    if (effort_groups != 0 && motion_groups != 0) {
+        RCLCPP_ERROR(getLogger(),
+            "The effort interface needs RDK control mode RT_JOINT_TORQUE while the "
+            "position/velocity interfaces need a motion control mode, and the RDK control mode "
+            "applies to the whole robot.");
+        return hardware_interface::return_type::ERROR;
+    }
+
+    // An idle joint group in RT_JOINT_TORQUE can only be sent zero torque with gravity
+    // compensation, i.e. left free-floating.
+    if (effort_groups != 0 && idle_groups != 0) {
+        RCLCPP_ERROR(getLogger(),
+            "Effort control requires every joint group to be claimed, otherwise the unclaimed "
+            "group(s) would be left free-floating under zero torque.");
         return hardware_interface::return_type::ERROR;
     }
 
@@ -913,76 +1088,81 @@ hardware_interface::return_type FlexivHardwareInterface::prepare_command_mode_sw
 }
 
 hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_switch(
-    const std::vector<std::string>& /*start_interfaces*/,
-    const std::vector<std::string>& /*stop_interfaces*/)
+    const std::vector<std::string>& start_interfaces,
+    const std::vector<std::string>& stop_interfaces)
 {
-    if (stop_modes_.size() != 0
-        && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_POSITION)
-               != stop_modes_.end()) {
-        position_controller_running_ = false;
-        robot_->Stop();
-    } else if (stop_modes_.size() != 0
-               && std::find(
-                      stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_VELOCITY)
-                      != stop_modes_.end()) {
-        velocity_controller_running_ = false;
-        robot_->Stop();
-    } else if (stop_modes_.size() != 0
-               && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_EFFORT)
-                      != stop_modes_.end()) {
-        torque_controller_running_ = false;
-        robot_->Stop();
+    std::array<uint8_t, kMaxJointGroups> starting {};
+    std::array<uint8_t, kMaxJointGroups> stopping {};
+    if (!resolve_claimed_groups(start_interfaces, starting)
+        || !resolve_claimed_groups(stop_interfaces, stopping)) {
+        return hardware_interface::return_type::ERROR;
     }
 
-    if (start_modes_.size() != 0
-        && std::find(start_modes_.begin(), start_modes_.end(), hardware_interface::HW_IF_POSITION)
-               != start_modes_.end()) {
-        velocity_controller_running_ = false;
-        torque_controller_running_ = false;
+    bool any_change = false;
+    size_t offset = 0;
+    for (size_t g = 0; g < active_groups_.size(); ++g) {
+        const uint8_t next_interface
+            = next_claimed_interface(claimed_interfaces_[g], starting[g], stopping[g]);
+        if (next_interface != claimed_interfaces_[g]) {
+            any_change = true;
+            claimed_interfaces_[g] = next_interface;
 
-        // Hold joints before user commands arrives
-        std::fill(hw_commands_joint_positions_.begin(), hw_commands_joint_positions_.end(),
-            std::numeric_limits<double>::quiet_NaN());
-
-        // Set to joint position or joint impedance mode
-        robot_->SwitchMode(rdk_control_mode_);
-
-        position_controller_running_ = true;
-    } else if (start_modes_.size() != 0
-               && std::find(
-                      start_modes_.begin(), start_modes_.end(), hardware_interface::HW_IF_VELOCITY)
-                      != start_modes_.end()) {
-        position_controller_running_ = false;
-        torque_controller_running_ = false;
-
-        // Hold joints before user commands arrives
-        std::fill(hw_commands_joint_velocities_.begin(), hw_commands_joint_velocities_.end(),
-            std::numeric_limits<double>::quiet_NaN());
-
-        // Set to joint position or joint impedance mode
-        robot_->SwitchMode(rdk_control_mode_);
-
-        velocity_controller_running_ = true;
-    } else if (start_modes_.size() != 0
-               && std::find(
-                      start_modes_.begin(), start_modes_.end(), hardware_interface::HW_IF_EFFORT)
-                      != start_modes_.end()) {
-        position_controller_running_ = false;
-        velocity_controller_running_ = false;
-
-        // Hold joints when starting joint torque controller before user
-        // commands arrives
-        std::fill(hw_commands_joint_efforts_.begin(), hw_commands_joint_efforts_.end(),
-            std::numeric_limits<double>::quiet_NaN());
-
-        // Set to joint torque mode
-        robot_->SwitchMode(flexiv::rdk::Mode::RT_JOINT_TORQUE);
-
-        torque_controller_running_ = true;
+            for (size_t k = 0; k < active_groups_[g].second; ++k) {
+                const size_t ros_idx = rdk_to_ros_map_[offset + k];
+                hw_commands_joint_positions_[ros_idx] = std::numeric_limits<double>::quiet_NaN();
+                hw_commands_joint_velocities_[ros_idx] = std::numeric_limits<double>::quiet_NaN();
+                hw_commands_joint_efforts_[ros_idx] = std::numeric_limits<double>::quiet_NaN();
+            }
+        }
+        offset += active_groups_[g].second;
     }
+
+    position_controller_running_
+        = std::find(claimed_interfaces_.begin(), claimed_interfaces_.end(), kInterfacePosition)
+          != claimed_interfaces_.end();
+    velocity_controller_running_
+        = std::find(claimed_interfaces_.begin(), claimed_interfaces_.end(), kInterfaceVelocity)
+          != claimed_interfaces_.end();
+    torque_controller_running_
+        = std::find(claimed_interfaces_.begin(), claimed_interfaces_.end(), kInterfaceEffort)
+          != claimed_interfaces_.end();
 
     start_modes_.clear();
     stop_modes_.clear();
+
+    if (!any_change) {
+        return hardware_interface::return_type::OK;
+    }
+
+    try {
+        const auto required_mode = required_rdk_mode();
+        const auto current_mode = robot_->mode();
+
+        if (required_mode == flexiv::rdk::Mode::UNKNOWN) {
+            // No joint group is claimed any more.
+            if (current_mode != flexiv::rdk::Mode::IDLE) {
+                robot_->Stop();
+                std::fill(target_pos_buffer_.begin(), target_pos_buffer_.end(),
+                    std::numeric_limits<double>::quiet_NaN());
+            }
+        } else if (current_mode != required_mode) {
+            if (!robot_->operational() || robot_->fault()) {
+                RCLCPP_ERROR(getLogger(),
+                    "Cannot switch RDK control mode: the robot is not operational or has faulted");
+                claimed_interfaces_.fill(kInterfaceNone);
+                return hardware_interface::return_type::ERROR;
+            }
+            // SwitchMode() stops the robot before transiting, so this is only reached when no
+            // joint group is being commanded in the required mode yet.
+            robot_->SwitchMode(required_mode);
+            std::fill(target_pos_buffer_.begin(), target_pos_buffer_.end(),
+                std::numeric_limits<double>::quiet_NaN());
+        }
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(getLogger(), "Failed to apply the RDK control mode: %s", e.what());
+        claimed_interfaces_.fill(kInterfaceNone);
+        return hardware_interface::return_type::ERROR;
+    }
 
     return hardware_interface::return_type::OK;
 }
