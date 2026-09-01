@@ -1,11 +1,10 @@
-# Dual-arm (Enlight-LL, MICO-Core). One 14-joint flexiv_arm_controller covers the left_arm,
-# right_arm and both_arms planning groups (allow_partial_joints_goal is enabled controller-side).
 controller_names:
-  - flexiv_arm_controller
+  - left_flexiv_arm_controller
+  - right_flexiv_arm_controller
   - left_flexiv_gripper_node
   - right_flexiv_gripper_node
 
-flexiv_arm_controller:
+left_flexiv_arm_controller:
   action_ns: follow_joint_trajectory
   type: FollowJointTrajectory
   default: true
@@ -17,6 +16,12 @@ flexiv_arm_controller:
     - left_$(var robot_sn)_joint5
     - left_$(var robot_sn)_joint6
     - left_$(var robot_sn)_joint7
+
+right_flexiv_arm_controller:
+  action_ns: follow_joint_trajectory
+  type: FollowJointTrajectory
+  default: true
+  joints:
     - right_$(var robot_sn)_joint1
     - right_$(var robot_sn)_joint2
     - right_$(var robot_sn)_joint3

@@ -1,0 +1,22 @@
+# Right arm goals for a dual-arm robot, used by test_joint_trajectory_controller.launch.py.
+right_publisher_joint_trajectory_controller:
+  ros__parameters:
+
+    controller_name: "right_flexiv_arm_controller"
+    wait_sec_between_publish: 15
+    goal_duration_sec: 10.0
+
+    goal_names: ["pos1", "pos2"]
+    pos1: [0.803, 0.698, 0.0, -1.57, 0.0, 0.872, -8.752]
+    pos2: [0.0, 0.698, 0.0, -1.57, 0.0, 0.872, 0.0]
+
+    joints:
+      - right_$(var robot_sn)_joint1
+      - right_$(var robot_sn)_joint2
+      - right_$(var robot_sn)_joint3
+      - right_$(var robot_sn)_joint4
+      - right_$(var robot_sn)_joint5
+      - right_$(var robot_sn)_joint6
+      - right_$(var robot_sn)_joint7
+
+    check_starting_point: true
