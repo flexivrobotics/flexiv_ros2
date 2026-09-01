@@ -285,6 +285,27 @@ def launch_setup(context):
         [FindPackageShare("flexiv_bringup"), "config", controllers_file]
     )
 
+    if robot_type_str in pan_tilt_robot_types:
+        default_robot_controllers = [
+            "left_flexiv_arm_controller",
+            "right_flexiv_arm_controller",
+            "flexiv_torso_controller",
+        ]
+    elif is_dual:
+        default_robot_controllers = [
+            "left_flexiv_arm_controller",
+            "right_flexiv_arm_controller",
+        ]
+    else:
+        default_robot_controllers = ["flexiv_arm_controller"]
+
+    robot_controller_str = robot_controller.perform(context)
+    robot_controller_names = (
+        [name.strip() for name in robot_controller_str.split(",") if name.strip()]
+        if robot_controller_str
+        else default_robot_controllers
+    )
+
     # Run controller manager
     ros2_control_node = Node(
         package="controller_manager",
@@ -321,7 +342,12 @@ def launch_setup(context):
     robot_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=[robot_controller, "--controller-manager", "/controller_manager"],
+        arguments=[
+            *robot_controller_names,
+            "--controller-manager",
+            "/controller_manager",
+            *(["--activate-as-group"] if len(robot_controller_names) > 1 else []),
+        ],
     )
 
     # Run joint state broadcaster
@@ -662,8 +688,11 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "robot_controller",
-            default_value="flexiv_arm_controller",
-            description="Robot controller to start. Available: flexiv_arm_controller",
+            default_value="",
+            description="Robot controller(s) to start, overriding the default set "
+            "for the robot type. Defaults to 'flexiv_arm_controller' for a single-arm robot, and "
+            "to 'left_flexiv_arm_controller,right_flexiv_arm_controller' for a dual-arm robot "
+            "(plus 'flexiv_torso_controller' on MICO-Plus / MICO-Ultra).",
         )
     )
 
@@ -712,7 +741,7 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "rdk_install_prefix",
-            default_value=os.path.expanduser("~/rdk_install"),
+            default_value=os.path.expanduser("~/rdk_install_v2"),
             description="Prefix where flexiv_rdk and its shared-library dependencies are installed.",
         )
     )
