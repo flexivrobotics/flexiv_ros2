@@ -68,6 +68,7 @@ jobs:
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.jazzy.repos
           package-name: |
             flexiv_bringup
+            flexiv_calibration
             flexiv_gripper
             flexiv_hardware
             flexiv_moveit_config
