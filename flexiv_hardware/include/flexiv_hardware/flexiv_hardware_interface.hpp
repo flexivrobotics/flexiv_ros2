@@ -34,6 +34,7 @@
 #include "flexiv/rdk/robot.hpp"
 
 #include "flexiv_hardware/fault_recovery.hpp"
+#include "flexiv_hardware/joint_impedance_config_node.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
 #include "flexiv_hardware/robot_system_control.hpp"
 
@@ -126,12 +127,12 @@ private:
     void StopIfOperational();
 
     /**
-     * @brief Bring up the recovery node on the controller manager's executor.
+     * @brief Bring up the recovery and joint impedance nodes on the controller manager's executor.
      * @return True on success, false if no executor is available.
      */
     bool StartSupervisoryNodes(const std::string& robot_sn);
 
-    /** @brief Tear down the recovery node and release the robot connection. */
+    /** @brief Tear down the supervisory nodes and release the robot connection. */
     void Disconnect();
 
     // Flexiv RDK
@@ -142,6 +143,18 @@ private:
     std::shared_ptr<DriverStatus> driver_status_;
     std::shared_ptr<RecoveryNode> recovery_node_;
     rclcpp::Executor::WeakPtr executor_;
+
+    // Joint impedance interface, hosted on the same executor. Advertised regardless of the
+    // configured control mode, so that a request against a joint_position driver is answered with
+    // an explanation instead of a missing service.
+    std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
+
+    // Arm joint groups in RDK order, and the DoF of each. The impedance setters are issued one
+    // group at a time, and only these groups report a nominal joint stiffness.
+    std::vector<std::pair<flexiv::rdk::JointGroup, size_t>> impedance_groups_;
+
+    // Index is the RDK arm-joint index, value is the index into the impedance joint list.
+    std::vector<size_t> impedance_rdk_to_ros_map_;
 
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;

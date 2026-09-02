@@ -27,6 +27,7 @@ add_library(
   src/flexiv_hardware_interface.cpp
   src/fault_recovery.cpp
   src/recovery_node.cpp
+  src/joint_impedance_config_node.cpp
 )
 
 target_include_directories(
@@ -76,6 +77,10 @@ if(BUILD_TESTING)
   ament_add_gtest(test_fault_recovery test/test_fault_recovery.cpp)
   target_include_directories(test_fault_recovery PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_link_libraries(test_fault_recovery ${PROJECT_NAME} flexiv::flexiv_rdk)
+
+  ament_add_gtest(test_joint_impedance_config_node test/test_joint_impedance_config_node.cpp)
+  target_include_directories(test_joint_impedance_config_node PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_link_libraries(test_joint_impedance_config_node ${PROJECT_NAME} flexiv::flexiv_rdk)
 endif()
 
 # EXPORTS

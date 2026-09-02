@@ -10,7 +10,10 @@ find_package(builtin_interfaces REQUIRED)
 set(msg_files
   msg/Digital.msg
   msg/GPIOStates.msg
+  msg/JointImpedance.msg
+  msg/JointInertiaScale.msg
   msg/JointPosVel.msg
+  msg/MaxContactTorque.msg
   msg/Mode.msg
   msg/OperationalStatus.msg
   msg/RecoveryPolicy.msg
@@ -20,6 +23,9 @@ set(msg_files
 
 set(srv_files
   srv/GetOperationalStatus.srv
+  srv/SetJointImpedance.srv
+  srv/SetJointInertiaScale.srv
+  srv/SetMaxContactTorque.srv
 )
 
 set(action_files
