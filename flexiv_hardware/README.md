@@ -5,7 +5,7 @@
 `FlexivHardwareInterface` drives the whole robot through a single RDK connection, whether that
 robot has one arm (Enlight-L), two arms (Enlight-LL, MICO-Core) or two arms plus a pan-tilt torso
 (MICO-Plus, MICO-Ultra). It exports position, velocity and effort command and state interfaces for
-every joint, plus the digital I/O ports and the per-joint-group Flexiv robot states.
+every joint, plus the 24 digital I/O ports and the per-joint-group Flexiv robot states.
 
 ## Error recovery
 

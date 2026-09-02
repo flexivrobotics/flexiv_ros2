@@ -246,7 +246,7 @@ See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance-conf
 
 ### GPIO
 
-All digital inputs can be accessed via the ROS topic `/{robot_sn}/gpio_inputs`, which publishes the current state of all 20 digital input ports (16 on the control box plus 2 in each wrist connector) exposed through the Flexiv control interface *(True: port high, false: port low)*.
+All digital inputs can be accessed via the ROS topic `/{robot_sn}/gpio_inputs`, which publishes the current state of all 24 digital input ports (16 on the control box, then the M8 connector of each wrist, then the pogo pin connector of each wrist, 2 ports each) exposed through the Flexiv control interface *(True: port high, false: port low)*.
 
 The digital output ports on the control box can be set by publishing to the topic `/{robot_sn}/gpio_outputs`. For example:
 
