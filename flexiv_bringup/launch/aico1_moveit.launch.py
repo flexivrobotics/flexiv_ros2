@@ -58,7 +58,9 @@ def launch_setup(context):
     robot_controller = LaunchConfiguration("robot_controller")
     robot_type = LaunchConfiguration("robot_type")
     external_axis_prefix = LaunchConfiguration("external_axis_prefix")
-    kinematics_params_file = LaunchConfiguration("kinematics_params_file").perform(context)
+    kinematics_params_file = LaunchConfiguration("kinematics_params_file").perform(
+        context
+    )
     # Passing an empty path through would reach xacro.load_yaml('') and abort.
     kinematics_xacro_arg = (
         f" kinematics_parameters_file:={kinematics_params_file}"
@@ -240,11 +242,15 @@ def launch_setup(context):
         {"$(var robot_sn)": prefix_str.rstrip("_")},
     )
 
-    # Load external axis joint limits
+    # Load external axis joint limits. The joint names carry the robot type
+    # lowercased with dashes as underscores, e.g. AICO1-4-V2 -> aico1_4_v2.
     external_axis_joint_limits = load_yaml(
         "flexiv_moveit_config",
         "config/aico/aico_joint_limits.yaml",
-        {"$(var external_axis_prefix)": external_axis_prefix_str},
+        {
+            "$(var external_axis_prefix)": external_axis_prefix_str,
+            "$(var external_axis_type)": robot_type_str.lower().replace("-", "_"),
+        },
     )
 
     joint_limits_yaml = {"robot_description_planning": {"joint_limits": {}}}

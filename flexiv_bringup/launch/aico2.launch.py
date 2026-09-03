@@ -21,6 +21,21 @@ from launch.substitutions import (
 )
 
 
+# Every AICO2 platform this driver supports. Keep in sync with the 'paired'
+# group in flexiv_description's config/robot_types.yaml.
+AICO2_TYPES = [
+    "AICO2-4-V1",
+    "AICO2-4-V2",
+    "AICO2-4-D3",
+    "AICO2-4E-D1",
+    "AICO2-4U-D1",
+    "AICO2-10-V1",
+    "AICO2-10-D2",
+    "AICO2-10E-D1",
+    "AICO2-10U-D1",
+]
+
+
 def generate_launch_description():
     arm_type_param_name = "arm_type"
     robot_sn_left_param_name = "robot_sn_left"
@@ -152,7 +167,7 @@ def generate_launch_description():
             robot_type_param_name,
             default_value="AICO2-4-V1",
             description="Type of the AICO2 platform.",
-            choices=["AICO2-4-V1", "AICO2-4-V2", "AICO2-10-V1"],
+            choices=AICO2_TYPES,
         )
     )
 
@@ -275,6 +290,13 @@ def generate_launch_description():
             ]
         ),
     )
+    # External axis joints are named after the robot type lowercased with dashes
+    # as underscores, e.g. AICO2-10E-D1 -> aico2_10e_d1. The controller config
+    # reads it as $(var external_axis_type).
+    set_external_axis_type = SetLaunchConfiguration(
+        name="external_axis_type",
+        value=PythonExpression(["'", robot_type, "'.lower().replace('-', '_')"]),
+    )
 
     # Get URDF via xacro
     flexiv_urdf_xacro = PathJoinSubstitution(
@@ -366,21 +388,13 @@ def generate_launch_description():
         condition=IfCondition(start_rviz),
     )
 
-    # Robot controllers
-    controller_file_name = PythonExpression(
-        [
-            "'aico2_10_v1_controllers.yaml' if '",
-            robot_type,
-            "' == 'AICO2-10-V1' else ('aico2_4_v2_controllers.yaml' if '",
-            robot_type,
-            "' == 'AICO2-4-V2' else 'aico2_4_v1_controllers.yaml')",
-        ]
-    )
+    # Robot controllers. One file covers every AICO2 platform: the external axis
+    # joint names come from $(var external_axis_type).
     robot_controllers = PathJoinSubstitution(
         [
             FindPackageShare("flexiv_bringup"),
             "config",
-            controller_file_name,
+            "aico2_controllers.yaml",
         ]
     )
 
@@ -397,6 +411,7 @@ def generate_launch_description():
             {"prefix_right": LaunchConfiguration("prefix_right")},
             {"rdk_control_mode": rdk_control_mode},
             {"external_axis_prefix": external_axis_prefix},
+            {"external_axis_type": LaunchConfiguration("external_axis_type")},
         ],
         remappings=[("joint_states", "flexiv_dual_arm/joint_states")],
         output="both",
@@ -646,6 +661,7 @@ def generate_launch_description():
     nodes = [
         set_prefix_left,
         set_prefix_right,
+        set_external_axis_type,
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
