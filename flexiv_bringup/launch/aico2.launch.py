@@ -61,9 +61,11 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             arm_type_param_name,
-            description="Type of the arm carried by the external axis.",
-            default_value="Rizon4",
-            choices=["Rizon4", "Rizon10"],
+            description="Arm carried by the platform. Empty picks the arm the "
+            "selected robot_type actually carries: Rizon4 for the AICO2-4 "
+            "platforms, Rizon10 for the AICO2-10 ones.",
+            default_value="",
+            choices=["", "Rizon4", "Rizon10"],
         )
     )
 
@@ -221,6 +223,26 @@ def generate_launch_description():
     kinematics_params_file_right = LaunchConfiguration(
         kinematics_params_file_right_param_name
     )
+    # Empty means 'use the arm this platform carries'. flexiv_description derives
+    # that from robot_type, so emitting the tokens unconditionally would shadow it
+    # and give an AICO2-10 platform Rizon4 arms.
+    arm_type_right = PythonExpression(
+        [
+            "{'Rizon4': 'Rizon4R', 'Rizon10': 'Rizon10R'}.get('",
+            arm_type,
+            "', '",
+            arm_type,
+            "')",
+        ]
+    )
+    arm_type_xacro_args = [
+        PythonExpression(
+            ["'arm_type_left:=", arm_type, " ' if '", arm_type, "' else ''"]
+        ),
+        PythonExpression(
+            ["'arm_type_right:=", arm_type_right, " ' if '", arm_type, "' else ''"]
+        ),
+    ]
     # Passing an empty path through would reach xacro.load_yaml('') and abort.
     kinematics_xacro_args = [
         PythonExpression(
@@ -310,22 +332,6 @@ def generate_launch_description():
                 " ",
                 flexiv_urdf_xacro,
                 " ",
-                "arm_type_left:=",
-                arm_type,
-                " ",
-                "arm_type_right:=",
-                PythonExpression(
-                    [
-                        "'Rizon4R' if '",
-                        arm_type,
-                        "' == 'Rizon4' else 'Rizon10R' if '",
-                        arm_type,
-                        "' == 'Rizon10' else '",
-                        arm_type,
-                        "'",
-                    ]
-                ),
-                " ",
                 "robot_sn_left:=",
                 robot_sn_left,
                 " ",
@@ -367,6 +373,7 @@ def generate_launch_description():
                 external_axis_prefix,
                 " ",
             ]
+            + arm_type_xacro_args
             + kinematics_xacro_args
         ),
         value_type=str,

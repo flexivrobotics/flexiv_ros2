@@ -73,7 +73,18 @@ def load_yaml(package_name, file_path, replacements=None):
 
 def launch_setup(context):
     # Initialize Arguments
-    arm_type = LaunchConfiguration("arm_type")
+    # Empty means 'use the arm this platform carries'. flexiv_description derives
+    # that from robot_type, so passing the tokens unconditionally would shadow it
+    # and give an AICO2-10 platform Rizon4 arms.
+    arm_type_str = LaunchConfiguration("arm_type").perform(context)
+    arm_type_xacro_args = ""
+    if arm_type_str:
+        arm_type_right = {"Rizon4": "Rizon4R", "Rizon10": "Rizon10R"}.get(
+            arm_type_str, arm_type_str
+        )
+        arm_type_xacro_args = (
+            f" arm_type_left:={arm_type_str} arm_type_right:={arm_type_right}"
+        )
     robot_sn_left = LaunchConfiguration("robot_sn_left")
     robot_sn_right = LaunchConfiguration("robot_sn_right")
 
@@ -164,22 +175,7 @@ def launch_setup(context):
                 PathJoinSubstitution([FindExecutable(name="xacro")]),
                 " ",
                 flexiv_urdf_xacro,
-                " ",
-                "arm_type_left:=",
-                arm_type,
-                " ",
-                "arm_type_right:=",
-                PythonExpression(
-                    [
-                        "'Rizon4R' if '",
-                        arm_type,
-                        "' == 'Rizon4' else 'Rizon10R' if '",
-                        arm_type,
-                        "' == 'Rizon10' else '",
-                        arm_type,
-                        "'",
-                    ]
-                ),
+                arm_type_xacro_args,
                 " ",
                 "robot_sn_left:=",
                 robot_sn_left,
@@ -724,9 +720,11 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "arm_type",
-            default_value="Rizon4",
-            description="Type of the arm carried by the external axis.",
-            choices=["Rizon4", "Rizon10"],
+            default_value="",
+            description="Arm carried by the platform. Empty picks the arm the "
+            "selected robot_type actually carries: Rizon4 for the AICO2-4 "
+            "platforms, Rizon10 for the AICO2-10 ones.",
+            choices=["", "Rizon4", "Rizon10"],
         )
     )
 
