@@ -18,6 +18,7 @@
     initial_positions_file_left
     initial_positions_file_right
     torso_initial_positions_file
+    num_gpio_ports:=24
     ">
 
     <xacro:include filename="$(find flexiv_description)/urdf/common/flexiv_common.xacro" />
@@ -93,11 +94,14 @@
         <state_interface name="effort" />
       </joint>
 
-      <!-- Single GPIO block for the whole robot. 20 ports -->
+      <!-- Single GPIO block for the whole robot. -->
+      <!-- Digital IO ports, matching flexiv::rdk::kIOPorts: 16 on the control box, then the
+           M8 connector of each wrist (2 ports per wrist), then the pogo pin connector of each
+           wrist (2 ports per wrist). -->
       <xacro:macro name="mico_loop_gpio" params="idx">
         <command_interface name="digital_output_${idx}" />
         <state_interface name="digital_input_${idx}" />
-        <xacro:if value="${idx &lt; 19}">
+        <xacro:if value="${idx &lt; num_gpio_ports - 1}">
           <xacro:mico_loop_gpio idx="${idx+1}" />
         </xacro:if>
       </xacro:macro>

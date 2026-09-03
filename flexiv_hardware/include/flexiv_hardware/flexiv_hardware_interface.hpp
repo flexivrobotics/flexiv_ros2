@@ -9,6 +9,7 @@
 #ifndef FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 #define FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 
+#include <chrono>
 #include <memory>
 #include <map>
 #include <string>
@@ -32,6 +33,11 @@
 // Flexiv
 #include "flexiv/rdk/robot.hpp"
 
+#include "flexiv_hardware/fault_recovery.hpp"
+#include "flexiv_hardware/joint_impedance_config_node.hpp"
+#include "flexiv_hardware/recovery_node.hpp"
+#include "flexiv_hardware/robot_system_control.hpp"
+
 namespace flexiv_hardware {
 
 enum StoppingInterface
@@ -49,6 +55,18 @@ public:
 
     hardware_interface::CallbackReturn on_init(
         const hardware_interface::HardwareComponentInterfaceParams& params) override;
+
+    hardware_interface::CallbackReturn on_configure(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    hardware_interface::CallbackReturn on_cleanup(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    hardware_interface::CallbackReturn on_shutdown(
+        const rclcpp_lifecycle::State& previous_state) override;
+
+    hardware_interface::CallbackReturn on_error(
+        const rclcpp_lifecycle::State& previous_state) override;
 
     std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
@@ -75,8 +93,68 @@ public:
         const rclcpp::Time& time, const rclcpp::Duration& period) override;
 
 private:
+    /**
+     * @brief [Blocking] Connect to the robot named by the 'robot_sn' hardware parameter, unless a
+     * connection is already open.
+     * @return True on success, false if the connection could not be established.
+     */
+    bool Connect();
+
+    /**
+     * @brief [Blocking] Wait for the robot to become operational, up to [timeout]. Logs the
+     * operational status while waiting so a stuck robot explains itself.
+     * @return True if the robot became operational, false on timeout.
+     */
+    bool WaitUntilOperational(std::chrono::seconds timeout);
+
+    /**
+     * @brief Set the joint command buffers to hold the currently measured position, so that
+     * resuming control cannot apply a stale command.
+     */
+    void SynchronizeCommandsWithState();
+
+    /**
+     * @brief Notice a robot that was moved while the driver was not ready, and warn about it once
+     * on the return to READY. Called from read().
+     */
+    void TrackPositionChangeAcrossInterruption();
+
+    /**
+     * @brief [Blocking] Stop the robot, but only if it is operational. Stop() switches the control
+     * mode internally, which the robot rejects unless it is operational -- and a robot that is not
+     * operational is not executing anything, so there is nothing to stop.
+     */
+    void StopIfOperational();
+
+    /**
+     * @brief Bring up the recovery and joint impedance nodes on the controller manager's executor.
+     * @return True on success, false if no executor is available.
+     */
+    bool StartSupervisoryNodes(const std::string& robot_sn);
+
+    /** @brief Tear down the supervisory nodes and release the robot connection. */
+    void Disconnect();
+
     // Flexiv RDK
     std::unique_ptr<flexiv::rdk::Robot> robot_;
+
+    // Recovery interface, hosted on the controller manager's executor
+    std::unique_ptr<RobotSystemControl> robot_system_control_;
+    std::shared_ptr<DriverStatus> driver_status_;
+    std::shared_ptr<RecoveryNode> recovery_node_;
+    rclcpp::Executor::WeakPtr executor_;
+
+    // Joint impedance interface, hosted on the same executor. Advertised regardless of the
+    // configured control mode, so that a request against a joint_position driver is answered with
+    // an explanation instead of a missing service.
+    std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
+
+    // Arm joint groups in RDK order, and the DoF of each. The impedance setters are issued one
+    // group at a time, and only these groups report a nominal joint stiffness.
+    std::vector<std::pair<flexiv::rdk::JointGroup, size_t>> impedance_groups_;
+
+    // Index is the RDK arm-joint index, value is the index into the impedance joint list.
+    std::vector<size_t> impedance_rdk_to_ros_map_;
 
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;
@@ -106,6 +184,11 @@ private:
     // GPIO commands and states
     std::vector<double> hw_commands_gpio_out_;
     std::vector<double> hw_states_gpio_in_;
+
+    // Joint positions as last measured before the driver left READY, for detecting a robot that
+    // was moved while it was not being commanded. Empty while the driver is ready.
+    std::vector<double> positions_before_interruption_;
+    bool was_ready_ = false;
 
     // Map from RDK joint index to ROS joint index
     // RDK expects: [ext_axis_1, ..., ext_axis_N, arm_joint_1, ..., arm_joint_7]

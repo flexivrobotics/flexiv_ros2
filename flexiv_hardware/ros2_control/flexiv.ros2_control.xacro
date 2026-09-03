@@ -10,7 +10,7 @@
     use_fake_hardware:=false
     fake_sensor_commands:=false
     initial_positions_file
-    num_gpio_ports:=20
+    num_gpio_ports:=24
     ">
 
     <xacro:property name="initial_positions" value="${xacro.load_yaml(initial_positions_file)['initial_positions']}"/>
@@ -108,8 +108,9 @@
         <state_interface name="effort" />
       </joint>
 
-      <!-- Digital IO ports: 16 on the control box plus 2 in each wrist connector.
-           Enlight-L and MICO have two wrist connectors (20); Rizon has one (18). -->
+      <!-- Digital IO ports, matching flexiv::rdk::kIOPorts: 16 on the control box, then the
+           M8 connector of each wrist (2 ports per wrist), then the pogo pin connector of each
+           wrist (2 ports per wrist). -->
       <xacro:macro name="loop_gpio" params="idx">
         <command_interface name="digital_output_${idx}" />
         <state_interface name="digital_input_${idx}" />
