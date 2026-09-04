@@ -73,10 +73,6 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk/thirdparty
-<<<<<<< HEAD
-   source /opt/ros/humble/setup.bash
-=======
->>>>>>> c327289 (Feature/Support the new AICO2 external axis types (#128))
    bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
    ```
 
@@ -114,12 +110,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk/thirdparty
-<<<<<<< HEAD
-   source /opt/ros/humble/setup.bash
-   bash build_and_install_dependencies.sh ~/flexiv_install
-=======
    bash build_and_install_dependencies.sh ~/flexiv_install 8 --skip-rdk
->>>>>>> c327289 (Feature/Support the new AICO2 external axis types (#128))
    ```
 
 3. Configure and install `flexiv_drdk`:
@@ -128,11 +119,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
    cd ~/flexiv_ros2_ws/src/flexiv_drdk
    rm -rf build && mkdir build && cd build
    cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
-<<<<<<< HEAD
-   cmake --build . --target install --config Release
-=======
    make install
->>>>>>> c327289 (Feature/Support the new AICO2 external axis types (#128))
    ```
 
 4. Rebuild the workspace with both RDK and DRDK installation paths:
