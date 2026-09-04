@@ -71,7 +71,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk/thirdparty
-   bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
+   bash build_and_install_dependencies.sh ~/flexiv_install
    ```
 
 6. Configure and install `flexiv_rdk`:
