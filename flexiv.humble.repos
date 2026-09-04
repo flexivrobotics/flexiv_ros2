@@ -2,8 +2,12 @@ repositories:
   flexiv_description:
     type: git
     url: https://github.com/flexivrobotics/flexiv_description.git
+<<<<<<< HEAD:flexiv.humble.repos
     version: humble-v3.0
+=======
+    version: jazzy-v3.1
+>>>>>>> c327289 (Feature/Support the new AICO2 external axis types (#128)):flexiv.jazzy.repos
   flexiv_rdk:
     type: git
     url: https://github.com/flexivrobotics/flexiv_rdk.git
-    version: v1.9.3
+    version: release/v1.9.4
