@@ -70,9 +70,10 @@
       <xacro:configure_joint joint_name="${prefix_left}joint6" initial_pos="${initial_positions_left['joint6']}" />
       <xacro:configure_joint joint_name="${prefix_left}joint7" initial_pos="${initial_positions_left['joint7']}" />
 
-      <!-- External axis joints -->
-      <xacro:if value="${external_axis_type == 'aico2_4_v1'}">
-        <joint name="${external_axis_prefix}aico2_4_v1_joint1">
+      <!-- External axis joints. Every AICO2 axis exposes joint1 and joint2, named
+           after the robot type lowercased with dashes as underscores. -->
+      <xacro:if value="${external_axis_type.startswith('aico2')}">
+        <joint name="${external_axis_prefix}${external_axis_type}_joint1">
           <command_interface name="position" />
           <command_interface name="velocity" />
           <command_interface name="effort" />
@@ -82,51 +83,7 @@
           <state_interface name="velocity" />
           <state_interface name="effort" />
         </joint>
-        <joint name="${external_axis_prefix}aico2_4_v1_joint2">
-          <command_interface name="position" />
-          <command_interface name="velocity" />
-          <command_interface name="effort" />
-          <state_interface name="position">
-            <param name="initial_value">0.0</param>
-          </state_interface>
-          <state_interface name="velocity" />
-          <state_interface name="effort" />
-        </joint>
-      </xacro:if>
-      <xacro:if value="${external_axis_type == 'aico2_4_v2'}">
-        <joint name="${external_axis_prefix}aico2_4_v2_joint1">
-          <command_interface name="position" />
-          <command_interface name="velocity" />
-          <command_interface name="effort" />
-          <state_interface name="position">
-            <param name="initial_value">0.0</param>
-          </state_interface>
-          <state_interface name="velocity" />
-          <state_interface name="effort" />
-        </joint>
-        <joint name="${external_axis_prefix}aico2_4_v2_joint2">
-          <command_interface name="position" />
-          <command_interface name="velocity" />
-          <command_interface name="effort" />
-          <state_interface name="position">
-            <param name="initial_value">0.0</param>
-          </state_interface>
-          <state_interface name="velocity" />
-          <state_interface name="effort" />
-        </joint>
-      </xacro:if>
-      <xacro:if value="${external_axis_type == 'aico2_10_v1'}">
-        <joint name="${external_axis_prefix}aico2_10_v1_joint1">
-          <command_interface name="position" />
-          <command_interface name="velocity" />
-          <command_interface name="effort" />
-          <state_interface name="position">
-            <param name="initial_value">0.0</param>
-          </state_interface>
-          <state_interface name="velocity" />
-          <state_interface name="effort" />
-        </joint>
-        <joint name="${external_axis_prefix}aico2_10_v1_joint2">
+        <joint name="${external_axis_prefix}${external_axis_type}_joint2">
           <command_interface name="position" />
           <command_interface name="velocity" />
           <command_interface name="effort" />
