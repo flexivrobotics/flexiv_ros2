@@ -1,50 +1,19 @@
+# Velocity and acceleration caps for the external axis joints, shared by AICO1
+# and AICO2. The axis name is the robot type lowercased with dashes as
+# underscores (AICO2-10E-D1 -> aico2_10e_d1), so one pair of entries covers
+# every model. Joints a given model does not have are simply not matched.
 joint_limits:
-  $(var external_axis_prefix)aico1_4_v1_joint2:
+  $(var external_axis_prefix)$(var external_axis_type)_joint1:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 1.0
-  $(var external_axis_prefix)aico1_4_v2_joint1:
-    has_velocity_limits: true
-    max_velocity: 1.0
-    has_acceleration_limits: true
-    max_acceleration: 1.0
-  $(var external_axis_prefix)aico1_4_v2_joint2:
+  $(var external_axis_prefix)$(var external_axis_type)_joint2:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true
     max_acceleration: 1.0
   $(var external_axis_prefix)aico1_4_v2_joint_head:
-    has_velocity_limits: true
-    max_velocity: 1.0
-    has_acceleration_limits: true
-    max_acceleration: 1.0
-  $(var external_axis_prefix)aico2_4_v1_joint1:
-    has_velocity_limits: true
-    max_velocity: 1.0
-    has_acceleration_limits: true
-    max_acceleration: 1.0
-  $(var external_axis_prefix)aico2_4_v1_joint2:
-    has_velocity_limits: true
-    max_velocity: 1.0
-    has_acceleration_limits: true
-    max_acceleration: 1.0
-  $(var external_axis_prefix)aico2_4_v2_joint1:
-    has_velocity_limits: true
-    max_velocity: 1.0
-    has_acceleration_limits: true
-    max_acceleration: 1.0
-  $(var external_axis_prefix)aico2_4_v2_joint2:
-    has_velocity_limits: true
-    max_velocity: 1.0
-    has_acceleration_limits: true
-    max_acceleration: 1.0
-  $(var external_axis_prefix)aico2_10_v1_joint1:
-    has_velocity_limits: true
-    max_velocity: 1.0
-    has_acceleration_limits: true
-    max_acceleration: 1.0
-  $(var external_axis_prefix)aico2_10_v1_joint2:
     has_velocity_limits: true
     max_velocity: 1.0
     has_acceleration_limits: true

@@ -47,25 +47,24 @@ jobs:
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
-          git clone --branch v1.9.3 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
+          git clone --branch release/v1.9.4 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
-          source /opt/ros/humble/setup.bash
-          bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
+          bash build_and_install_dependencies.sh ~/flexiv_install $(nproc)
           cd ..
           mkdir -p build && cd build
           cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
-          cmake --build . --target install --config Release
-      - name: Build and install flexiv_drdk
-        shell: bash
-        run: |
-          git clone --branch v1.2.3 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
-          cd flexiv_drdk/thirdparty
-          source /opt/ros/humble/setup.bash
-          bash build_and_install_dependencies.sh ~/flexiv_install
-          cd ..
-          mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
-          cmake --build . --target install --config Release
+          cmake --build . --target install --config Release -j $(nproc)
+      # No flexiv_drdk release is compatible with RDK v1.9.4 yet
+      # - name: Build and install flexiv_drdk
+      #   shell: bash
+      #   run: |
+      #     git clone --branch v1.2.3 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
+      #     cd flexiv_drdk/thirdparty
+      #     bash build_and_install_dependencies.sh ~/flexiv_install $(nproc) --skip-rdk
+      #     cd ..
+      #     mkdir -p build && cd build
+      #     cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
+      #     cmake --build . --target install --config Release -j $(nproc)
       - name: Build and run tests
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.4

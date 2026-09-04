@@ -52,6 +52,11 @@ if(flexiv_drdk_FOUND)
   )
   target_compile_definitions(${PROJECT_NAME} PRIVATE FLEXIV_DRDK_AVAILABLE)
   message(STATUS "Flexiv DRDK library found and linked.")
+else()
+  message(STATUS
+    "Flexiv DRDK library not found: FlexivDualHardwareInterface is not built, so the "
+    "paired robot types (Rizon-Dual and the AICO2 platforms) cannot run on real "
+    "hardware. They still work with use_fake_hardware:=true.")
 endif()
 
 # Link ROS packages
@@ -66,6 +71,13 @@ ament_target_dependencies(
 )
 
 pluginlib_export_plugin_description_file(hardware_interface flexiv_hardware_interface_plugin.xml)
+
+# FlexivDualHardwareInterface only exists when DRDK was found. Declaring it
+# unconditionally makes pluginlib resolve a class that is absent from the
+# library, which fails in the class loader with no usable diagnostic.
+if(flexiv_drdk_FOUND)
+  pluginlib_export_plugin_description_file(hardware_interface flexiv_dual_hardware_interface_plugin.xml)
+endif()
 
 # INSTALL
 install(
