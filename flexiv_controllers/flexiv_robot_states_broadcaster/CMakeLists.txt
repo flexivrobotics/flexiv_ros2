@@ -28,6 +28,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
 find_package(flexiv_rdk REQUIRED)
+find_package(flexiv_drdk QUIET)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   builtin_interfaces

@@ -25,6 +25,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(flexiv_rdk REQUIRED)
+find_package(flexiv_drdk QUIET)
 
 add_library(gripper_action_server
   SHARED
