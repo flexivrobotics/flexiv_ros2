@@ -54,17 +54,16 @@ jobs:
           mkdir -p build && cd build
           cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
           cmake --build . --target install --config Release -j $(nproc)
-      # No flexiv_drdk release is compatible with RDK v1.9.4 yet
-      # - name: Build and install flexiv_drdk
-      #   shell: bash
-      #   run: |
-      #     git clone --branch v1.2.3 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
-      #     cd flexiv_drdk/thirdparty
-      #     bash build_and_install_dependencies.sh ~/flexiv_install $(nproc) --skip-rdk
-      #     cd ..
-      #     mkdir -p build && cd build
-      #     cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
-      #     cmake --build . --target install --config Release -j $(nproc)
+      - name: Build and install flexiv_drdk
+        shell: bash
+        run: |
+          git clone --branch release/v1.2.4 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
+          cd flexiv_drdk/thirdparty
+          bash build_and_install_dependencies.sh ~/flexiv_install $(nproc) --skip-rdk
+          cd ..
+          mkdir -p build && cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DCMAKE_PREFIX_PATH=~/flexiv_install
+          cmake --build . --target install --config Release -j $(nproc)
       - name: Build and run tests
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.4

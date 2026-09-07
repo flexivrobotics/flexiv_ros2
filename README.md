@@ -102,7 +102,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src
-   git clone --branch v1.2.3 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
+   git clone --branch release/v1.2.4 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
    touch flexiv_drdk/COLCON_IGNORE
    ```
 
@@ -110,7 +110,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk/thirdparty
-   bash build_and_install_dependencies.sh ~/flexiv_install 8 --skip-rdk
+   bash build_and_install_dependencies.sh ~/flexiv_install --skip-rdk
    ```
 
 3. Configure and install `flexiv_drdk`:
@@ -118,8 +118,8 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk
    rm -rf build && mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
-   make install
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DCMAKE_PREFIX_PATH=~/flexiv_install
+   cmake --build . --target install --config Release
    ```
 
 4. Rebuild the workspace with both RDK and DRDK installation paths:
