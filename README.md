@@ -191,6 +191,26 @@ The aggregated `/${robot_sn}/flexiv_robot_states` message also includes the unfi
 
 For dual-arm models (*Enlight-LL*, *MICO-Core*, *MICO-Plus*, *MICO-Ultra*) two robot-states broadcasters run, publishing per-arm states under `left_`/`right_`-prefixed names, e.g. `/left_${robot_sn}/flexiv_robot_states` and `/right_${robot_sn}/flexiv_robot_states` (and the corresponding `tcp_pose`, `tcp_twist`, wrench topics). `/joint_states` contains all 14 arm joints with `left_`/`right_` prefixes (plus the `${robot_sn}_torso_joint1/2` joints on *MICO-Plus*/*MICO-Ultra*).
 
+### Fault Handling and Recovery
+
+A fault stops the robot and drops it to `IDLE` control mode. The driver keeps running, publishes the
+reason, and exposes a recovery action:
+
+```bash
+# Step 1: Diagnose the fault
+ros2 topic echo /Enlight_L_123456/flexiv_recovery_node/operational_status
+
+# Step 2: Clear the fault and servo the robot back on
+ros2 action send_goal /Enlight_L_123456/flexiv_recovery_node/error_recovery \
+  flexiv_msgs/action/ErrorRecovery "{}" --feedback
+
+# Step 3: Restore the control mode, e.g. RT_JOINT_POSITION for the position interface
+ros2 control switch_controllers \
+  --deactivate flexiv_arm_controller --activate flexiv_arm_controller
+```
+
+See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#error-recovery) for the recovery policies, the `ClearFault()` guidance and the dual-arm notes.
+
 ### GPIO
 
 All digital inputs can be accessed via the ROS topic `/{robot_sn}/gpio_inputs`, which publishes the current state of all 24 digital input ports (16 on the control box, then the M8 connector of each wrist, then the pogo pin connector of each wrist, 2 ports each) exposed through the Flexiv control interface *(True: port high, false: port low)*.

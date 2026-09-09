@@ -12,20 +12,25 @@ set(msg_files
   msg/GPIOStates.msg
   msg/JointPosVel.msg
   msg/Mode.msg
+  msg/OperationalStatus.msg
+  msg/RecoveryPolicy.msg
+  msg/RobotEvent.msg
   msg/RobotStates.msg
 )
 
-# set(srv_files
-# )
+set(srv_files
+  srv/GetOperationalStatus.srv
+)
 
 set(action_files
+  action/ErrorRecovery.action
   action/Grasp.action
   action/Move.action
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
-  # ${srv_files}
+  ${srv_files}
   ${action_files}
   DEPENDENCIES
     std_msgs
