@@ -162,7 +162,7 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
 
 - `robot_sn_left` (*required for dual robot setup*) - Serial number of the left robot to connect to. Remove any space, for example: Rizon4-123456
 - `robot_sn_right` (*required for dual robot setup*) - Serial number of the right robot to connect to. Remove any space, for example: Rizon4R-654321
-- `robot_type` (default: *AICO1-4-V1*) - type of the Flexiv AICO1 robot platform. Options: *AICO1-4-V1* or *AICO1-4-V2*
+- `robot_type` (default: *AICO1-4-V1* for `aico1.launch.py`, *AICO2-4-V1* for `aico2.launch.py`) - type of the Flexiv AICO robot platform. AICO1 options: *AICO1-4-V1*, *AICO1-4-V2*. AICO2 options: *AICO2-4-V1*, *AICO2-4-V2*, *AICO2-4-D3*, *AICO2-4E-D1*, *AICO2-4U-D1*, *AICO2-10-V1*, *AICO2-10-D2*, *AICO2-10E-D1*, *AICO2-10U-D1*
 - `kinematics_params_file_left`, `kinematics_params_file_right` (default: *empty*, dual robot setups) - per-arm equivalents of `kinematics_params_file`.
 
 ### Example Commands
@@ -208,6 +208,12 @@ ros2 launch flexiv_bringup aico1.launch.py robot_sn:=[robot_sn] robot_type:=AICO
 ros2 launch flexiv_bringup aico2.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-4-V1
 ```
 
+**AICO2-10** robot:
+
+```bash
+ros2 launch flexiv_bringup aico2.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-10E-D1
+```
+
 ### Using MoveIt
 
 You can also run the MoveIt example and use the `MotionPlanning` plugin in RViZ to start planning:
@@ -238,6 +244,12 @@ With AICO2-4 setup:
 
 ```bash
 ros2 launch flexiv_bringup aico2_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-4-V1
+```
+
+With AICO2-10 setup:
+
+```bash
+ros2 launch flexiv_bringup aico2_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-10E-D1
 ```
 
 ### Robot States

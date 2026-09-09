@@ -33,110 +33,41 @@
     <xacro:rizon_srdf prefix="${prefix_right}"
         load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" use_virtual_joint="false" />
 
-    <!-- Virtual Joint and External Axis Group -->
-    <xacro:if value="${axis_name == 'aico2_4_v1'}">
-        <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
-            child_link="${external_axis_prefix}aico2_4_v1_base_link" />
-        <group name="${external_axis_prefix}aico2_4_v1_platform_${prefix_left}arm">
-            <chain base_link="${external_axis_prefix}aico2_4_v1_base_link" tip_link="${prefix_left}flange" />
-        </group>
-    </xacro:if>
-    <xacro:if value="${axis_name == 'aico2_4_v2'}">
-        <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
-            child_link="${external_axis_prefix}aico2_4_v2_base_link" />
-        <group name="${external_axis_prefix}aico2_4_v2_platform_${prefix_left}arm">
-            <chain base_link="${external_axis_prefix}aico2_4_v2_base_link" tip_link="${prefix_left}flange" />
-        </group>
-    </xacro:if>
-    <xacro:if value="${axis_name == 'aico2_10_v1'}">
-        <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
-            child_link="${external_axis_prefix}aico2_10_v1_base_link" />
-        <group name="${external_axis_prefix}aico2_10_v1_platform_${prefix_left}arm">
-            <chain base_link="${external_axis_prefix}aico2_10_v1_base_link" tip_link="${prefix_left}flange" />
-        </group>
-    </xacro:if>
+    <!-- Virtual Joint and External Axis Group. Every AICO2 axis has the same
+         base_link/link1/link2 topology, so one block covers all of them. -->
+    <xacro:property name="axis" value="${external_axis_prefix}${axis_name}" />
+
+    <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
+        child_link="${axis}_base_link" />
+    <group name="${axis}_platform_${prefix_left}arm">
+        <chain base_link="${axis}_base_link" tip_link="${prefix_left}flange" />
+    </group>
 
     <!-- External Axis Collisions -->
-    <xacro:if value="${axis_name == 'aico2_4_v1'}">
-        <!-- Left Arm -->
-        <disable_collisions link1="${prefix_left}base_link" link2="${external_axis_prefix}aico2_4_v1_link2" reason="Adjacent" />
-        <disable_collisions link1="${prefix_left}base_link" link2="${external_axis_prefix}aico2_4_v1_link1" reason="Never" />
-        <disable_collisions link1="${prefix_left}base_link" link2="${external_axis_prefix}aico2_4_v1_base_link" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${external_axis_prefix}aico2_4_v1_link2" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${external_axis_prefix}aico2_4_v1_link1" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${external_axis_prefix}aico2_4_v1_base_link" reason="Never" />
+    <!-- Left Arm -->
+    <disable_collisions link1="${prefix_left}base_link" link2="${axis}_link2" reason="Adjacent" />
+    <disable_collisions link1="${prefix_left}base_link" link2="${axis}_link1" reason="Never" />
+    <disable_collisions link1="${prefix_left}base_link" link2="${axis}_base_link" reason="Never" />
+    <disable_collisions link1="${prefix_left}link1" link2="${axis}_link2" reason="Never" />
+    <disable_collisions link1="${prefix_left}link1" link2="${axis}_link1" reason="Never" />
+    <disable_collisions link1="${prefix_left}link1" link2="${axis}_base_link" reason="Never" />
 
-        <!-- Right Arm -->
-        <disable_collisions link1="${prefix_right}base_link" link2="${external_axis_prefix}aico2_4_v1_link2" reason="Adjacent" />
-        <disable_collisions link1="${prefix_right}base_link" link2="${external_axis_prefix}aico2_4_v1_link1" reason="Never" />
-        <disable_collisions link1="${prefix_right}base_link" link2="${external_axis_prefix}aico2_4_v1_base_link" reason="Never" />
-        <disable_collisions link1="${prefix_right}link1" link2="${external_axis_prefix}aico2_4_v1_link2" reason="Never" />
-        <disable_collisions link1="${prefix_right}link1" link2="${external_axis_prefix}aico2_4_v1_link1" reason="Never" />
-        <disable_collisions link1="${prefix_right}link1" link2="${external_axis_prefix}aico2_4_v1_base_link" reason="Never" />
+    <!-- Right Arm -->
+    <disable_collisions link1="${prefix_right}base_link" link2="${axis}_link2" reason="Adjacent" />
+    <disable_collisions link1="${prefix_right}base_link" link2="${axis}_link1" reason="Never" />
+    <disable_collisions link1="${prefix_right}base_link" link2="${axis}_base_link" reason="Never" />
+    <disable_collisions link1="${prefix_right}link1" link2="${axis}_link2" reason="Never" />
+    <disable_collisions link1="${prefix_right}link1" link2="${axis}_link1" reason="Never" />
+    <disable_collisions link1="${prefix_right}link1" link2="${axis}_base_link" reason="Never" />
 
-        <!-- Left and Right Arms -->
-        <disable_collisions link1="${prefix_left}base_link" link2="${prefix_right}base_link" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${prefix_right}link1" reason="Never" />
+    <!-- Left and Right Arms -->
+    <disable_collisions link1="${prefix_left}base_link" link2="${prefix_right}base_link" reason="Never" />
+    <disable_collisions link1="${prefix_left}link1" link2="${prefix_right}link1" reason="Never" />
 
-        <!-- External Axis internal -->
-        <disable_collisions link1="${external_axis_prefix}aico2_4_v1_base_link" link2="${external_axis_prefix}aico2_4_v1_link1" reason="Adjacent" />
-        <disable_collisions link1="${external_axis_prefix}aico2_4_v1_base_link" link2="${external_axis_prefix}aico2_4_v1_link2" reason="Never" />
-        <disable_collisions link1="${external_axis_prefix}aico2_4_v1_link1" link2="${external_axis_prefix}aico2_4_v1_link2" reason="Adjacent" />
-    </xacro:if>
-
-    <xacro:if value="${axis_name == 'aico2_4_v2'}">
-        <!-- Left Arm -->
-        <disable_collisions link1="${prefix_left}base_link" link2="${external_axis_prefix}aico2_4_v2_link2" reason="Adjacent" />
-        <disable_collisions link1="${prefix_left}base_link" link2="${external_axis_prefix}aico2_4_v2_link1" reason="Never" />
-        <disable_collisions link1="${prefix_left}base_link" link2="${external_axis_prefix}aico2_4_v2_base_link" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${external_axis_prefix}aico2_4_v2_link2" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${external_axis_prefix}aico2_4_v2_link1" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${external_axis_prefix}aico2_4_v2_base_link" reason="Never" />
-
-        <!-- Right Arm -->
-        <disable_collisions link1="${prefix_right}base_link" link2="${external_axis_prefix}aico2_4_v2_link2" reason="Adjacent" />
-        <disable_collisions link1="${prefix_right}base_link" link2="${external_axis_prefix}aico2_4_v2_link1" reason="Never" />
-        <disable_collisions link1="${prefix_right}base_link" link2="${external_axis_prefix}aico2_4_v2_base_link" reason="Never" />
-        <disable_collisions link1="${prefix_right}link1" link2="${external_axis_prefix}aico2_4_v2_link2" reason="Never" />
-        <disable_collisions link1="${prefix_right}link1" link2="${external_axis_prefix}aico2_4_v2_link1" reason="Never" />
-        <disable_collisions link1="${prefix_right}link1" link2="${external_axis_prefix}aico2_4_v2_base_link" reason="Never" />
-
-        <!-- Left and Right Arms -->
-        <disable_collisions link1="${prefix_left}base_link" link2="${prefix_right}base_link" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${prefix_right}link1" reason="Never" />
-
-        <!-- External Axis internal -->
-        <disable_collisions link1="${external_axis_prefix}aico2_4_v2_base_link" link2="${external_axis_prefix}aico2_4_v2_link1" reason="Adjacent" />
-        <disable_collisions link1="${external_axis_prefix}aico2_4_v2_base_link" link2="${external_axis_prefix}aico2_4_v2_link2" reason="Never" />
-        <disable_collisions link1="${external_axis_prefix}aico2_4_v2_link1" link2="${external_axis_prefix}aico2_4_v2_link2" reason="Adjacent" />
-    </xacro:if>
-
-    <xacro:if value="${axis_name == 'aico2_10_v1'}">
-        <!-- Left Arm -->
-        <disable_collisions link1="${prefix_left}base_link" link2="${external_axis_prefix}aico2_10_v1_link2" reason="Adjacent" />
-        <disable_collisions link1="${prefix_left}base_link" link2="${external_axis_prefix}aico2_10_v1_link1" reason="Never" />
-        <disable_collisions link1="${prefix_left}base_link" link2="${external_axis_prefix}aico2_10_v1_base_link" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${external_axis_prefix}aico2_10_v1_link2" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${external_axis_prefix}aico2_10_v1_link1" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${external_axis_prefix}aico2_10_v1_base_link" reason="Never" />
-
-        <!-- Right Arm -->
-        <disable_collisions link1="${prefix_right}base_link" link2="${external_axis_prefix}aico2_10_v1_link2" reason="Adjacent" />
-        <disable_collisions link1="${prefix_right}base_link" link2="${external_axis_prefix}aico2_10_v1_link1" reason="Never" />
-        <disable_collisions link1="${prefix_right}base_link" link2="${external_axis_prefix}aico2_10_v1_base_link" reason="Never" />
-        <disable_collisions link1="${prefix_right}link1" link2="${external_axis_prefix}aico2_10_v1_link2" reason="Never" />
-        <disable_collisions link1="${prefix_right}link1" link2="${external_axis_prefix}aico2_10_v1_link1" reason="Never" />
-        <disable_collisions link1="${prefix_right}link1" link2="${external_axis_prefix}aico2_10_v1_base_link" reason="Never" />
-
-        <!-- Left and Right Arms -->
-        <disable_collisions link1="${prefix_left}base_link" link2="${prefix_right}base_link" reason="Never" />
-        <disable_collisions link1="${prefix_left}link1" link2="${prefix_right}link1" reason="Never" />
-
-        <!-- External Axis internal -->
-        <disable_collisions link1="${external_axis_prefix}aico2_10_v1_base_link" link2="${external_axis_prefix}aico2_10_v1_link1" reason="Adjacent" />
-        <disable_collisions link1="${external_axis_prefix}aico2_10_v1_base_link" link2="${external_axis_prefix}aico2_10_v1_link2" reason="Never" />
-        <disable_collisions link1="${external_axis_prefix}aico2_10_v1_link1" link2="${external_axis_prefix}aico2_10_v1_link2" reason="Adjacent" />
-    </xacro:if>
+    <!-- External Axis internal -->
+    <disable_collisions link1="${axis}_base_link" link2="${axis}_link1" reason="Adjacent" />
+    <disable_collisions link1="${axis}_base_link" link2="${axis}_link2" reason="Never" />
+    <disable_collisions link1="${axis}_link1" link2="${axis}_link2" reason="Adjacent" />
 
     <!-- Load grippers -->
     <xacro:if value="$(arg load_gripper_left)">

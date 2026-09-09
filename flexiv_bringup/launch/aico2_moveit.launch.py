@@ -26,6 +26,21 @@ from launch.substitutions import (
 )
 
 
+# Every AICO2 platform this driver supports. Keep in sync with the 'paired'
+# group in flexiv_description's config/robot_types.yaml.
+AICO2_TYPES = [
+    "AICO2-4-V1",
+    "AICO2-4-V2",
+    "AICO2-4-D3",
+    "AICO2-4E-D1",
+    "AICO2-4U-D1",
+    "AICO2-10-V1",
+    "AICO2-10-D2",
+    "AICO2-10E-D1",
+    "AICO2-10U-D1",
+]
+
+
 def arm_prefix(side, robot_sn):
     """Build a link/joint name prefix, matching compute_arm_prefix in
     flexiv_description's flexiv_common.xacro: the separating underscore only
@@ -128,6 +143,14 @@ def launch_setup(context):
     set_prefix_left = SetLaunchConfiguration(name="prefix_left", value=prefix_left_str)
     set_prefix_right = SetLaunchConfiguration(
         name="prefix_right", value=prefix_right_str
+    )
+
+    # External axis joints are named after the robot type lowercased with dashes
+    # as underscores, e.g. AICO2-10E-D1 -> aico2_10e_d1. The controller configs
+    # read it as $(var external_axis_type).
+    external_axis_type_str = robot_type_str.lower().replace("-", "_")
+    set_external_axis_type = SetLaunchConfiguration(
+        name="external_axis_type", value=external_axis_type_str
     )
 
     # Get URDF via xacro
@@ -261,6 +284,7 @@ def launch_setup(context):
         "$(var prefix_left)": prefix_left_str,
         "$(var prefix_right)": prefix_right_str,
         "$(var external_axis_prefix)": external_axis_prefix_str,
+        "$(var external_axis_type)": external_axis_type_str,
     }
 
     robot_description_kinematics_yaml = load_yaml(
@@ -293,15 +317,11 @@ def launch_setup(context):
     )
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
-    controllers_file = "config/aico/aico2_4_v1_moveit_controllers.yaml"
-    if robot_type_str == "AICO2-10-V1":
-        controllers_file = "config/aico/aico2_10_v1_moveit_controllers.yaml"
-    elif robot_type_str == "AICO2-4-V2":
-        controllers_file = "config/aico/aico2_4_v2_moveit_controllers.yaml"
-
+    # One file covers every AICO2 platform: the external axis joint names come
+    # from $(var external_axis_type).
     moveit_simple_controllers_yaml = load_yaml(
         "flexiv_moveit_config",
-        controllers_file,
+        "config/aico/aico2_moveit_controllers.yaml",
         replacements,
     )
 
@@ -340,7 +360,10 @@ def launch_setup(context):
     external_axis_joint_limits = load_yaml(
         "flexiv_moveit_config",
         "config/aico/aico_joint_limits.yaml",
-        {"$(var external_axis_prefix)": external_axis_prefix_str},
+        {
+            "$(var external_axis_prefix)": external_axis_prefix_str,
+            "$(var external_axis_type)": external_axis_type_str,
+        },
     )
 
     joint_limits_yaml = {"robot_description_planning": {"joint_limits": {}}}
@@ -416,13 +439,8 @@ def launch_setup(context):
     )
 
     # Robot controllers
-    ros2_controllers_file = "aico2_4_v1_controllers.yaml"
-    if robot_type_str == "AICO2-10-V1":
-        ros2_controllers_file = "aico2_10_v1_controllers.yaml"
-    elif robot_type_str == "AICO2-4-V2":
-        ros2_controllers_file = "aico2_4_v2_controllers.yaml"
     robot_controllers = PathJoinSubstitution(
-        [FindPackageShare("flexiv_bringup"), "config", ros2_controllers_file]
+        [FindPackageShare("flexiv_bringup"), "config", "aico2_controllers.yaml"]
     )
 
     # Run controller manager
@@ -697,6 +715,7 @@ def launch_setup(context):
     nodes = [
         set_prefix_left,
         set_prefix_right,
+        set_external_axis_type,
         move_group_node,
         robot_state_publisher_node,
         ros2_control_node,
@@ -831,7 +850,7 @@ def generate_launch_description():
             "robot_type",
             default_value="AICO2-4-V1",
             description="Type of the AICO2 platform.",
-            choices=["AICO2-4-V1", "AICO2-4-V2", "AICO2-10-V1"],
+            choices=AICO2_TYPES,
         )
     )
 
