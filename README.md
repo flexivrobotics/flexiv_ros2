@@ -90,7 +90,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    cd ~/flexiv_ros2_ws/src/flexiv_rdk
    rm -rf build && mkdir build && cd build
    cmake .. -DCMAKE_INSTALL_PREFIX=~/rdk_install
-   make install
+   cmake --build . --target install --config Release
    ```
 
 7. Build and source the workspace:
