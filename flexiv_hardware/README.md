@@ -87,3 +87,87 @@ Run the recovery operation in Flexiv Elements, then reboot the robot and restart
   installed on older robot models.
 - Call `estop_released()` before `ServoOn()`. `ServoOn()` throws `std::logic_error` when the E-stop
   is pressed.
+
+## Joint impedance configuration
+
+In the joint impedance control modes the robot tracks the streamed positions with its joint impedance controller instead of its position controller. Three properties of that controller can be set at runtime, one service per RDK call:
+
+| RDK call | Service | Latched topic |
+| -------- | ------- | ------------- |
+| `SetJointImpedance()`    | `~/set_joint_impedance`     | `~/joint_impedance`     |
+| `SetMaxContactTorque()`  | `~/set_max_contact_torque`  | `~/max_contact_torque`  |
+| `SetJointInertiaScale()` | `~/set_joint_inertia_scale` | `~/joint_inertia_scale` |
+
+The node is namespaced like the recovery interface, by the robot serial number with `-` replaced by
+`_`. For `Enlight-L-123456`, the first service is
+`/Enlight_L_123456/flexiv_joint_impedance_config_node/set_joint_impedance`.
+
+Requires `rdk_control_mode:=joint_impedance`. The services are advertised either way, and explain
+themselves rather than disappearing when the driver runs in `joint_position` mode.
+
+| Property | Valid range | Unit |
+| -------- | ----------- | ---- |
+| Joint motion stiffness `K_q`     | `[0, RobotInfo::K_q_nom]`, per joint | Nm/rad |
+| Joint motion damping ratio `Z_q` | `[0.3, 0.8]`, nominal 0.7 | –      |
+| Maximum contact torque           | `[0, RobotInfo::tau_max]`, per joint | Nm     |
+| Inertia shaping scale            | `[0.75, 1.0]`, nominal 1.0 | –     |
+
+The bounds are per joint and differ per robot model, so read them from the topics rather than assuming:
+
+```bash
+NS=/Enlight_L_123456/flexiv_joint_impedance_config_node
+
+ros2 topic echo $NS/joint_impedance --once
+
+ros2 service call $NS/set_joint_impedance flexiv_msgs/srv/SetJointImpedance \
+  "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
+```
+
+Every request may name the joints it sets. Leave `joint_names` empty to address every covered
+joint in the published order, or name a subset to change only those and leave the rest as they are:
+
+```bash
+ros2 service call $NS/set_joint_impedance flexiv_msgs/srv/SetJointImpedance \
+  "{joint_names: [Enlight_L_123456_joint6, Enlight_L_123456_joint7], k_q: [15.0, 15.0]}"
+```
+
+A name that the interface does not cover, a joint named twice, or a value count that does not match
+`joint_names` is rejected as a whole, and nothing changes. The response's `setting` always reports
+every covered joint, so it shows the merged result rather than just what was sent.
+
+### Dual-arm robots
+
+A dual-arm Enlight/MICO is one RDK connection, so there is one set of services for the whole robot,
+namespaced by the single `robot_sn`. `joint_names` is how one arm is set on its own — name that
+arm's joints and the other arm is left untouched, both in what the driver holds and in what reaches
+the robot:
+
+```bash
+NS=/Enlight_LL_123456/flexiv_joint_impedance_config_node
+
+# Left arm only. The right arm keeps whatever it already had.
+ros2 service call $NS/set_joint_impedance flexiv_msgs/srv/SetJointImpedance \
+  "{joint_names: [left_Enlight_LL_123456_joint1, left_Enlight_LL_123456_joint2,
+                  left_Enlight_LL_123456_joint3, left_Enlight_LL_123456_joint4,
+                  left_Enlight_LL_123456_joint5, left_Enlight_LL_123456_joint6,
+                  left_Enlight_LL_123456_joint7],
+    k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
+
+# Both arms at once: leave joint_names empty and give 14 values, left joint1..7 then right joint1..7.
+ros2 service call $NS/set_joint_impedance flexiv_msgs/srv/SetJointImpedance \
+  "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0,
+          3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
+```
+
+The RDK sets a whole joint group at a time, so the driver merges the named joints into the values
+it holds and sends only the joint groups the request actually touched: a left-arm request costs one
+RDK call, not two. The one exception is the first delivery after a controller start, which carries
+every group because nothing has reached the robot yet.
+
+Notes:
+- A stiffness of 0 makes that joint free-floating. This driver streams position commands, so such a joint will sag under gravity, the trajectory controller will accumulate tracking error, and the joint can drift into a soft limit and trigger a safety fault.
+- A damping ratio away from the nominal 0.7 may lead to performance and stability issues.
+- The robot resets these properties on every control mode entry, so the driver re-applies whatever
+  was set on every controller start.
+- The MICO-Plus and MICO-Ultra pan-tilt torso joints are not covered and cannot be named: the
+  robot reports no nominal joint stiffness for them.

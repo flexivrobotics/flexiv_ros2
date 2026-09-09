@@ -89,6 +89,26 @@ std::string describe_group_layout(
 }
 
 /**
+ * @brief Whether a request touched any joint of the group occupying [begin, begin + dof) of the
+ * RDK-ordered impedance vector. The RDK sets a whole joint group at a time, so a group nothing
+ * touched is skipped rather than re-sent with the values it already holds.
+ *
+ * @param touched_ros Per-joint mask in ROS (URDF) order.
+ * @param rdk_to_ros_map Index is the RDK index, value is the index into [touched_ros].
+ */
+bool group_is_touched(const std::vector<bool>& touched_ros,
+    const std::vector<size_t>& rdk_to_ros_map, size_t begin, size_t dof)
+{
+    for (size_t rdk_index = begin; rdk_index < begin + dof; ++rdk_index) {
+        const size_t ros_index = rdk_to_ros_map[rdk_index];
+        if (ros_index < touched_ros.size() && touched_ros[ros_index]) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Resolve active joint groups from Robot::states() for this interface.
  *
  * Supported arm layouts, each optionally combined with an EXT_AXIS group (e.g. MICO-Plus,
@@ -523,6 +543,145 @@ bool FlexivHardwareInterface::StartSupervisoryNodes(const std::string& robot_sn)
     executor_->add_node(recovery_node_->get_node_base_interface());
     executor_thread_ = std::thread([this]() { executor_->spin(); });
 
+    // The impedance properties are set one joint group at a time in RDK v2.x, and only the
+    // single-arm groups report a nominal joint stiffness to validate against, so the interface
+    // covers the arm joints. External axes (the MICO pan-tilt torso) are left out.
+    const auto robot_info = robot_->info();
+
+    // rdk_to_ros_map_ is ordered [external axes..., ARM_1 joints..., ARM_2 joints...], matching
+    // the ascending JointGroup order that single_arm_groups iterates in, so walking the arm
+    // groups walks the tail of the map in step.
+    const auto ext_dof_it = robot_info.DoF.find(flexiv::rdk::JointGroup::EXT_AXIS);
+    size_t rdk_index
+        = ext_dof_it != robot_info.DoF.end() ? ext_dof_it->second : static_cast<size_t>(0);
+
+    impedance_groups_.clear();
+    std::vector<size_t> arm_ros_indices;
+    for (const auto& [group, name] : robot_info.single_arm_groups) {
+        (void)name;
+        const auto dof_it = robot_info.DoF.find(group);
+        if (dof_it == robot_info.DoF.end()) {
+            continue;
+        }
+        const size_t group_dof = dof_it->second;
+        const size_t group_begin = rdk_index;
+        rdk_index += group_dof;
+        if (rdk_index > rdk_to_ros_map_.size()) {
+            RCLCPP_FATAL(getLogger(),
+                "Joint group '%s' runs past the %zu joints of the hardware component",
+                joint_group_name_string(group).c_str(), rdk_to_ros_map_.size());
+            return false;
+        }
+
+        const auto k_q_nom_it = robot_info.K_q_nom.find(group);
+        if (k_q_nom_it == robot_info.K_q_nom.end() || k_q_nom_it->second.size() != group_dof) {
+            RCLCPP_WARN(getLogger(),
+                "Joint group '%s' reports no usable nominal joint stiffness; it is left out of the "
+                "joint impedance interface",
+                joint_group_name_string(group).c_str());
+            continue;
+        }
+
+        impedance_groups_.emplace_back(group, group_dof);
+        arm_ros_indices.insert(arm_ros_indices.end(),
+            rdk_to_ros_map_.begin() + static_cast<std::ptrdiff_t>(group_begin),
+            rdk_to_ros_map_.begin() + static_cast<std::ptrdiff_t>(rdk_index));
+    }
+
+    // The impedance joint list is in URDF order, matching the "one entry per arm joint in URDF
+    // order" contract of the services.
+    std::vector<size_t> impedance_ros_indices = arm_ros_indices;
+    std::sort(impedance_ros_indices.begin(), impedance_ros_indices.end());
+
+    impedance_rdk_to_ros_map_.clear();
+    impedance_rdk_to_ros_map_.reserve(arm_ros_indices.size());
+    for (const auto ros_index : arm_ros_indices) {
+        const auto it = std::lower_bound(
+            impedance_ros_indices.begin(), impedance_ros_indices.end(), ros_index);
+        impedance_rdk_to_ros_map_.push_back(
+            static_cast<size_t>(std::distance(impedance_ros_indices.begin(), it)));
+    }
+
+    std::vector<std::string> joint_names;
+    joint_names.reserve(impedance_ros_indices.size());
+    for (const auto ros_index : impedance_ros_indices) {
+        joint_names.push_back(info_.joints[ros_index].name);
+    }
+
+    // Per-joint bounds, gathered per group in RDK order and then permuted into the joint list's
+    // order.
+    std::vector<double> k_q_nom_rdk;
+    std::vector<double> tau_max_rdk;
+    for (const auto& [group, group_dof] : impedance_groups_) {
+        const auto& k_q_nom = robot_info.K_q_nom.at(group);
+        k_q_nom_rdk.insert(k_q_nom_rdk.end(), k_q_nom.begin(), k_q_nom.end());
+
+        const auto tau_max_it = robot_info.tau_max.find(group);
+        if (tau_max_it != robot_info.tau_max.end() && tau_max_it->second.size() == group_dof) {
+            tau_max_rdk.insert(
+                tau_max_rdk.end(), tau_max_it->second.begin(), tau_max_it->second.end());
+        } else {
+            // No reported limit means no headroom can be granted: a request above 0 is refused
+            // rather than sent to the robot on a guess.
+            tau_max_rdk.insert(tau_max_rdk.end(), group_dof, 0.0);
+        }
+    }
+
+    JointImpedanceBounds bounds;
+    bounds.k_q_nom = ConvertRDKToROSOrder(k_q_nom_rdk, impedance_rdk_to_ros_map_);
+    bounds.tau_max = ConvertRDKToROSOrder(tau_max_rdk, impedance_rdk_to_ros_map_);
+
+    // The node works in ROS joint order and knows nothing about the RDK; these three closures are
+    // where the order is translated, the vector is split per joint group and the RDK is called.
+    JointImpedanceSetters setters;
+    setters.set_joint_impedance = [this](const std::vector<double>& k_q,
+                                      const std::vector<double>& z_q, const JointMask& touched) {
+        const auto k_q_rdk = ConvertROSToRDKOrder(k_q, impedance_rdk_to_ros_map_);
+        const auto z_q_rdk = ConvertROSToRDKOrder(z_q, impedance_rdk_to_ros_map_);
+        size_t offset = 0;
+        for (const auto& [group, group_dof] : impedance_groups_) {
+            if (group_is_touched(touched, impedance_rdk_to_ros_map_, offset, group_dof)) {
+                const auto begin = static_cast<std::ptrdiff_t>(offset);
+                const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
+                robot_->SetJointImpedance(group, {k_q_rdk.begin() + begin, k_q_rdk.begin() + end},
+                    {z_q_rdk.begin() + begin, z_q_rdk.begin() + end});
+            }
+            offset += group_dof;
+        }
+    };
+    setters.set_max_contact_torque
+        = [this](const std::vector<double>& max_torques, const JointMask& touched) {
+              const auto rdk = ConvertROSToRDKOrder(max_torques, impedance_rdk_to_ros_map_);
+              size_t offset = 0;
+              for (const auto& [group, group_dof] : impedance_groups_) {
+                  if (group_is_touched(touched, impedance_rdk_to_ros_map_, offset, group_dof)) {
+                      const auto begin = static_cast<std::ptrdiff_t>(offset);
+                      const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
+                      robot_->SetMaxContactTorque(group, {rdk.begin() + begin, rdk.begin() + end});
+                  }
+                  offset += group_dof;
+              }
+          };
+    setters.set_joint_inertia_scale
+        = [this](const std::vector<double>& inertia_scales, const JointMask& touched) {
+              const auto rdk = ConvertROSToRDKOrder(inertia_scales, impedance_rdk_to_ros_map_);
+              size_t offset = 0;
+              for (const auto& [group, group_dof] : impedance_groups_) {
+                  if (group_is_touched(touched, impedance_rdk_to_ros_map_, offset, group_dof)) {
+                      const auto begin = static_cast<std::ptrdiff_t>(offset);
+                      const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
+                      robot_->SetJointInertiaScale(group, {rdk.begin() + begin, rdk.begin() + end});
+                  }
+                  offset += group_dof;
+              }
+          };
+
+    joint_impedance_config_node_
+        = std::make_shared<JointImpedanceConfigNode>(robot_sn, std::move(joint_names),
+            std::move(bounds), rdk_control_mode_ == flexiv::rdk::Mode::RT_JOINT_IMPEDANCE,
+            driver_status_, std::move(setters));
+    executor_->add_node(joint_impedance_config_node_->get_node_base_interface());
+
     return true;
 }
 
@@ -570,6 +729,13 @@ void FlexivHardwareInterface::Disconnect()
             executor_->remove_node(recovery_node_->get_node_base_interface());
         }
         recovery_node_.reset();
+    }
+    // Torn down before robot_ below, since its closures capture this and call through it.
+    if (joint_impedance_config_node_) {
+        if (executor_) {
+            executor_->remove_node(joint_impedance_config_node_->get_node_base_interface());
+        }
+        joint_impedance_config_node_.reset();
     }
     executor_.reset();
     robot_system_control_.reset();
@@ -1195,6 +1361,17 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         // Set to joint position or joint impedance mode
         robot_->SwitchMode(rdk_control_mode_);
 
+        // The robot resets its joint impedance properties on mode entry, so whatever was set has to
+        // be re-applied before any motion is streamed.
+        if (joint_impedance_config_node_ && !joint_impedance_config_node_->Reapply()) {
+            RCLCPP_FATAL(getLogger(),
+                "Could not re-apply the joint impedance properties. The robot would run at nominal "
+                "stiffness instead of the requested one, so the controller start is refused.");
+            driver_status_->commands_synchronized.store(false);
+            StopIfOperational();
+            return hardware_interface::return_type::ERROR;
+        }
+
         position_controller_running_ = true;
     } else if (start_modes_.size() != 0
                && std::find(
@@ -1208,6 +1385,17 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
 
         // Set to joint position or joint impedance mode
         robot_->SwitchMode(rdk_control_mode_);
+
+        // The robot resets its joint impedance properties on mode entry, so whatever was set has to
+        // be re-applied before any motion is streamed.
+        if (joint_impedance_config_node_ && !joint_impedance_config_node_->Reapply()) {
+            RCLCPP_FATAL(getLogger(),
+                "Could not re-apply the joint impedance properties. The robot would run at nominal "
+                "stiffness instead of the requested one, so the controller start is refused.");
+            driver_status_->commands_synchronized.store(false);
+            StopIfOperational();
+            return hardware_interface::return_type::ERROR;
+        }
 
         velocity_controller_running_ = true;
     } else if (start_modes_.size() != 0
@@ -1225,6 +1413,12 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         // RT_JOINT_TORQUE after a fault: recovery leaves the robot operational in IDLE, and
         // restarting the effort controller lands here with a freshly synchronized command buffer.
         robot_->SwitchMode(flexiv::rdk::Mode::RT_JOINT_TORQUE);
+
+        // The joint impedance properties do not govern RT_JOINT_TORQUE, so what the driver holds is
+        // no longer in effect while the effort controller runs.
+        if (joint_impedance_config_node_) {
+            joint_impedance_config_node_->MarkNotInEffect();
+        }
 
         torque_controller_running_ = true;
     }

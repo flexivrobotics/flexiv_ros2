@@ -1,0 +1,23 @@
+# Set inertia shaping scales of the robot's joint motion controller, which make the joints behave as
+# if they were lighter. Requires the driver to run with rdk_control_mode:=joint_impedance.
+#
+# An invalid request is rejected as a whole and nothing changes.
+
+# Joints to set, named exactly as published on ~/joint_inertia_scale. Leave empty to address every
+# joint the interface covers, in that published order. On a dual-arm robot this is how a single
+# arm is set on its own: name that arm's joints and the other arm is left untouched.
+string[] joint_names
+
+# Inertia shaping scale sigma_q, one entry per joint in joint_names, or one per covered joint when
+# joint_names is empty. Valid range [0.75, 1.0]. The nominal value 1.0 means no shaping; a smaller
+# scale corresponds to lighter inertia.
+float64[] inertia_scales
+---
+bool success
+
+# Operator-facing explanation of the outcome, naming the joint and the bound on a rejection
+string message
+
+# Every joint the interface covers and the values now held for it, unchanged from before on a
+# rejection. Joints the request did not name keep the value they already had.
+JointInertiaScale setting

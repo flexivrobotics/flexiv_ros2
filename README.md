@@ -123,7 +123,7 @@ The launch file to start the single-arm robot driver is `flexiv.launch.py` - it 
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Enlight-L-123456
 - `robot_type` (default: *Enlight-L*) - type of the Flexiv robot. Supported values: *Enlight-L* (single-arm), *Enlight-LL*, *MICO-Core*, *MICO-Plus*, *MICO-Ultra* (dual-arm). Dual-arm models share one RDK connection (one `robot_sn`) and expose `left_`/`right_` prefixed joints. **Note:** *MICO-Ultra*'s mobile base is not yet supported in `ros2_control` — its arms (and pan-tilt torso) are controllable, but the mobile base is not driven by this stack.
-- `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*
+- `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*. In joint impedance mode the controller's impedance properties can be set at runtime, see [Joint Impedance Configuration](#joint-impedance-configuration)
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
 - `start_rviz` (default: *true*) - starts RViz automatically with the launch file.
@@ -210,6 +210,39 @@ ros2 control switch_controllers \
 ```
 
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#error-recovery) for the recovery policies, the `ClearFault()` guidance and the dual-arm notes.
+
+### Joint Impedance Configuration
+
+In joint impedance control mode (`rdk_control_mode:=joint_impedance`) the impedance properties of the robot's joint motion controller can be set at runtime, one service per RDK call:
+
+```bash
+# Read the joint order and the per-joint bounds first, they differ per robot model
+ros2 topic echo /Enlight_L_123456/flexiv_joint_impedance_config_node/joint_impedance --once
+
+# Joint motion stiffness K_q and damping ratio Z_q, one value per joint in URDF order
+ros2 service call /Enlight_L_123456/flexiv_joint_impedance_config_node/set_joint_impedance flexiv_msgs/srv/SetJointImpedance "{k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
+
+# Maximum contact torque
+ros2 service call /Enlight_L_123456/flexiv_joint_impedance_config_node/set_max_contact_torque flexiv_msgs/srv/SetMaxContactTorque "{max_contact_torques: [50.0, 50.0, 30.0, 30.0, 10.0, 10.0, 10.0]}"
+
+# Inertia shaping scale
+ros2 service call /Enlight_L_123456/flexiv_joint_impedance_config_node/set_joint_inertia_scale flexiv_msgs/srv/SetJointInertiaScale "{inertia_scales: [1.0, 1.0, 0.9, 0.9, 0.8, 0.8, 0.8]}"
+```
+
+On a dual-arm model this is how one arm is set on its own, and the other arm is left untouched:
+
+```bash
+ros2 service call /Enlight_LL_123456/flexiv_joint_impedance_config_node/set_joint_impedance flexiv_msgs/srv/SetJointImpedance \
+  "{joint_names: [left_Enlight_LL_123456_joint1, left_Enlight_LL_123456_joint2,
+                  left_Enlight_LL_123456_joint3, left_Enlight_LL_123456_joint4,
+                  left_Enlight_LL_123456_joint5, left_Enlight_LL_123456_joint6,
+                  left_Enlight_LL_123456_joint7],
+    k_q: [3000.0, 3000.0, 800.0, 800.0, 50.0, 25.0, 25.0]}"
+```
+
+The robot resets these properties whenever it enters a control mode, so the driver re-applies what was set on every controller start. The pan-tilt torso of *MICO-Plus*/*MICO-Ultra* is not covered.
+
+See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance-configuration) for the valid ranges, the hold-and-reapply behaviour and the dual-arm notes.
 
 ### GPIO
 
