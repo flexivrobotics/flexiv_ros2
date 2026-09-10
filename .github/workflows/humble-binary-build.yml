@@ -49,11 +49,11 @@ jobs:
         run: |
           git clone --branch release/v2.2 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
-          bash build_and_install_dependencies.sh "${RDK_INSTALL_PREFIX}"
+          bash build_and_install_dependencies.sh "${RDK_INSTALL_PREFIX}" $(nproc)
           cd ..
           mkdir -p build && cd build
           cmake .. -DCMAKE_INSTALL_PREFIX="${RDK_INSTALL_PREFIX}"
-          cmake --build . --target install --config Release
+          cmake --build . --target install --config Release -j $(nproc)
       - name: Verify flexiv_rdk install
         shell: bash
         run: |
@@ -68,6 +68,7 @@ jobs:
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.humble.repos
           package-name: |
             flexiv_bringup
+            flexiv_calibration
             flexiv_gripper
             flexiv_hardware
             flexiv_moveit_config

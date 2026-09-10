@@ -17,6 +17,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/clock.hpp>
@@ -24,12 +25,18 @@
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 
 #include "flexiv/rdk/robot.hpp"
+#include "flexiv_hardware/fault_recovery.hpp"
 #include "flexiv_hardware/flexiv_hardware_interface.hpp"
 #include "flexiv_hardware/flexiv_robot_states_handle.hpp"
 
 namespace {
 
 constexpr uint64_t kMaxExactRobotStatesHandle = 1ULL << 53;
+
+// Bounded wait for the robot to become operational during activation. Brake release dominates the
+// duration; a robot that is not ready within this window needs operator attention.
+constexpr std::chrono::seconds kActivationOperationalTimeout {30};
+constexpr std::chrono::milliseconds kOperationalPollPeriod {200};
 
 using GroupDofList = std::vector<std::pair<flexiv::rdk::JointGroup, size_t>>;
 
@@ -79,6 +86,26 @@ std::string describe_group_layout(
                << ", dtheta=" << states.dtheta.size() << ", tau=" << states.tau.size() << ")";
     }
     return stream.str();
+}
+
+/**
+ * @brief Whether a request touched any joint of the group occupying [begin, begin + dof) of the
+ * RDK-ordered impedance vector. The RDK sets a whole joint group at a time, so a group nothing
+ * touched is skipped rather than re-sent with the values it already holds.
+ *
+ * @param touched_ros Per-joint mask in ROS (URDF) order.
+ * @param rdk_to_ros_map Index is the RDK index, value is the index into [touched_ros].
+ */
+bool group_is_touched(const std::vector<bool>& touched_ros,
+    const std::vector<size_t>& rdk_to_ros_map, size_t begin, size_t dof)
+{
+    for (size_t rdk_index = begin; rdk_index < begin + dof; ++rdk_index) {
+        const size_t ros_index = rdk_to_ros_map[rdk_index];
+        if (ros_index < touched_ros.size() && touched_ros[ros_index]) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -351,9 +378,8 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     rdk_to_ros_map_.insert(rdk_to_ros_map_.end(), ext_indices.begin(), ext_indices.end());
     rdk_to_ros_map_.insert(rdk_to_ros_map_.end(), arm_indices.begin(), arm_indices.end());
 
-    std::string robot_sn;
     try {
-        robot_sn = info_.hardware_parameters["robot_sn"];
+        info_.hardware_parameters.at("robot_sn");
     } catch (const std::out_of_range& ex) {
         RCLCPP_FATAL(getLogger(), "Parameter 'robot_sn' not set");
         return hardware_interface::CallbackReturn::ERROR;
@@ -433,16 +459,324 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    // The connection is opened here because export_state_interfaces(), which the resource manager
+    // calls right after on_init(), needs the robot's joint groups to name the per-group robot-state
+    // interfaces. on_configure() re-opens it after an on_cleanup(), which is what lets a lost
+    // connection be recovered without restarting the whole process.
+    driver_status_ = std::make_shared<DriverStatus>();
+
+    if (!Connect()) {
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+bool FlexivHardwareInterface::Connect()
+{
+    if (robot_) {
+        return true;
+    }
+
+    const std::string robot_sn = info_.hardware_parameters.at("robot_sn");
     try {
         RCLCPP_INFO(getLogger(), "Connecting to robot %s ...", robot_sn.c_str());
         robot_ = std::make_unique<flexiv::rdk::Robot>(robot_sn);
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not connect to robot");
         RCLCPP_FATAL(getLogger(), e.what());
-        return hardware_interface::CallbackReturn::ERROR;
+        return false;
     }
 
     RCLCPP_INFO(getLogger(), "Successfully connected to robot");
+    return true;
+}
+
+hardware_interface::CallbackReturn FlexivHardwareInterface::on_configure(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    const std::string robot_sn = info_.hardware_parameters.at("robot_sn");
+
+    if (!Connect()) {
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    // Check the commandable DoF of the robot against the URDF before anything is enabled.
+    const auto robot_info = robot_->info();
+    size_t robot_total_dof = 0;
+    for (const auto& [group, name] : robot_info.single_arm_groups) {
+        (void)name;
+        const auto dof_it = robot_info.DoF.find(group);
+        if (dof_it != robot_info.DoF.end()) {
+            robot_total_dof += dof_it->second;
+        }
+    }
+    const auto ext_dof_it = robot_info.DoF.find(flexiv::rdk::JointGroup::EXT_AXIS);
+    if (ext_dof_it != robot_info.DoF.end()) {
+        robot_total_dof += ext_dof_it->second;
+    }
+    if (robot_total_dof != info_.joints.size()) {
+        RCLCPP_FATAL(getLogger(), "Robot has %zu commandable DoF. Expected %zu (from URDF).",
+            robot_total_dof, info_.joints.size());
+        Disconnect();
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    robot_system_control_ = std::make_unique<RdkRobotSystemControl>(*robot_);
+    driver_status_->driver_state.store(DriverState::FAULT);
+
+    if (!StartSupervisoryNodes(robot_sn)) {
+        Disconnect();
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+bool FlexivHardwareInterface::StartSupervisoryNodes(const std::string& robot_sn)
+{
+    // Host both nodes on an executor owned here with its own spin thread, so that all blocking
+    // system control calls happen off the real-time control loop.
+    recovery_node_
+        = std::make_shared<RecoveryNode>(robot_sn, *robot_system_control_, driver_status_);
+    executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+    executor_->add_node(recovery_node_->get_node_base_interface());
+    executor_thread_ = std::thread([this]() { executor_->spin(); });
+
+    // The impedance properties are set one joint group at a time in RDK v2.x, and only the
+    // single-arm groups report a nominal joint stiffness to validate against, so the interface
+    // covers the arm joints. External axes (the MICO pan-tilt torso) are left out.
+    const auto robot_info = robot_->info();
+
+    // rdk_to_ros_map_ is ordered [external axes..., ARM_1 joints..., ARM_2 joints...], matching
+    // the ascending JointGroup order that single_arm_groups iterates in, so walking the arm
+    // groups walks the tail of the map in step.
+    const auto ext_dof_it = robot_info.DoF.find(flexiv::rdk::JointGroup::EXT_AXIS);
+    size_t rdk_index
+        = ext_dof_it != robot_info.DoF.end() ? ext_dof_it->second : static_cast<size_t>(0);
+
+    impedance_groups_.clear();
+    std::vector<size_t> arm_ros_indices;
+    for (const auto& [group, name] : robot_info.single_arm_groups) {
+        (void)name;
+        const auto dof_it = robot_info.DoF.find(group);
+        if (dof_it == robot_info.DoF.end()) {
+            continue;
+        }
+        const size_t group_dof = dof_it->second;
+        const size_t group_begin = rdk_index;
+        rdk_index += group_dof;
+        if (rdk_index > rdk_to_ros_map_.size()) {
+            RCLCPP_FATAL(getLogger(),
+                "Joint group '%s' runs past the %zu joints of the hardware component",
+                joint_group_name_string(group).c_str(), rdk_to_ros_map_.size());
+            return false;
+        }
+
+        const auto k_q_nom_it = robot_info.K_q_nom.find(group);
+        if (k_q_nom_it == robot_info.K_q_nom.end() || k_q_nom_it->second.size() != group_dof) {
+            RCLCPP_WARN(getLogger(),
+                "Joint group '%s' reports no usable nominal joint stiffness; it is left out of the "
+                "joint impedance interface",
+                joint_group_name_string(group).c_str());
+            continue;
+        }
+
+        impedance_groups_.emplace_back(group, group_dof);
+        arm_ros_indices.insert(arm_ros_indices.end(),
+            rdk_to_ros_map_.begin() + static_cast<std::ptrdiff_t>(group_begin),
+            rdk_to_ros_map_.begin() + static_cast<std::ptrdiff_t>(rdk_index));
+    }
+
+    // The impedance joint list is in URDF order, matching the "one entry per arm joint in URDF
+    // order" contract of the services.
+    std::vector<size_t> impedance_ros_indices = arm_ros_indices;
+    std::sort(impedance_ros_indices.begin(), impedance_ros_indices.end());
+
+    impedance_rdk_to_ros_map_.clear();
+    impedance_rdk_to_ros_map_.reserve(arm_ros_indices.size());
+    for (const auto ros_index : arm_ros_indices) {
+        const auto it = std::lower_bound(
+            impedance_ros_indices.begin(), impedance_ros_indices.end(), ros_index);
+        impedance_rdk_to_ros_map_.push_back(
+            static_cast<size_t>(std::distance(impedance_ros_indices.begin(), it)));
+    }
+
+    std::vector<std::string> joint_names;
+    joint_names.reserve(impedance_ros_indices.size());
+    for (const auto ros_index : impedance_ros_indices) {
+        joint_names.push_back(info_.joints[ros_index].name);
+    }
+
+    // Per-joint bounds, gathered per group in RDK order and then permuted into the joint list's
+    // order.
+    std::vector<double> k_q_nom_rdk;
+    std::vector<double> tau_max_rdk;
+    for (const auto& [group, group_dof] : impedance_groups_) {
+        const auto& k_q_nom = robot_info.K_q_nom.at(group);
+        k_q_nom_rdk.insert(k_q_nom_rdk.end(), k_q_nom.begin(), k_q_nom.end());
+
+        const auto tau_max_it = robot_info.tau_max.find(group);
+        if (tau_max_it != robot_info.tau_max.end() && tau_max_it->second.size() == group_dof) {
+            tau_max_rdk.insert(
+                tau_max_rdk.end(), tau_max_it->second.begin(), tau_max_it->second.end());
+        } else {
+            // No reported limit means no headroom can be granted: a request above 0 is refused
+            // rather than sent to the robot on a guess.
+            tau_max_rdk.insert(tau_max_rdk.end(), group_dof, 0.0);
+        }
+    }
+
+    JointImpedanceBounds bounds;
+    bounds.k_q_nom = ConvertRDKToROSOrder(k_q_nom_rdk, impedance_rdk_to_ros_map_);
+    bounds.tau_max = ConvertRDKToROSOrder(tau_max_rdk, impedance_rdk_to_ros_map_);
+
+    // The node works in ROS joint order and knows nothing about the RDK; these three closures are
+    // where the order is translated, the vector is split per joint group and the RDK is called.
+    JointImpedanceSetters setters;
+    setters.set_joint_impedance = [this](const std::vector<double>& k_q,
+                                      const std::vector<double>& z_q, const JointMask& touched) {
+        const auto k_q_rdk = ConvertROSToRDKOrder(k_q, impedance_rdk_to_ros_map_);
+        const auto z_q_rdk = ConvertROSToRDKOrder(z_q, impedance_rdk_to_ros_map_);
+        size_t offset = 0;
+        for (const auto& [group, group_dof] : impedance_groups_) {
+            if (group_is_touched(touched, impedance_rdk_to_ros_map_, offset, group_dof)) {
+                const auto begin = static_cast<std::ptrdiff_t>(offset);
+                const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
+                robot_->SetJointImpedance(group, {k_q_rdk.begin() + begin, k_q_rdk.begin() + end},
+                    {z_q_rdk.begin() + begin, z_q_rdk.begin() + end});
+            }
+            offset += group_dof;
+        }
+    };
+    setters.set_max_contact_torque
+        = [this](const std::vector<double>& max_torques, const JointMask& touched) {
+              const auto rdk = ConvertROSToRDKOrder(max_torques, impedance_rdk_to_ros_map_);
+              size_t offset = 0;
+              for (const auto& [group, group_dof] : impedance_groups_) {
+                  if (group_is_touched(touched, impedance_rdk_to_ros_map_, offset, group_dof)) {
+                      const auto begin = static_cast<std::ptrdiff_t>(offset);
+                      const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
+                      robot_->SetMaxContactTorque(group, {rdk.begin() + begin, rdk.begin() + end});
+                  }
+                  offset += group_dof;
+              }
+          };
+    setters.set_joint_inertia_scale
+        = [this](const std::vector<double>& inertia_scales, const JointMask& touched) {
+              const auto rdk = ConvertROSToRDKOrder(inertia_scales, impedance_rdk_to_ros_map_);
+              size_t offset = 0;
+              for (const auto& [group, group_dof] : impedance_groups_) {
+                  if (group_is_touched(touched, impedance_rdk_to_ros_map_, offset, group_dof)) {
+                      const auto begin = static_cast<std::ptrdiff_t>(offset);
+                      const auto end = static_cast<std::ptrdiff_t>(offset + group_dof);
+                      robot_->SetJointInertiaScale(group, {rdk.begin() + begin, rdk.begin() + end});
+                  }
+                  offset += group_dof;
+              }
+          };
+
+    joint_impedance_config_node_
+        = std::make_shared<JointImpedanceConfigNode>(robot_sn, std::move(joint_names),
+            std::move(bounds), rdk_control_mode_ == flexiv::rdk::Mode::RT_JOINT_IMPEDANCE,
+            driver_status_, std::move(setters));
+    executor_->add_node(joint_impedance_config_node_->get_node_base_interface());
+
+    return true;
+}
+
+void FlexivHardwareInterface::TrackPositionChangeAcrossInterruption()
+{
+    const bool ready = driver_status_->driver_state.load() == DriverState::READY;
+
+    if (was_ready_ && !ready) {
+        // Joint states stop being refreshed once the robot is no longer operational, so this still
+        // holds the last position the robot was known to be at before it stopped.
+        positions_before_interruption_ = hw_states_joint_positions_;
+    } else if (!was_ready_ && ready && !positions_before_interruption_.empty()) {
+        if (driver_status_->RequiresControllerRestart()) {
+            const double deviation
+                = MaxJointDeviation(positions_before_interruption_, hw_states_joint_positions_);
+
+            RCLCPP_WARN(getLogger(),
+                "The robot is ready again, %.3f rad from the last commanded "
+                "position. Motion stays withheld until the controllers are restarted.",
+                deviation);
+        }
+        positions_before_interruption_.clear();
+    }
+
+    was_ready_ = ready;
+}
+
+void FlexivHardwareInterface::StopIfOperational()
+{
+    if (robot_ && robot_->connected() && robot_->operational()) {
+        robot_->Stop();
+    }
+}
+
+void FlexivHardwareInterface::Disconnect()
+{
+    if (executor_) {
+        executor_->cancel();
+    }
+    if (executor_thread_.joinable()) {
+        executor_thread_.join();
+    }
+    if (recovery_node_) {
+        if (executor_) {
+            executor_->remove_node(recovery_node_->get_node_base_interface());
+        }
+        recovery_node_.reset();
+    }
+    // Torn down before robot_ below, since its closures capture this and call through it.
+    if (joint_impedance_config_node_) {
+        if (executor_) {
+            executor_->remove_node(joint_impedance_config_node_->get_node_base_interface());
+        }
+        joint_impedance_config_node_.reset();
+    }
+    executor_.reset();
+    robot_system_control_.reset();
+    robot_.reset();
+    if (driver_status_) {
+        driver_status_->driver_state.store(DriverState::UNINITIALIZED);
+        driver_status_->commands_synchronized.store(false);
+    }
+}
+
+hardware_interface::CallbackReturn FlexivHardwareInterface::on_cleanup(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    RCLCPP_INFO(getLogger(), "Cleaning up, closing the connection to the robot ...");
+    Disconnect();
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::CallbackReturn FlexivHardwareInterface::on_shutdown(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    Disconnect();
+    return hardware_interface::CallbackReturn::SUCCESS;
+}
+
+hardware_interface::CallbackReturn FlexivHardwareInterface::on_error(
+    const rclcpp_lifecycle::State& /*previous_state*/)
+{
+    RCLCPP_ERROR(getLogger(), "Hardware component entered the error state, stopping the robot");
+
+    try {
+        StopIfOperational();
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(getLogger(), "Could not stop the robot: %s", e.what());
+    }
+
+    Disconnect();
+
+    // Returning SUCCESS puts the component in UNCONFIGURED, from which it can be configured and
+    // activated again. Returning FAILURE or ERROR here would finalize it, and the whole process
+    // would have to be restarted to recover.
     return hardware_interface::CallbackReturn::SUCCESS;
 }
 
@@ -544,12 +878,44 @@ FlexivHardwareInterface::export_command_interfaces()
     return command_interfaces;
 }
 
+bool FlexivHardwareInterface::WaitUntilOperational(std::chrono::seconds timeout)
+{
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    auto next_log = std::chrono::steady_clock::now();
+
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (robot_->operational()) {
+            return true;
+        }
+        if (std::chrono::steady_clock::now() >= next_log) {
+            RCLCPP_INFO(getLogger(), "Waiting for the robot to become operational: %s",
+                OperationalStatusName(robot_->operational_status()).c_str());
+            next_log = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        }
+        std::this_thread::sleep_for(kOperationalPollPeriod);
+    }
+    return robot_->operational();
+}
+
 hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
     RCLCPP_INFO(getLogger(), "Starting... please wait...");
 
     try {
+        // Report the condition through the classifier, so that a pressed E-stop or a robot left in
+        // Manual mode names the operator action instead of surfacing as an RDK exception.
+        const auto condition = robot_system_control_->condition();
+        const auto policy = ClassifyRecoveryPolicy(condition);
+        if (policy != RecoveryPolicy::NONE) {
+            RCLCPP_WARN(getLogger(), "%s", DescribeRobotCondition(condition).c_str());
+        }
+        if (policy == RecoveryPolicy::SAFETY_LOCKOUT || policy == RecoveryPolicy::WAIT_OPERATOR) {
+            RCLCPP_FATAL(
+                getLogger(), "Cannot start: %s", DescribeRobotCondition(condition).c_str());
+            return hardware_interface::CallbackReturn::ERROR;
+        }
+
         // Clear fault on robot server if any
         if (robot_->fault()) {
             RCLCPP_WARN(getLogger(), "Fault occurred on robot server, trying to clear ...");
@@ -561,31 +927,17 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
             RCLCPP_INFO(getLogger(), "Fault on robot server is cleared");
         }
 
-        const auto robot_info = robot_->info();
-        size_t robot_total_dof = 0;
-        for (const auto& [group, name] : robot_info.single_arm_groups) {
-            const auto dof_it = robot_info.DoF.find(group);
-            if (dof_it != robot_info.DoF.end()) {
-                robot_total_dof += dof_it->second;
-            }
-        }
-        const auto ext_dof_it = robot_info.DoF.find(flexiv::rdk::JointGroup::EXT_AXIS);
-        if (ext_dof_it != robot_info.DoF.end()) {
-            robot_total_dof += ext_dof_it->second;
-        }
-        if (robot_total_dof != info_.joints.size()) {
-            RCLCPP_FATAL(getLogger(), "Robot has %zu commandable DoF. Expected %zu (from URDF).",
-                robot_total_dof, info_.joints.size());
-            return hardware_interface::CallbackReturn::ERROR;
-        }
-
         // Servo on the robot (release brakes and become operational)
         RCLCPP_INFO(getLogger(), "Servoing on robot ...");
         robot_->ServoOn();
 
-        // Wait for the robot to become operational
-        while (!robot_->operational()) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+        // Wait for the robot to become operational, bounded so that a robot that never becomes
+        // ready fails the activation instead of hanging the controller manager forever.
+        if (!WaitUntilOperational(kActivationOperationalTimeout)) {
+            RCLCPP_FATAL(getLogger(), "Robot did not become operational within %ld s. %s",
+                static_cast<long>(kActivationOperationalTimeout.count()),
+                DescribeRobotCondition(robot_system_control_->condition()).c_str());
+            return hardware_interface::CallbackReturn::ERROR;
         }
         RCLCPP_INFO(getLogger(), "Robot is now operational");
     } catch (const std::exception& e) {
@@ -593,6 +945,11 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
         RCLCPP_FATAL(getLogger(), e.what());
         return hardware_interface::CallbackReturn::ERROR;
     }
+
+    // The robot is servoed on but in IDLE: a controller start has to establish the control mode
+    // and synchronize the command buffers before any motion may be streamed.
+    driver_status_->commands_synchronized.store(false);
+    driver_status_->driver_state.store(DriverState::READY);
 
     RCLCPP_INFO(getLogger(), "System successfully started!");
 
@@ -604,7 +961,16 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_deactivate(
 {
     RCLCPP_INFO(getLogger(), "Stopping... please wait...");
 
-    robot_->Stop();
+    // Hold off write() before stopping, so the real-time loop cannot stream a command into a robot
+    // that is being brought to a halt.
+    driver_status_->driver_state.store(DriverState::FAULT);
+
+    try {
+        StopIfOperational();
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(getLogger(), "Could not stop the robot: %s", e.what());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
 
     RCLCPP_INFO(getLogger(), "System successfully stopped!");
 
@@ -614,7 +980,26 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_deactivate(
 hardware_interface::return_type FlexivHardwareInterface::read(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    if (robot_->operational()) {
+    if (!robot_system_control_) {
+        return hardware_interface::return_type::ERROR;
+    }
+
+    // Latch the robot condition for the recovery node. These are all non-blocking accessors over
+    // cached state, so they are safe to poll from the real-time loop.
+    driver_status_->Latch(*robot_system_control_);
+
+    // Recovery owns the driver state while it runs, so this is a no-op for its duration.
+    driver_status_->TryApplyDerivedDriverState();
+
+    // A lost connection is the only condition the driver cannot report or recover from in place,
+    // so it is the only one escalated to the controller manager. Every other fault keeps the
+    // component ACTIVE, which keeps the status topic and the recovery action reachable.
+    if (!driver_status_->connected.load()) {
+        RCLCPP_ERROR(getLogger(), "Lost connection with the robot");
+        return hardware_interface::return_type::ERROR;
+    }
+
+    if (driver_status_->operational.load()) {
         const size_t dof = rdk_to_ros_map_.size();
         auto states_by_group = robot_->states();
         if (states_by_group.empty()) {
@@ -686,12 +1071,21 @@ hardware_interface::return_type FlexivHardwareInterface::read(
         }
     }
 
+    TrackPositionChangeAcrossInterruption();
+
     return hardware_interface::return_type::OK;
 }
 
 hardware_interface::return_type FlexivHardwareInterface::write(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
+    // Issue no RDK call unless the robot is ready. While recovery runs it changes the control mode
+    // and the fault state, and this early return is what guarantees the real-time loop is
+    // quiescent for the duration without needing a lock on the hot path.
+    if (!robot_ || driver_status_->driver_state.load() != DriverState::READY) {
+        return hardware_interface::return_type::OK;
+    }
+
     const size_t dof = rdk_to_ros_map_.size();
 
     // Reuse preallocated target buffers to keep the control loop allocation-free.
@@ -714,7 +1108,10 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         }
     }
 
-    if (robot_->mode() == rdk_control_mode_
+    // Withhold motion until a controller restart has re-synchronized the command buffers.
+    const bool stream_motion = driver_status_->commands_synchronized.load();
+
+    if (stream_motion && robot_->mode() == rdk_control_mode_
         && ((position_controller_running_ && !is_pos_nan)
             || (velocity_controller_running_ && !is_vel_nan))) {
         auto states_by_group = robot_->states();
@@ -784,8 +1181,8 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         }
 
         robot_->StreamJointPosition(rt_joint_position_cmds_);
-    } else if (torque_controller_running_ && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE
-               && !is_eff_nan) {
+    } else if (stream_motion && torque_controller_running_
+               && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE && !is_eff_nan) {
         auto states_by_group = robot_->states();
         auto active_groups = determine_active_groups(states_by_group, dof, getLogger());
         if (active_groups.empty()) {
@@ -857,6 +1254,23 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     return hardware_interface::return_type::OK;
 }
 
+void FlexivHardwareInterface::SynchronizeCommandsWithState()
+{
+    // Called from perform_command_mode_switch(), which is the controller restart the driver
+    // requires after a fault. Once the buffers hold the measured position, motion may stream again.
+    driver_status_->commands_synchronized.store(true);
+    // Position commands start from where the robot actually is, so the first write() after a mode
+    // switch commands a hold instead of whatever setpoint was left over from before.
+    hw_commands_joint_positions_ = hw_states_joint_positions_;
+    std::fill(hw_commands_joint_velocities_.begin(), hw_commands_joint_velocities_.end(), 0.0);
+
+    // Effort commands are deliberately left as NaN rather than zeroed. write() skips streaming
+    // while they are NaN, whereas a zero torque command is streamed with gravity compensation
+    // enabled and would leave the arm floating freely instead of holding.
+    std::fill(hw_commands_joint_efforts_.begin(), hw_commands_joint_efforts_.end(),
+        std::numeric_limits<double>::quiet_NaN());
+}
+
 hardware_interface::return_type FlexivHardwareInterface::prepare_command_mode_switch(
     const std::vector<std::string>& start_interfaces,
     const std::vector<std::string>& stop_interfaces)
@@ -921,18 +1335,18 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_POSITION)
                != stop_modes_.end()) {
         position_controller_running_ = false;
-        robot_->Stop();
+        StopIfOperational();
     } else if (stop_modes_.size() != 0
                && std::find(
                       stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_VELOCITY)
                       != stop_modes_.end()) {
         velocity_controller_running_ = false;
-        robot_->Stop();
+        StopIfOperational();
     } else if (stop_modes_.size() != 0
                && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_EFFORT)
                       != stop_modes_.end()) {
         torque_controller_running_ = false;
-        robot_->Stop();
+        StopIfOperational();
     }
 
     if (start_modes_.size() != 0
@@ -942,11 +1356,21 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
-        std::fill(hw_commands_joint_positions_.begin(), hw_commands_joint_positions_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        SynchronizeCommandsWithState();
 
         // Set to joint position or joint impedance mode
         robot_->SwitchMode(rdk_control_mode_);
+
+        // The robot resets its joint impedance properties on mode entry, so whatever was set has to
+        // be re-applied before any motion is streamed.
+        if (joint_impedance_config_node_ && !joint_impedance_config_node_->Reapply()) {
+            RCLCPP_FATAL(getLogger(),
+                "Could not re-apply the joint impedance properties. The robot would run at nominal "
+                "stiffness instead of the requested one, so the controller start is refused.");
+            driver_status_->commands_synchronized.store(false);
+            StopIfOperational();
+            return hardware_interface::return_type::ERROR;
+        }
 
         position_controller_running_ = true;
     } else if (start_modes_.size() != 0
@@ -957,11 +1381,21 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
-        std::fill(hw_commands_joint_velocities_.begin(), hw_commands_joint_velocities_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        SynchronizeCommandsWithState();
 
         // Set to joint position or joint impedance mode
         robot_->SwitchMode(rdk_control_mode_);
+
+        // The robot resets its joint impedance properties on mode entry, so whatever was set has to
+        // be re-applied before any motion is streamed.
+        if (joint_impedance_config_node_ && !joint_impedance_config_node_->Reapply()) {
+            RCLCPP_FATAL(getLogger(),
+                "Could not re-apply the joint impedance properties. The robot would run at nominal "
+                "stiffness instead of the requested one, so the controller start is refused.");
+            driver_status_->commands_synchronized.store(false);
+            StopIfOperational();
+            return hardware_interface::return_type::ERROR;
+        }
 
         velocity_controller_running_ = true;
     } else if (start_modes_.size() != 0
@@ -973,11 +1407,18 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
 
         // Hold joints when starting joint torque controller before user
         // commands arrives
-        std::fill(hw_commands_joint_efforts_.begin(), hw_commands_joint_efforts_.end(),
-            std::numeric_limits<double>::quiet_NaN());
+        SynchronizeCommandsWithState();
 
-        // Set to joint torque mode
+        // Set to joint torque mode. This is also the step that brings the robot back from IDLE to
+        // RT_JOINT_TORQUE after a fault: recovery leaves the robot operational in IDLE, and
+        // restarting the effort controller lands here with a freshly synchronized command buffer.
         robot_->SwitchMode(flexiv::rdk::Mode::RT_JOINT_TORQUE);
+
+        // The joint impedance properties do not govern RT_JOINT_TORQUE, so what the driver holds is
+        // no longer in effect while the effort controller runs.
+        if (joint_impedance_config_node_) {
+            joint_impedance_config_node_->MarkNotInEffect();
+        }
 
         torque_controller_running_ = true;
     }

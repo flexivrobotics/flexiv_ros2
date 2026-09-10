@@ -1,0 +1,24 @@
+# Set maximum contact torques of the robot's joint motion controller. The controller regulates its
+# output to keep contact torques with the environment under these values. Requires the driver to run
+# with rdk_control_mode:=joint_impedance.
+#
+# An invalid request is rejected as a whole and nothing changes.
+
+# Joints to set, named exactly as published on ~/max_contact_torque. Leave empty to address every
+# joint the interface covers, in that published order. On a dual-arm robot this is how a single
+# arm is set on its own: name that arm's joints and the other arm is left untouched.
+string[] joint_names
+
+# Maximum contact torque, one entry per joint in joint_names, or one per covered joint when
+# joint_names is empty. Valid range [0, tau_max]. Raising this increases the force the robot may
+# exert on its surroundings. [Nm]
+float64[] max_contact_torques
+---
+bool success
+
+# Operator-facing explanation of the outcome, naming the joint and the bound on a rejection
+string message
+
+# Every joint the interface covers and the values now held for it, unchanged from before on a
+# rejection. Joints the request did not name keep the value they already had.
+MaxContactTorque setting

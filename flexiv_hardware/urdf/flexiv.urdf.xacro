@@ -44,9 +44,10 @@
         + 'Enlight-L, Enlight-LL, MICO-Core, MICO-Plus, MICO-Ultra')}
     </xacro:unless>
 
-    <!-- Enlight-L has 20 digital IO ports: 16 on the control box plus 2 in each of
-         its two wrist connectors. -->
-    <xacro:property name="num_gpio_ports" value="20" />
+    <!-- Digital IO ports, matching flexiv::rdk::kIOPorts: 16 on the control box, then the M8
+         connector of each wrist (2 ports per wrist), then the pogo pin connector of each wrist
+         (2 ports per wrist). -->
+    <xacro:property name="num_gpio_ports" value="24" />
     <xacro:property name="arm_init" value="${cfg}/Enlight-L/initial_positions.yaml" />
     <xacro:property name="arm_init_mirrored"
       value="${cfg}/Enlight-L/initial_positions_mirrored.yaml" />
@@ -88,7 +89,8 @@
           use_fake_hardware="$(arg use_fake_hardware)"
           fake_sensor_commands="$(arg fake_sensor_commands)"
           initial_positions_file_left="${arm_init}"
-          initial_positions_file_right="${init_right}" />
+          initial_positions_file_right="${init_right}"
+          num_gpio_ports="${num_gpio_ports}" />
       </xacro:unless>
 
       <xacro:if value="${is_mico_torso}">
@@ -101,7 +103,8 @@
           fake_sensor_commands="$(arg fake_sensor_commands)"
           initial_positions_file_left="${arm_init}"
           initial_positions_file_right="${init_right}"
-          torso_initial_positions_file="${cfg}/${rtype}/torso_initial_positions.yaml" />
+          torso_initial_positions_file="${cfg}/${rtype}/torso_initial_positions.yaml"
+          num_gpio_ports="${num_gpio_ports}" />
       </xacro:if>
     </xacro:if>
   </xacro:if>
