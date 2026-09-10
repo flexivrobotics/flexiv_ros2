@@ -59,7 +59,7 @@ jobs:
       - name: Build and install flexiv_drdk
         shell: bash
         run: |
-          git clone --branch v1.2.3 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
+          git clone --branch release/v1.2.4 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
           cd flexiv_drdk/thirdparty
           bash build_and_install_dependencies.sh ~/flexiv_install $(nproc) --skip-rdk
           cd ..
@@ -71,6 +71,7 @@ jobs:
         uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
+          coverage-result: false
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.lyrical.repos
           package-name: |
             flexiv_bringup
