@@ -71,6 +71,7 @@ jobs:
         uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
+          coverage-result: false
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.lyrical.repos
           package-name: |
             flexiv_bringup
