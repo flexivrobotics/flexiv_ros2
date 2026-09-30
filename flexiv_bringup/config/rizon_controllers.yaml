@@ -14,6 +14,9 @@ controller_manager:
     flexiv_robot_states_broadcaster:
       type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
 
+    cartesian_motion_force_controller:
+      type: cartesian_motion_force_controller/CartesianMotionForceController
+
 rizon_arm_controller:
   ros__parameters:
     joints:
@@ -35,3 +38,8 @@ rizon_arm_controller:
     constraints:
       stopped_velocity_tolerance: 0.01
       goal_time: 0.0
+
+cartesian_motion_force_controller:
+  ros__parameters:
+    prefixes:
+      - $(var robot_sn)_
