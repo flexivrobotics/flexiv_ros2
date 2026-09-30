@@ -8,6 +8,7 @@
   <license>Apache-2.0</license>
   <author email="munseng.phoon@flexiv.com">Mun Seng Phoon</author>
 
+  <depend>flexiv_msgs</depend>
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
   <test_depend>python3-pytest</test_depend>

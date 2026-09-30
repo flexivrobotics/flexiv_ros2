@@ -40,6 +40,8 @@ Demo nodes for for testing flexiv_ros2.""",
                 flexiv_test_nodes.robot_states_publisher:main",
             "robot_states_monitor = \
                 flexiv_test_nodes.robot_states_monitor:main",
+            "cartesian_motion_force_example = \
+                flexiv_test_nodes.cartesian_motion_force_example:main",
         ],
     },
 )
