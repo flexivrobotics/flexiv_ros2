@@ -1,0 +1,11 @@
+# Enable or disable passive (open-loop) force control for the Cartesian motion-force control mode.
+# Active (closed-loop) force control is the default. The robot only accepts this while idle, so a
+# request made while a controller runs is held and applied on the next controller start.
+
+# One entry per robot, left first
+bool[] enabled
+---
+bool success
+
+# Operator-facing explanation of the outcome
+string message
