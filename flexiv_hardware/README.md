@@ -139,3 +139,46 @@ the **left** robot's serial number. A request covers every joint of both arms in
 `left_`/`right_` joint name prefixes on the topics tell you which entry is which. Both halves are
 always sent in full, because an empty half means "nominal" to DRDK and would silently reset the
 other arm.
+
+## Cartesian motion-force configuration
+
+Interfaces and settings used by [`cartesian_motion_force_controller`](../flexiv_controllers/cartesian_motion_force_controller), see [Cartesian Motion-Force Control](../README.md#cartesian-motion-force-control) for its usage.
+
+Each robot exports these interfaces under `<prefix>tcp`, with the same prefix as its joints, e.g. `Rizon4-123456_tcp`:
+
+| Interface | Type | Meaning |
+| --------- | ---- | ------- |
+| `cartesian_pose_{x,y,z,qw,qx,qy,qz}`     | command, state | TCP pose in world frame |
+| `cartesian_wrench_{fx,fy,fz,mx,my,mz}`   | command | Target wrench in the force control frame, tracked on force-controlled axes only |
+| `cartesian_velocity_{vx,vy,vz,wx,wy,wz}` | command | Target TCP velocity in world frame, 0 is the most robust |
+
+The target wrench is the wrench sensed at the TCP, not the one it exerts: `f_z = +5 N` in world frame moves the TCP down until the sensed force is +5 N.
+
+The settings are services, one per RDK call, namespaced like the recovery interface. For `Rizon4-123456`, the first service is `/Rizon4_123456/flexiv_cartesian_motion_force_config_node/set_cartesian_impedance`.
+
+| RDK call | Service | Valid range |
+| -------- | ------- | ----------- |
+| `SetCartesianImpedance()`  | `~/set_cartesian_impedance`     | `k_x` in `[0, RobotInfo::K_x_nom]`, empty means nominal; `z_x` in `[0.3, 0.8]`, nominal 0.7 |
+| `SetMaxContactWrench()`    | `~/set_max_contact_wrench`      | `≥ 0`, infinity disables it |
+| `SetNullSpacePosture()`    | `~/set_null_space_posture`      | `[RobotInfo::q_min, RobotInfo::q_max]`, one per joint in URDF order |
+| `SetNullSpaceObjectives()` | `~/set_null_space_objectives`   | `[0, 1]`, `[0, 1]`, `[0.1, 1]` |
+| `SetForceControlAxis()`    | `~/set_force_control_axis`      | `max_linear_vel` in `[0.005, 2.0]` m/s |
+| `SetForceControlFrame()`   | `~/set_force_control_frame`     | `WORLD` or `TCP` |
+| `SetPassiveForceControl()` | `~/set_passive_force_control`   | – |
+| Motion limits              | `~/set_cartesian_motion_limits` | `> 0`, defaults 0.5 m/s, 1.0 rad/s, 2.0 m/s², 5.0 rad/s² |
+
+For example, to force-control the Z axis:
+
+```bash
+ros2 service call /Rizon4_123456/flexiv_cartesian_motion_force_config_node/set_force_control_axis flexiv_msgs/srv/SetForceControlAxis "{enabled_axes: [false, false, true, false, false, false]}"
+```
+
+Notes:
+- The force/torque sensor is zeroed every time the controller starts, so nothing may be in contact with the robot then.
+- A joint controller and the Cartesian controller cannot run at the same time.
+- Passive force control takes effect on the next controller start.
+- The maximum contact wrench only limits motion-controlled axes, and cannot be enabled while a rotational axis is force-controlled.
+
+### Dual robot setups
+
+The pair has one Cartesian interface, namespaced by the **left** robot's serial number. Every per-robot array holds the left robot's values first, e.g. 12 values for `max_wrench`, and the null-space posture covers every joint of both arms in URDF order.
