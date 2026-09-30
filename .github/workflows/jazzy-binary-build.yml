@@ -71,6 +71,7 @@ jobs:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.jazzy.repos
           package-name: |
+            cartesian_motion_force_controller
             flexiv_bringup
             flexiv_calibration
             flexiv_gripper
