@@ -59,3 +59,18 @@ ros2 run flexiv_test_nodes robot_states_monitor --ros-args -p robot_sn:=[robot_s
 ## Publisher Joint Trajectory Controller
 
 Example node to send joint position commands to the joint trajectory controller.
+
+## Cartesian Motion-Force Example
+
+Start the driver with the Cartesian motion-force controller first:
+
+```bash
+ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_controller:=cartesian_motion_force_controller
+```
+
+- `mode:=pure_motion` sweeps the TCP along world Y (or holds it with `hold:=true`), and changes the null-space posture, the Cartesian stiffness and the maximum contact wrench online every 20 seconds.
+- `mode:=motion_force` searches for contact along -Z at 0.02 m/s, then presses with 5 N along Z of the `force_frame` (`world` or `tcp`), optionally sweeping along world Y with `polish:=true`.
+
+```bash
+ros2 launch flexiv_bringup test_cartesian_motion_force_controller.launch.py robot_sn:=[robot_sn] mode:=motion_force polish:=true
+```

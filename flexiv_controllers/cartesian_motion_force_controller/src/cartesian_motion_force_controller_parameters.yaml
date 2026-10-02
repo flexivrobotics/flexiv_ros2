@@ -1,0 +1,9 @@
+cartesian_motion_force_controller:
+  prefixes: {
+    type: string_array,
+    description: "Joint prefix of each robot, naming its '<prefix>tcp' interfaces: one for a single robot (e.g. <robot_sn>_), left then right (e.g. left_<robot_sn>_, right_<robot_sn>_) for a robot pair, whose interfaces must all be claimed together",
+    read_only: true,
+    validation: {
+      not_empty<>: []
+    }
+  }
