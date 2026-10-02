@@ -148,7 +148,7 @@ The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the 
 > If ROS 2 discovery is slow, or topics and services of the driver are missing, while connected to the robot, restrict ROS 2 discovery to the workstation PC in every terminal, including the one running the driver. This also stops ROS 2 nodes on other machines from communicating with it.
 >
 > ```bash
-> export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+> export ROS_LOCALHOST_ONLY=1
 > ```
 
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
