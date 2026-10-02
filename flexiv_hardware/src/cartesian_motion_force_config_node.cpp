@@ -4,6 +4,7 @@
  * @author Flexiv
  */
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <sstream>
@@ -175,18 +176,13 @@ CartesianMotionForceConfigNode::CartesianMotionForceConfigNode(const std::string
 
 CartesianMotionForceConfigNode::~CartesianMotionForceConfigNode() = default;
 
-bool CartesianMotionForceConfigNode::CheckPreconditions(
-    bool idle_only, std::string& message, bool& deliverable) const
+bool CartesianMotionForceConfigNode::CheckPreconditions(bool idle_only, std::string& message) const
 {
-    deliverable = false;
-
     const auto condition = status_->condition();
     if (!condition.connected) {
         message = "Not connected to the robot.";
         return false;
     }
-
-    // Refused rather than held, so nothing is applied silently on the restart after a recovery
     if (status_->driver_state.load() != DriverState::READY) {
         message = "The robot is not ready. " + DescribeRobotCondition(condition)
                   + " Set it once the robot is ready again.";
@@ -198,147 +194,62 @@ bool CartesianMotionForceConfigNode::CheckPreconditions(
         return false;
     }
 
-    // Advisory only: a mode change before the RDK call surfaces as std::logic_error in Serve()
     const auto mode = status_->control_mode.load();
-    if (idle_only ? mode != flexiv::rdk::Mode::IDLE : !InCartesianMode(mode)) {
-        message = "Accepted and held: the robot is in " + ControlModeName(mode)
-                  + " control mode, so the setting takes effect when the Cartesian motion-force "
-                    "controller is (re)started.";
-        return true;
+    if (idle_only && mode != flexiv::rdk::Mode::IDLE) {
+        message
+            = "Only accepted while the robot is idle, i.e. before the Cartesian motion-force "
+              "controller is started. The robot is in "
+              + ControlModeName(mode) + " control mode.";
+        return false;
     }
-
-    deliverable = true;
+    if (!idle_only && !InCartesianMode(mode)) {
+        message
+            = "Only accepted while the Cartesian motion-force controller is running. The "
+              "robot is in "
+              + ControlModeName(mode) + " control mode.";
+        return false;
+    }
     return true;
 }
 
 void CartesianMotionForceConfigNode::Serve(const std::string& property, const std::string& error,
-    bool idle_only, const std::function<void()>& deliver, const std::function<void()>& store,
-    bool& success, std::string& message)
+    bool idle_only, const std::function<void()>& deliver, bool& success, std::string& message)
 {
-    std::string reason;
-    bool deliverable = false;
-    if (!error.empty() || !CheckPreconditions(idle_only, reason, deliverable)) {
-        success = false;
-        message = error.empty() ? reason : error;
-        RCLCPP_WARN(
-            this->get_logger(), "Rejected %s request: %s", property.c_str(), message.c_str());
-        return;
-    }
-
-    if (deliverable) {
+    success = false;
+    if (!error.empty()) {
+        message = error;
+    } else if (CheckPreconditions(idle_only, message)) {
         try {
             deliver();
-        } catch (const std::invalid_argument& e) {
-            // Derives from std::logic_error, but means the values were refused.
-            success = false;
-            message = "The robot rejected the " + property + ": " + e.what();
-            RCLCPP_ERROR(this->get_logger(), "%s", message.c_str());
-            return;
-        } catch (const std::logic_error&) {
-            deliverable = false;
-            reason
-                = "Accepted and held: the robot left the control mode that accepts it, so it "
-                  "takes effect when the Cartesian motion-force controller is (re)started.";
+            success = true;
+            message = "The " + property + " is applied.";
         } catch (const std::exception& e) {
-            success = false;
             message = "The robot rejected the " + property + ": " + e.what();
-            RCLCPP_ERROR(this->get_logger(), "%s", message.c_str());
-            return;
         }
     }
 
-    {
-        std::lock_guard<std::mutex> lock(setting_mutex_);
-        store();
+    if (success) {
+        RCLCPP_WARN(this->get_logger(), "The %s is applied", property.c_str());
+    } else {
+        RCLCPP_WARN(
+            this->get_logger(), "Refused %s request: %s", property.c_str(), message.c_str());
     }
-    success = true;
-    message = deliverable ? "The " + property + " is applied." : reason;
-    RCLCPP_WARN(this->get_logger(), "The %s is %s", property.c_str(),
-        deliverable ? "applied" : "held until the Cartesian motion-force controller is started");
 }
 
-bool CartesianMotionForceConfigNode::ApplyBeforeModeEntry()
+bool CartesianMotionForceConfigNode::DisablePassiveForceControl()
 {
-    std::optional<std::vector<bool>> passive_force_control;
-    {
-        std::lock_guard<std::mutex> lock(setting_mutex_);
-        passive_force_control = passive_force_control_;
-    }
-    if (!passive_force_control) {
+    if (!passive_force_control_enabled_.load()) {
         return true;
     }
     try {
-        setters_.set_passive_force_control(*passive_force_control);
+        setters_.set_passive_force_control(std::vector<bool>(num_robots(), false));
     } catch (const std::exception& e) {
         RCLCPP_ERROR(
-            this->get_logger(), "Could not re-apply the passive force control: %s", e.what());
+            this->get_logger(), "Could not disable the passive force control: %s", e.what());
         return false;
     }
-    RCLCPP_WARN(this->get_logger(), "Re-applied the passive force control setting");
-    return true;
-}
-
-bool CartesianMotionForceConfigNode::Reapply()
-{
-    decltype(force_control_frame_) force_control_frame;
-    decltype(force_control_axis_) force_control_axis;
-    decltype(impedance_) impedance;
-    decltype(max_contact_wrench_) max_contact_wrench;
-    decltype(null_space_posture_) null_space_posture;
-    decltype(null_space_objectives_) null_space_objectives;
-    {
-        std::lock_guard<std::mutex> lock(setting_mutex_);
-        force_control_frame = force_control_frame_;
-        force_control_axis = force_control_axis_;
-        impedance = impedance_;
-        max_contact_wrench = max_contact_wrench_;
-        null_space_posture = null_space_posture_;
-        null_space_objectives = null_space_objectives_;
-    }
-
-    // Mode entry resets everything to nominal, so only settings a request made are re-sent
-    std::string property;
-    std::string applied;
-    const auto mark = [&](const char* name) {
-        property = name;
-        applied += (applied.empty() ? "" : ", ") + property;
-    };
-    try {
-        if (force_control_frame) {
-            mark("force control frame");
-            setters_.set_force_control_frame(
-                force_control_frame->first, force_control_frame->second);
-        }
-        if (force_control_axis) {
-            mark("force control axis");
-            setters_.set_force_control_axis(force_control_axis->first, force_control_axis->second);
-        }
-        if (impedance) {
-            mark("Cartesian impedance");
-            setters_.set_cartesian_impedance(impedance->first, impedance->second);
-        }
-        // After the force control axis, as in the RDK examples
-        if (max_contact_wrench) {
-            mark("maximum contact wrench");
-            setters_.set_max_contact_wrench(*max_contact_wrench);
-        }
-        if (null_space_posture) {
-            mark("null-space posture");
-            setters_.set_null_space_posture(*null_space_posture);
-        }
-        if (null_space_objectives) {
-            mark("null-space objectives");
-            setters_.set_null_space_objectives(*null_space_objectives);
-        }
-    } catch (const std::exception& e) {
-        RCLCPP_ERROR(
-            this->get_logger(), "Could not re-apply the %s: %s", property.c_str(), e.what());
-        return false;
-    }
-
-    if (!applied.empty()) {
-        RCLCPP_WARN(this->get_logger(), "Re-applied the %s", applied.c_str());
-    }
+    passive_force_control_enabled_.store(false);
+    RCLCPP_WARN(this->get_logger(), "Passive force control disabled");
     return true;
 }
 
@@ -373,7 +284,7 @@ void CartesianMotionForceConfigNode::HandleSetCartesianImpedance(
     }
     Serve(
         "Cartesian impedance", error, false, [&]() { setters_.set_cartesian_impedance(k_x, z_x); },
-        [&]() { impedance_ = std::make_pair(k_x, z_x); }, response->success, response->message);
+        response->success, response->message);
     response->k_x_nom = k_x_nom;
 }
 
@@ -393,24 +304,14 @@ void CartesianMotionForceConfigNode::HandleSetCartesianMotionLimits(
             error = CheckPositive(*values, field);
         }
     }
-    if (!error.empty()) {
-        response->success = false;
-        response->message = error;
-        RCLCPP_WARN(
-            this->get_logger(), "Rejected Cartesian motion limits request: %s", error.c_str());
-        return;
+    std::vector<CartesianMotionLimits> limits;
+    for (size_t i = 0; error.empty() && i < num_robots(); ++i) {
+        limits.push_back({request->max_linear_vel[i], request->max_angular_vel[i],
+            request->max_linear_acc[i], request->max_angular_acc[i]});
     }
-
-    // No RDK call: the limits travel with each command, so they apply in any mode
-    std::vector<CartesianMotionLimits> limits(num_robots());
-    for (size_t i = 0; i < limits.size(); ++i) {
-        limits[i] = {request->max_linear_vel[i], request->max_angular_vel[i],
-            request->max_linear_acc[i], request->max_angular_acc[i]};
-    }
-    setters_.set_motion_limits(limits);
-    response->success = true;
-    response->message = "The Cartesian motion limits are applied.";
-    RCLCPP_WARN(this->get_logger(), "The Cartesian motion limits are applied");
+    Serve(
+        "Cartesian motion limits", error, false, [&]() { setters_.set_motion_limits(limits); },
+        response->success, response->message);
 }
 
 void CartesianMotionForceConfigNode::HandleSetForceControlAxis(
@@ -440,9 +341,8 @@ void CartesianMotionForceConfigNode::HandleSetForceControlAxis(
     }
     Serve(
         "force control axis", error, false,
-        [&]() { setters_.set_force_control_axis(enabled_axes, max_linear_vel); },
-        [&]() { force_control_axis_ = std::make_pair(enabled_axes, max_linear_vel); },
-        response->success, response->message);
+        [&]() { setters_.set_force_control_axis(enabled_axes, max_linear_vel); }, response->success,
+        response->message);
 }
 
 void CartesianMotionForceConfigNode::HandleSetForceControlFrame(
@@ -493,8 +393,7 @@ void CartesianMotionForceConfigNode::HandleSetForceControlFrame(
     }
     Serve(
         "force control frame", error, false,
-        [&]() { setters_.set_force_control_frame(root_coord, t_in_root); },
-        [&]() { force_control_frame_ = std::make_pair(root_coord, t_in_root); }, response->success,
+        [&]() { setters_.set_force_control_frame(root_coord, t_in_root); }, response->success,
         response->message);
 }
 
@@ -515,8 +414,8 @@ void CartesianMotionForceConfigNode::HandleSetMaxContactWrench(
     }
     Serve(
         "maximum contact wrench", error, false,
-        [&]() { setters_.set_max_contact_wrench(max_wrench); },
-        [&]() { max_contact_wrench_ = max_wrench; }, response->success, response->message);
+        [&]() { setters_.set_max_contact_wrench(max_wrench); }, response->success,
+        response->message);
 }
 
 void CartesianMotionForceConfigNode::HandleSetNullSpaceObjectives(
@@ -543,8 +442,8 @@ void CartesianMotionForceConfigNode::HandleSetNullSpaceObjectives(
     }
     Serve(
         "null-space objectives", error, false,
-        [&]() { setters_.set_null_space_objectives(objectives); },
-        [&]() { null_space_objectives_ = objectives; }, response->success, response->message);
+        [&]() { setters_.set_null_space_objectives(objectives); }, response->success,
+        response->message);
 }
 
 void CartesianMotionForceConfigNode::HandleSetNullSpacePosture(
@@ -566,8 +465,8 @@ void CartesianMotionForceConfigNode::HandleSetNullSpacePosture(
     const auto& ref_positions = request->ref_positions;
     Serve(
         "null-space posture", error, false,
-        [&]() { setters_.set_null_space_posture(ref_positions); },
-        [&]() { null_space_posture_ = ref_positions; }, response->success, response->message);
+        [&]() { setters_.set_null_space_posture(ref_positions); }, response->success,
+        response->message);
 }
 
 void CartesianMotionForceConfigNode::HandleSetPassiveForceControl(
@@ -578,8 +477,12 @@ void CartesianMotionForceConfigNode::HandleSetPassiveForceControl(
     const std::vector<bool> enabled(request->enabled.begin(), request->enabled.end());
     Serve(
         "passive force control", error, true,
-        [&]() { setters_.set_passive_force_control(enabled); },
-        [&]() { passive_force_control_ = enabled; }, response->success, response->message);
+        [&]() {
+            setters_.set_passive_force_control(enabled);
+            passive_force_control_enabled_.store(
+                std::find(enabled.begin(), enabled.end(), true) != enabled.end());
+        },
+        response->success, response->message);
 }
 
 } /* namespace flexiv_hardware */

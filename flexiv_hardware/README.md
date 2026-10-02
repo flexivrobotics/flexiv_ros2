@@ -176,7 +176,7 @@ ros2 service call /Rizon4_123456/flexiv_cartesian_motion_force_config_node/set_f
 Notes:
 - The force/torque sensor is zeroed every time the controller starts, so nothing may be in contact with the robot then.
 - A joint controller and the Cartesian controller cannot run at the same time.
-- Passive force control takes effect on the next controller start.
+- Passive force control is disabled again when the controller stops.
 - The maximum contact wrench only limits motion-controlled axes, and cannot be enabled while a rotational axis is force-controlled.
 
 ### Dual robot setups

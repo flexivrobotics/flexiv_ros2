@@ -11,11 +11,9 @@
 
 #include <array>
 #include <functional>
+#include <atomic>
 #include <memory>
-#include <mutex>
-#include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
@@ -122,8 +120,9 @@ struct CartesianMotionForceBounds
 
 /**
  * @brief Node that configures the robot's unified Cartesian motion-force controller, hosted on the
- * controller manager's executor. A request that cannot be delivered right away is held, and every
- * setting is re-delivered on each Cartesian controller start.
+ * controller manager's executor. As in the RDK, the settings are only accepted while the robot is
+ * in the Cartesian motion-force mode, except passive force control, which is only accepted in IDLE.
+ * Nothing is held or re-applied, so every controller start begins from the robot's defaults.
  */
 class CartesianMotionForceConfigNode : public rclcpp::Node
 {
@@ -152,41 +151,32 @@ public:
     ~CartesianMotionForceConfigNode() override;
 
     /**
-     * @brief [Blocking] Deliver the held passive force control setting. Called from
-     * perform_command_mode_switch() while the robot is still in IDLE, right before SwitchMode().
-     * @return True if there was nothing to deliver or the setter succeeded. Never throws.
+     * @brief [Blocking] Disable passive force control if a request enabled it, since the robot
+     * keeps it across mode entries. Called from perform_command_mode_switch() once the Cartesian
+     * controller has stopped and the robot is in IDLE.
+     * @return True if there was nothing to disable or the setter succeeded. Never throws.
      */
-    bool ApplyBeforeModeEntry();
-
-    /**
-     * @brief [Blocking] Re-deliver every other held setting. Called from
-     * perform_command_mode_switch() right after SwitchMode().
-     * @return True if there was nothing to re-apply or every setter succeeded. Never throws.
-     */
-    bool Reapply();
+    bool DisablePassiveForceControl();
 
 private:
     size_t num_robots() const { return bounds_.k_x_nom.size(); }
 
     /**
-     * @brief Check the preconditions shared by the RDK-backed services.
+     * @brief Check the preconditions shared by all services.
      * @param[in] idle_only Whether the setter is only accepted in IDLE rather than in a Cartesian
      * motion-force mode.
-     * @param[out] deliverable Whether the request can be delivered now, rather than held.
      * @return False if the request must be refused, with [message] explaining why.
      */
-    bool CheckPreconditions(bool idle_only, std::string& message, bool& deliverable) const;
+    bool CheckPreconditions(bool idle_only, std::string& message) const;
 
     /**
-     * @brief Shared flow of the RDK-backed services: reject on [error], check the preconditions,
-     * deliver or hold, then store.
+     * @brief Shared flow of all services: refuse on [error] or a failed precondition, otherwise
+     * deliver.
      * @param[in] error Validation error, empty if the request is valid.
-     * @param[in] deliver Makes the RDK call. Called without setting_mutex_ held.
-     * @param[in] store Records the setting as held. Called with setting_mutex_ held.
+     * @param[in] deliver Makes the call.
      */
     void Serve(const std::string& property, const std::string& error, bool idle_only,
-        const std::function<void()>& deliver, const std::function<void()>& store, bool& success,
-        std::string& message);
+        const std::function<void()>& deliver, bool& success, std::string& message);
 
     void HandleSetCartesianImpedance(const std::shared_ptr<SetCartesianImpedance::Request> request,
         std::shared_ptr<SetCartesianImpedance::Response> response);
@@ -225,18 +215,8 @@ private:
     /** Shared by all services, so two blocking RDK calls are never in flight at once. */
     rclcpp::CallbackGroup::SharedPtr service_callback_group_;
 
-    /** Guards everything below. Never held across an RDK call. */
-    mutable std::mutex setting_mutex_;
-    // Settings a request has made, re-sent on every mode entry. Never cleared.
-    std::optional<std::pair<std::vector<CartesianArray>, std::vector<CartesianArray>>> impedance_;
-    std::optional<std::vector<CartesianArray>> max_contact_wrench_;
-    std::optional<std::vector<double>> null_space_posture_;
-    std::optional<std::vector<NullSpaceObjectives>> null_space_objectives_;
-    std::optional<std::pair<std::vector<CartesianFlags>, std::vector<LinearArray>>>
-        force_control_axis_;
-    std::optional<std::pair<std::vector<flexiv::rdk::CoordType>, std::vector<PoseArray>>>
-        force_control_frame_;
-    std::optional<std::vector<bool>> passive_force_control_;
+    /** Whether a request has enabled passive force control on any robot. */
+    std::atomic<bool> passive_force_control_enabled_ {false};
 };
 
 } /* namespace flexiv_hardware */

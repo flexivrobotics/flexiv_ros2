@@ -619,7 +619,7 @@ bool FlexivDualHardwareInterface::ZeroForceTorqueSensor()
         return false;
     }
 
-    // Back to IDLE, which passive force control requires
+    // Back to IDLE, as before the zeroing
     StopIfOperational();
     RCLCPP_INFO(getLogger(), "Force/torque sensors zeroed");
     return true;
@@ -1133,6 +1133,7 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
     if (cartesian_stop_requested_) {
         cartesian_controller_running_ = false;
         StopIfOperational();
+        cartesian_config_node_->DisablePassiveForceControl();
     }
 
     if (stop_modes_.size() != 0
@@ -1231,21 +1232,16 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
         // Hold the TCPs before user commands arrive
         SynchronizeCommandsWithState();
 
-        // Passive force control needs IDLE; the rest is reset on mode entry, so re-applied after it
-        bool applied = cartesian_config_node_->ApplyBeforeModeEntry();
-        if (applied) {
-            robot_pair_->SwitchMode(flexiv::rdk::Mode::NRT_CARTESIAN_MOTION_FORCE);
-            applied = cartesian_config_node_->Reapply();
+        // Every start begins from the defaults: the robot resets its settings on mode entry, and
+        // the motion limits are reset here
+        const CartesianMotionLimits defaults;
+        for (size_t robot = 0; robot < 2; robot++) {
+            cartesian_max_linear_vel_[robot].store(defaults.max_linear_vel);
+            cartesian_max_angular_vel_[robot].store(defaults.max_angular_vel);
+            cartesian_max_linear_acc_[robot].store(defaults.max_linear_acc);
+            cartesian_max_angular_acc_[robot].store(defaults.max_angular_acc);
         }
-        if (!applied) {
-            RCLCPP_FATAL(getLogger(),
-                "Could not re-apply the Cartesian motion-force settings. The robots would run with "
-                "default settings instead of the requested ones, so the controller start is "
-                "refused.");
-            driver_status_->commands_synchronized.store(false);
-            StopIfOperational();
-            return hardware_interface::return_type::ERROR;
-        }
+        robot_pair_->SwitchMode(flexiv::rdk::Mode::NRT_CARTESIAN_MOTION_FORCE);
 
         // The joint impedance properties do not govern the Cartesian mode
         if (joint_impedance_config_node_) {

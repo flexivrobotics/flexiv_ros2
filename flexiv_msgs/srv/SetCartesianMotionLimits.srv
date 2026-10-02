@@ -1,5 +1,6 @@
 # Set the motion limits the driver passes with every Cartesian motion-force command. Each array
-# holds one entry per robot, left first. Takes effect from the next command in any control mode.
+# holds one entry per robot, left first. Only accepted while the Cartesian motion-force controller
+# is running, and reset to the defaults on every controller start.
 #
 # An invalid request is rejected as a whole and nothing changes.
 

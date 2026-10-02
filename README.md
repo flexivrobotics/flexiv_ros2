@@ -321,7 +321,7 @@ ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_controller
 ros2 topic pub /cartesian_motion_force_controller/cartesian_motion_force flexiv_msgs/msg/CartesianMotionForce "{pose: {position: {x: 0.68, y: -0.11, z: 0.34}, orientation: {w: 0.0, x: 0.0, y: 1.0, z: 0.0}}}" --once
 ```
 
-The force control settings, such as the force-controlled axes and the Cartesian impedance, are set at runtime with services on `/[robot_sn]/flexiv_cartesian_motion_force_config_node/`. The robot resets them whenever it enters a control mode, so the driver re-applies what was set on every controller start.
+The force control settings, such as the force-controlled axes and the Cartesian impedance, are set at runtime with services on `/[robot_sn]/flexiv_cartesian_motion_force_config_node/`, while the controller is running. Every controller start, including the one after a fault recovery, begins from the robot's defaults, so set them again after each start.
 
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#cartesian-motion-force-configuration) for the interfaces, the services with their valid ranges, and the dual-robot notes.
 

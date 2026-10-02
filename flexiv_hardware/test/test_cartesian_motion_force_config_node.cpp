@@ -74,13 +74,7 @@ protected:
 
         const auto log = [this](const std::string& name) {
             if (throw_on_ == name) {
-                throw std::runtime_error("stub: failed to deliver the request");
-            }
-            if (logic_error_on_ == name) {
                 throw std::logic_error("stub: wrong control mode");
-            }
-            if (invalid_argument_on_ == name) {
-                throw std::invalid_argument("stub: value out of range");
             }
             calls_.push_back(name);
         };
@@ -105,8 +99,10 @@ protected:
         setters.set_force_control_frame
             = [log](const std::vector<flexiv::rdk::CoordType>&,
                   const std::vector<flexiv_hardware::PoseArray>&) { log("force_control_frame"); };
-        setters.set_passive_force_control
-            = [log](const std::vector<bool>&) { log("passive_force_control"); };
+        setters.set_passive_force_control = [this, log](const std::vector<bool>& enabled) {
+            log("passive_force_control");
+            last_passive_ = enabled;
+        };
         setters.set_motion_limits = [this, log](const std::vector<CartesianMotionLimits>& limits) {
             log("motion_limits");
             last_limits_ = limits;
@@ -205,11 +201,10 @@ protected:
     std::atomic<bool> running_ {false};
 
     std::string throw_on_;
-    std::string logic_error_on_;
-    std::string invalid_argument_on_;
     std::vector<std::string> calls_;
     std::vector<CartesianArray> last_k_x_;
     std::vector<CartesianMotionLimits> last_limits_;
+    std::vector<bool> last_passive_;
 };
 
 }
@@ -224,42 +219,27 @@ TEST_F(CartesianConfigServiceTest, AppliesWhileInCartesianMode)
     EXPECT_EQ(calls_, std::vector<std::string> {"force_control_axis"});
 }
 
-TEST_F(CartesianConfigServiceTest, HoldsOutsideCartesianModeAndReappliesOnEntry)
+TEST_F(CartesianConfigServiceTest, RefusesOutsideTheCartesianMode)
 {
-    StartNode(Mode::NRT_JOINT_POSITION);
-
-    auto response = SetForceControlAxis();
-    ASSERT_NE(response, nullptr);
-    EXPECT_TRUE(response->success) << response->message;
+    // Refused rather than held, so a controller start never re-enables force control by itself.
+    for (const auto mode : {Mode::IDLE, Mode::NRT_JOINT_POSITION}) {
+        StartNode(mode);
+        auto response = SetForceControlAxis();
+        ASSERT_NE(response, nullptr);
+        EXPECT_FALSE(response->success);
+        TearDown();
+    }
     EXPECT_TRUE(calls_.empty());
-
-    EXPECT_TRUE(node_->Reapply());
-    EXPECT_EQ(calls_, std::vector<std::string> {"force_control_axis"});
 }
 
-TEST_F(CartesianConfigServiceTest, HoldsOnAModeChangeButNotOnARejectedValue)
+TEST_F(CartesianConfigServiceTest, RefusesWhenTheModeChangesDuringDelivery)
 {
     StartNode(Mode::NRT_CARTESIAN_MOTION_FORCE);
+    throw_on_ = "force_control_axis";
 
-    // The robot left the Cartesian mode between the check and the call: held for the next start.
-    logic_error_on_ = "force_control_axis";
     auto response = SetForceControlAxis();
     ASSERT_NE(response, nullptr);
-    EXPECT_TRUE(response->success) << response->message;
-    logic_error_on_.clear();
-    EXPECT_TRUE(node_->Reapply());
-    EXPECT_EQ(calls_, std::vector<std::string> {"force_control_axis"});
-
-    // std::invalid_argument derives from std::logic_error, but a refused value must not be held,
-    // or it would fail every later controller start.
-    calls_.clear();
-    invalid_argument_on_ = "max_contact_wrench";
-    auto rejected = SetMaxContactWrench(10.0);
-    ASSERT_NE(rejected, nullptr);
-    EXPECT_FALSE(rejected->success);
-    invalid_argument_on_.clear();
-    EXPECT_TRUE(node_->Reapply());
-    EXPECT_EQ(calls_, std::vector<std::string> {"force_control_axis"});
+    EXPECT_FALSE(response->success);
 }
 
 TEST_F(CartesianConfigServiceTest, RefusesWhileTheDriverIsNotReady)
@@ -270,10 +250,6 @@ TEST_F(CartesianConfigServiceTest, RefusesWhileTheDriverIsNotReady)
     auto response = SetForceControlAxis();
     ASSERT_NE(response, nullptr);
     EXPECT_FALSE(response->success);
-    EXPECT_TRUE(calls_.empty());
-
-    // A refused request is not held either.
-    EXPECT_TRUE(node_->Reapply());
     EXPECT_TRUE(calls_.empty());
 }
 
@@ -311,8 +287,6 @@ TEST_F(CartesianConfigServiceTest, RejectsOutOfRangeAndNonFiniteValues)
     frame->t_in_root = {0, 0, 0, 0, 0, 0, 0};
     EXPECT_FALSE(Call<srv::SetForceControlFrame>("set_force_control_frame", frame)->success);
 
-    // Neither delivered nor held.
-    EXPECT_TRUE(node_->Reapply());
     EXPECT_TRUE(calls_.empty());
 }
 
@@ -340,26 +314,29 @@ TEST_F(CartesianConfigServiceTest, EmptyStiffnessMeansNominalAndReturnsIt)
     EXPECT_EQ(std::vector<double>(last_k_x_[0].begin(), last_k_x_[0].end()), nominal);
 }
 
-TEST_F(CartesianConfigServiceTest, PassiveForceControlIsOnlyDeliveredInIdle)
+TEST_F(CartesianConfigServiceTest, PassiveForceControlIsOnlyAcceptedInIdleAndDisabledOnStop)
 {
-    StartNode(Mode::NRT_CARTESIAN_MOTION_FORCE);
+    StartNode(Mode::IDLE);
+
+    // Nothing to disable until a request enabled it.
+    EXPECT_TRUE(node_->DisablePassiveForceControl());
+    EXPECT_TRUE(calls_.empty());
 
     ASSERT_TRUE(SetPassiveForceControl()->success);
-    EXPECT_TRUE(calls_.empty());
+    EXPECT_EQ(last_passive_, std::vector<bool> {true});
 
-    // Reapply() runs after SwitchMode(), where the robot rejects it; only the IDLE hook sends it.
-    EXPECT_TRUE(node_->Reapply());
-    EXPECT_TRUE(calls_.empty());
-    EXPECT_TRUE(node_->ApplyBeforeModeEntry());
-    EXPECT_EQ(calls_, std::vector<std::string> {"passive_force_control"});
-
+    // The robot keeps it across mode entries, so the driver disables it when the controller stops.
     calls_.clear();
-    status_->control_mode.store(Mode::IDLE);
-    ASSERT_TRUE(SetPassiveForceControl()->success);
+    EXPECT_TRUE(node_->DisablePassiveForceControl());
+    EXPECT_EQ(last_passive_, std::vector<bool> {false});
+    EXPECT_TRUE(node_->DisablePassiveForceControl());
     EXPECT_EQ(calls_, std::vector<std::string> {"passive_force_control"});
+
+    status_->control_mode.store(Mode::NRT_CARTESIAN_MOTION_FORCE);
+    EXPECT_FALSE(SetPassiveForceControl()->success);
 }
 
-TEST_F(CartesianConfigServiceTest, MotionLimitsAreAlwaysTakenAndNeverReapplied)
+TEST_F(CartesianConfigServiceTest, MotionLimitsNeedTheCartesianModeAndPositiveValues)
 {
     StartNode(Mode::NRT_JOINT_POSITION);
 
@@ -368,62 +345,20 @@ TEST_F(CartesianConfigServiceTest, MotionLimitsAreAlwaysTakenAndNeverReapplied)
     request->max_angular_vel = {1.0};
     request->max_linear_acc = {2.0};
     request->max_angular_acc = {5.0};
+    EXPECT_FALSE(
+        Call<srv::SetCartesianMotionLimits>("set_cartesian_motion_limits", request)->success);
+
+    status_->control_mode.store(Mode::NRT_CARTESIAN_MOTION_FORCE);
     auto response = Call<srv::SetCartesianMotionLimits>("set_cartesian_motion_limits", request);
     ASSERT_NE(response, nullptr);
     EXPECT_TRUE(response->success) << response->message;
     ASSERT_EQ(last_limits_.size(), 1u);
     EXPECT_DOUBLE_EQ(last_limits_[0].max_linear_vel, 0.02);
 
-    calls_.clear();
-    EXPECT_TRUE(node_->Reapply());
-    EXPECT_TRUE(calls_.empty());
-
+    // A zero limit would make the RDK throw on every command.
     request->max_linear_acc = {0.0};
     EXPECT_FALSE(
         Call<srv::SetCartesianMotionLimits>("set_cartesian_motion_limits", request)->success);
-}
-
-TEST_F(CartesianConfigServiceTest, ReapplySendsEverySettingInTheRDKExampleOrder)
-{
-    StartNode(Mode::IDLE);
-
-    auto posture = std::make_shared<srv::SetNullSpacePosture::Request>();
-    posture->ref_positions.assign(kDoF, 0.5);
-    ASSERT_TRUE(Call<srv::SetNullSpacePosture>("set_null_space_posture", posture)->success);
-    auto objectives = std::make_shared<srv::SetNullSpaceObjectives::Request>();
-    objectives->linear_manipulability = {0.2};
-    objectives->angular_manipulability = {0.2};
-    objectives->ref_positions_tracking = {0.5};
-    ASSERT_TRUE(
-        Call<srv::SetNullSpaceObjectives>("set_null_space_objectives", objectives)->success);
-    ASSERT_TRUE(SetMaxContactWrench(10.0)->success);
-    ASSERT_TRUE(Call<srv::SetCartesianImpedance>(
-        "set_cartesian_impedance", std::make_shared<srv::SetCartesianImpedance::Request>())
-                    ->success);
-    ASSERT_TRUE(SetForceControlAxis()->success);
-    auto frame = std::make_shared<srv::SetForceControlFrame::Request>();
-    frame->root_coord = {srv::SetForceControlFrame::Request::TCP};
-    ASSERT_TRUE(Call<srv::SetForceControlFrame>("set_force_control_frame", frame)->success);
-    EXPECT_TRUE(calls_.empty());
-
-    EXPECT_TRUE(node_->Reapply());
-    const std::vector<std::string> expected {"force_control_frame", "force_control_axis",
-        "impedance", "max_contact_wrench", "null_space_posture", "null_space_objectives"};
-    EXPECT_EQ(calls_, expected);
-
-    // Every setting survives any number of controller restarts.
-    calls_.clear();
-    EXPECT_TRUE(node_->Reapply());
-    EXPECT_EQ(calls_, expected);
-}
-
-TEST_F(CartesianConfigServiceTest, ReapplyReportsFailureWhenTheRobotRejectsASetting)
-{
-    StartNode(Mode::IDLE);
-    ASSERT_TRUE(SetForceControlAxis()->success);
-
-    throw_on_ = "force_control_axis";
-    EXPECT_FALSE(node_->Reapply());
 }
 
 TEST_F(CartesianConfigServiceTest, ARobotPairTakesBothHalves)
