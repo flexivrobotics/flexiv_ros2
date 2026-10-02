@@ -9,6 +9,8 @@
 #ifndef FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 #define FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 
+#include <array>
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <string>
@@ -32,6 +34,7 @@
 // Flexiv
 #include "flexiv/rdk/robot.hpp"
 
+#include "flexiv_hardware/cartesian_motion_force_config_node.hpp"
 #include "flexiv_hardware/fault_recovery.hpp"
 #include "flexiv_hardware/joint_impedance_config_node.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
@@ -118,6 +121,13 @@ private:
      */
     void StopIfOperational();
 
+    /**
+     * @brief [Blocking] Zero the force/torque sensor with the ZeroFTSensor primitive, then return
+     * the robot to IDLE. Called before entering the Cartesian motion-force mode.
+     * @return False if the robot is not ready, faulted or the primitive did not finish in time.
+     */
+    bool ZeroForceTorqueSensor();
+
     /** @brief Tear down the recovery node and release the robot connection. */
     void Disconnect();
 
@@ -134,6 +144,9 @@ private:
     // in a joint impedance control mode.
     std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
 
+    // Cartesian motion-force interface, hosted on the same executor
+    std::shared_ptr<CartesianMotionForceConfigNode> cartesian_config_node_;
+
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;
 
@@ -146,6 +159,21 @@ private:
     std::vector<double> hw_states_joint_positions_;
     std::vector<double> hw_states_joint_velocities_;
     std::vector<double> hw_states_joint_efforts_;
+
+    // Cartesian commands and states, in RDK order
+    std::array<double, flexiv::rdk::kPoseSize> hw_commands_cartesian_pose_;
+    std::array<double, flexiv::rdk::kCartDoF> hw_commands_cartesian_wrench_;
+    std::array<double, flexiv::rdk::kCartDoF> hw_commands_cartesian_velocity_;
+    std::array<double, flexiv::rdk::kPoseSize> hw_states_cartesian_pose_;
+
+    // Limits passed with every Cartesian command, written by the Cartesian config node
+    std::atomic<double> cartesian_max_linear_vel_ {CartesianMotionLimits {}.max_linear_vel};
+    std::atomic<double> cartesian_max_angular_vel_ {CartesianMotionLimits {}.max_angular_vel};
+    std::atomic<double> cartesian_max_linear_acc_ {CartesianMotionLimits {}.max_linear_acc};
+    std::atomic<double> cartesian_max_angular_acc_ {CartesianMotionLimits {}.max_angular_acc};
+
+    // Full names of the Cartesian command interfaces, for matching controller claims
+    std::vector<std::string> cartesian_command_interface_names_;
 
     // Robot States
     flexiv::rdk::RobotStates hw_flexiv_robot_states_;
@@ -177,6 +205,9 @@ private:
     bool position_controller_running_;
     bool velocity_controller_running_;
     bool torque_controller_running_;
+    bool cartesian_controller_running_ = false;
+    bool cartesian_start_requested_ = false;
+    bool cartesian_stop_requested_ = false;
 };
 
 } /* namespace flexiv_hardware */
