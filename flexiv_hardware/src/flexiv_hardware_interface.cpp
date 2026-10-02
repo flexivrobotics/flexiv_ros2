@@ -286,18 +286,10 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_configure(
         robot_->SetJointInertiaScale(ConvertROSToRDKOrder(inertia_scales, rdk_to_ros_map_));
     };
 
-<<<<<<< HEAD
-    joint_impedance_config_node_
-        = std::make_shared<JointImpedanceConfigNode>(robot_sn, std::move(joint_names),
-            std::move(bounds), rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE,
-            driver_status_, std::move(setters));
-    executor_->add_node(joint_impedance_config_node_->get_node_base_interface());
-=======
     joint_impedance_config_node_ = std::make_shared<JointImpedanceConfigNode>(robot_sn, joint_names,
         std::move(bounds), rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE,
         driver_status_, std::move(setters));
-    executor->add_node(joint_impedance_config_node_->get_node_base_interface());
->>>>>>> f12f66f (Feature/Add Cartesian Motion Force control interface (#132))
+    executor_->add_node(joint_impedance_config_node_->get_node_base_interface());
 
     CartesianMotionForceBounds cartesian_bounds;
     cartesian_bounds.k_x_nom = {robot_->info().K_x_nom};
@@ -343,7 +335,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_configure(
     cartesian_config_node_
         = std::make_shared<CartesianMotionForceConfigNode>(robot_sn, std::move(joint_names),
             std::move(cartesian_bounds), driver_status_, std::move(cartesian_setters));
-    executor->add_node(cartesian_config_node_->get_node_base_interface());
+    executor_->add_node(cartesian_config_node_->get_node_base_interface());
 
     return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -436,16 +428,13 @@ void FlexivHardwareInterface::Disconnect()
         }
         joint_impedance_config_node_.reset();
     }
-<<<<<<< HEAD
-    executor_.reset();
-=======
     if (cartesian_config_node_) {
-        if (auto executor = executor_.lock()) {
-            executor->remove_node(cartesian_config_node_->get_node_base_interface());
+        if (executor_) {
+            executor_->remove_node(cartesian_config_node_->get_node_base_interface());
         }
         cartesian_config_node_.reset();
     }
->>>>>>> f12f66f (Feature/Add Cartesian Motion Force control interface (#132))
+    executor_.reset();
     robot_system_control_.reset();
     robot_.reset();
     if (driver_status_) {
