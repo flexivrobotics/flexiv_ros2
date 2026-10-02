@@ -130,13 +130,13 @@ controller_interface::CallbackReturn CartesianMotionForceController::on_activate
     for (size_t robot = 0; robot < commands_.size(); ++robot) {
         Command hold {};
         for (size_t i = 0; i < kPoseSize; ++i) {
-            const auto value = state_interfaces_[robot * kPoseSize + i].get_optional();
-            if (!value) {
+            const double value = state_interfaces_[robot * kPoseSize + i].get_value();
+            if (!std::isfinite(value)) {
                 RCLCPP_ERROR(get_node()->get_logger(), "Could not read the TCP pose of '%s'",
                     params_.prefixes[robot].c_str());
                 return controller_interface::CallbackReturn::ERROR;
             }
-            hold[i] = *value;
+            hold[i] = value;
         }
         commands_[robot]->writeFromNonRT(hold);
     }
@@ -149,9 +149,7 @@ controller_interface::return_type CartesianMotionForceController::update(
     for (size_t robot = 0; robot < commands_.size(); ++robot) {
         const Command& command = *commands_[robot]->readFromRT();
         for (size_t i = 0; i < kCommandSize; ++i) {
-            if (!command_interfaces_[robot * kCommandSize + i].set_value(command[i])) {
-                return controller_interface::return_type::ERROR;
-            }
+            command_interfaces_[robot * kCommandSize + i].set_value(command[i]);
         }
     }
     return controller_interface::return_type::OK;
