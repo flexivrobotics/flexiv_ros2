@@ -8,9 +8,11 @@ single Rizon arm driven with robot_controller:=cartesian_motion_force_controller
 """
 
 import math
+import signal
 
 import rclpy
 from rclpy.node import Node
+from rclpy.signals import SignalHandlerOptions
 
 from flexiv_msgs.msg import CartesianMotionForce, RobotStates
 from flexiv_msgs.srv import (
@@ -278,6 +280,17 @@ class CartesianMotionForceExample(Node):
             max_angular_acc=[limits[3]],
         )
 
+    def stop(self):
+        """Hold the current pose under motion force control."""
+        if self.mode != "motion_force" or self.states is None:
+            return
+        self.get_logger().info("Disabling force control and holding the current pose")
+        self.request_and_wait(
+            SetForceControlAxis, "set_force_control_axis", enabled_axes=[False] * 6
+        )
+        self.publish(self.tcp_pose(), [0.0] * 6)
+        self.set_motion_limits(DEFAULT_MOTION_LIMITS)
+
     def run(self):
         self.wait_for_states()
         if self.mode == "pure_motion":
@@ -287,14 +300,28 @@ class CartesianMotionForceExample(Node):
         rclpy.spin(self)
 
 
+def raise_keyboard_interrupt(signum, frame):
+    raise KeyboardInterrupt
+
+
 def main(args=None):
-    rclpy.init(args=args)
+    # Ctrl-C and SIGTERM are handled here rather than by rclpy, which would shut ROS down before
+    # stop() runs.
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
+    signal.signal(signal.SIGINT, raise_keyboard_interrupt)
+    signal.signal(signal.SIGTERM, raise_keyboard_interrupt)
     node = CartesianMotionForceExample()
     try:
         node.run()
     except KeyboardInterrupt:
         pass
     finally:
+        try:
+            node.stop()
+        except Exception as e:
+            node.get_logger().error(
+                f"Could not leave the robot in motion force control: {e}"
+            )
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

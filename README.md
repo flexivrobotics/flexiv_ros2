@@ -142,6 +142,13 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
 The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://www.flexiv.com/software/rdk/manual/activate_rdk_server.html) and [establish connection](https://www.flexiv.com/software/rdk/manual/establish_connection.html) between the workstation PC and the robot.
 
+> [!TIP]
+> If ROS 2 discovery is slow, or topics and services of the driver are missing, while connected to the robot, restrict ROS 2 discovery to the workstation PC in every terminal, including the one running the driver. This also stops ROS 2 nodes on other machines from communicating with it.
+>
+> ```bash
+> export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+> ```
+
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
@@ -310,7 +317,8 @@ See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance-conf
 ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_controller:=cartesian_motion_force_controller
 
 # Send a target: pose in world frame, wrench in the force control frame, velocity in world frame
-ros2 topic pub /cartesian_motion_force_controller/cartesian_motion_force flexiv_msgs/msg/CartesianMotionForce "{pose: {position: {x: 0.68, y: -0.11, z: 0.29}, orientation: {w: 0.0, x: 0.0, y: 1.0, z: 0.0}}}" --once
+# This moves the TCP 5 cm up from the home position
+ros2 topic pub /cartesian_motion_force_controller/cartesian_motion_force flexiv_msgs/msg/CartesianMotionForce "{pose: {position: {x: 0.68, y: -0.11, z: 0.34}, orientation: {w: 0.0, x: 0.0, y: 1.0, z: 0.0}}}" --once
 ```
 
 The force control settings, such as the force-controlled axes and the Cartesian impedance, are set at runtime with services on `/[robot_sn]/flexiv_cartesian_motion_force_config_node/`. The robot resets them whenever it enters a control mode, so the driver re-applies what was set on every controller start.
