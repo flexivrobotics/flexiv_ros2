@@ -474,10 +474,10 @@ def generate_launch_description():
         ],
     )
 
-    # Arm controllers load inactive when another robot controller is chosen (--switch-asap is a no-op)
+    # Arm controllers load inactive when another robot controller is chosen (--activate-as-group is a no-op)
     arm_controller_activation = PythonExpression(
         [
-            "'--switch-asap' if '",
+            "'--activate-as-group' if '",
             robot_controller,
             "' == 'rizon_arm_controller' else '--inactive'",
         ]
