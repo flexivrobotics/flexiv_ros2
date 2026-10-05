@@ -5,7 +5,7 @@
   <version>1.9.4</version>
   <description>Hardware interfaces to Flexiv robots for ROS 2 control</description>
   <maintainer email="munseng.phoon@flexiv.com">Mun Seng Phoon</maintainer>
-  <license>Apache 2.0</license>
+  <license>Apache-2.0</license>
   <author email="munseng.phoon@flexiv.com">Mun Seng Phoon</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -20,8 +20,6 @@
   <exec_depend>flexiv_description</exec_depend>
   <exec_depend>xacro</exec_depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
   <test_depend>ament_cmake_gtest</test_depend>
 
   <export>

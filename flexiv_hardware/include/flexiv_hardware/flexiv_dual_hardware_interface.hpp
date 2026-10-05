@@ -10,10 +10,12 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
+#include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
-#include <map>
 
 // ROS
 #include <rclcpp/clock.hpp>
@@ -35,19 +37,12 @@
 
 #include "flexiv_hardware/cartesian_motion_force_config_node.hpp"
 #include "flexiv_hardware/fault_recovery.hpp"
+#include "flexiv_hardware/interface_bindings.hpp"
 #include "flexiv_hardware/joint_impedance_config_node.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
 #include "flexiv_hardware/robot_system_control.hpp"
 
 namespace flexiv_hardware {
-
-enum StoppingInterface
-{
-    NONE,
-    STOP_POSITION,
-    STOP_VELOCITY,
-    STOP_EFFORT
-};
 
 class FlexivDualHardwareInterface : public hardware_interface::SystemInterface
 {
@@ -69,9 +64,11 @@ public:
     hardware_interface::CallbackReturn on_error(
         const rclcpp_lifecycle::State& previous_state) override;
 
-    std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
+    std::vector<hardware_interface::StateInterface::ConstSharedPtr>
+    on_export_state_interfaces() override;
 
-    std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
+    std::vector<hardware_interface::CommandInterface::SharedPtr>
+    on_export_command_interfaces() override;
 
     hardware_interface::return_type prepare_command_mode_switch(
         const std::vector<std::string>& start_interfaces,
@@ -95,6 +92,20 @@ public:
 
 private:
     /**
+     * @brief Check the joints in the URDF against the DoF of the connected robots.
+     * @return False if they do not match and the driver cannot run.
+     */
+    bool CheckJointCount() const;
+
+    /**
+     * @brief [Non-blocking] Split a ROS-ordered joint vector into the left/right pair DRDK takes.
+     * Joints no ROS joint maps to are 0.
+     */
+    std::pair<std::vector<double>, std::vector<double>> ToDRDKOrder(
+        const std::vector<double>& ros_values,
+        const std::pair<flexiv::rdk::RobotInfo, flexiv::rdk::RobotInfo>& info) const;
+
+    /**
      * @brief [Blocking] Wait for both robots to become operational, up to [timeout].
      * @return True if both became operational, false on timeout.
      */
@@ -105,6 +116,12 @@ private:
      * resuming control cannot apply a stale command.
      */
     void SynchronizeCommandsWithState();
+
+    /**
+     * @brief Advance the velocity control targets by the commanded velocities over one cycle,
+     * keeping each within kMaxVelocityTargetLead of the measured position.
+     */
+    void AdvanceVelocityTargets(double dt);
 
     /**
      * @brief Notice a robot that was moved while the driver was not ready, and warn about it once
@@ -140,8 +157,7 @@ private:
     std::shared_ptr<RecoveryNode> recovery_node_;
     rclcpp::Executor::WeakPtr executor_;
 
-    // Joint impedance interface, hosted on the same executor. Only brought up when the driver runs
-    // in a joint impedance control mode.
+    // Joint impedance interface, hosted on the same executor
     std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
 
     // Cartesian motion-force interface, hosted on the same executor
@@ -150,12 +166,11 @@ private:
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;
 
-    // External axis type
-    std::string external_axis_type_ = "";
-
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
     std::vector<double> hw_commands_joint_velocities_;
+    // Position targets for velocity control, advanced by the commanded velocity every cycle
+    std::vector<double> velocity_targets_;
     std::vector<double> hw_commands_joint_efforts_;
 
     // Joint states
@@ -185,8 +200,13 @@ private:
     // Robot States
     flexiv::rdk::RobotStates hw_flexiv_robot_states_left_;
     flexiv::rdk::RobotStates hw_flexiv_robot_states_right_;
-    flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_left_ = &hw_flexiv_robot_states_left_;
-    flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_right_ = &hw_flexiv_robot_states_right_;
+    const double hw_flexiv_robot_states_address_left_
+        = EncodePointer(&hw_flexiv_robot_states_left_);
+    const double hw_flexiv_robot_states_address_right_
+        = EncodePointer(&hw_flexiv_robot_states_right_);
+
+    // Exported interfaces, mirroring the buffers above
+    InterfaceBindings interfaces_;
 
     // GPIO commands and states
     std::vector<double> hw_commands_gpio_out_;
@@ -213,7 +233,6 @@ private:
     static rclcpp::Logger getLogger();
 
     // Control modes
-    bool controllers_initialized_;
     std::vector<uint> stop_modes_;
     std::vector<std::string> start_modes_;
     bool position_controller_running_;
