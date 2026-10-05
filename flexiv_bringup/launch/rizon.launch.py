@@ -241,10 +241,7 @@ def generate_launch_description():
         parameters=[
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
-            {"robot_sn": robot_sn},
-            {"rdk_control_mode": rdk_control_mode},
         ],
-        remappings=[("joint_states", "flexiv_rizon_arm/joint_states")],
         output="both",
     )
 
@@ -277,7 +274,7 @@ def generate_launch_description():
     robot_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=[robot_controller, "--controller-manager", "/controller_manager"],
+        arguments=[robot_controller],
     )
 
     # Run joint state broadcaster
@@ -286,8 +283,8 @@ def generate_launch_description():
         executable="spawner",
         arguments=[
             "joint_state_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
+            "--controller-ros-args",
+            "-r joint_states:=flexiv_rizon_arm/joint_states",
         ],
     )
 
@@ -296,7 +293,6 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["flexiv_robot_states_broadcaster"],
-        parameters=[{"robot_sn": robot_sn}],
         condition=UnlessCondition(use_fake_hardware),
     )
 
@@ -312,12 +308,15 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix"),
+                "finger_width_joint]",
+            ],
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
         }.items(),
-        condition=IfCondition(load_gripper),
     )
 
     gripper_ready_waiter = Node(
@@ -340,8 +339,7 @@ def generate_launch_description():
     gpio_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["gpio_controller", "--controller-manager", "/controller_manager"],
-        parameters=[{"robot_sn": robot_sn}],
+        arguments=["gpio_controller"],
         condition=UnlessCondition(use_fake_hardware),
     )
 
@@ -360,7 +358,7 @@ def generate_launch_description():
     delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_state_broadcaster_spawner,
-            on_exit=[load_gripper_launch],
+            on_exit=[load_gripper_launch, gripper_ready_waiter],
         ),
         condition=IfCondition(gripper_ready_gate_condition),
     )
@@ -392,7 +390,6 @@ def generate_launch_description():
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
-        gripper_ready_waiter,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
         gpio_controller_spawner,

@@ -4,6 +4,7 @@ from launch.actions import (
     EmitEvent,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.events import Shutdown
@@ -297,7 +298,6 @@ def generate_launch_description():
     )
 
     # Construct prefixes
-    from launch.actions import SetLaunchConfiguration
 
     set_prefix_left = SetLaunchConfiguration(
         name="prefix_left",
@@ -425,15 +425,7 @@ def generate_launch_description():
         parameters=[
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
-            {"robot_sn_left": robot_sn_left},
-            {"robot_sn_right": robot_sn_right},
-            {"prefix_left": LaunchConfiguration("prefix_left")},
-            {"prefix_right": LaunchConfiguration("prefix_right")},
-            {"rdk_control_mode": rdk_control_mode},
-            {"external_axis_prefix": external_axis_prefix},
-            {"external_axis_type": LaunchConfiguration("external_axis_type")},
         ],
-        remappings=[("joint_states", "flexiv_dual_arm/joint_states")],
         output="both",
     )
 
@@ -469,8 +461,8 @@ def generate_launch_description():
         executable="spawner",
         arguments=[
             "joint_state_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
+            "--controller-ros-args",
+            "-r joint_states:=flexiv_dual_arm/joint_states",
         ],
     )
 
@@ -490,8 +482,6 @@ def generate_launch_description():
         arguments=[
             "left_rizon_arm_controller",
             arm_controller_activation,
-            "--controller-manager",
-            "/controller_manager",
         ],
     )
 
@@ -502,8 +492,6 @@ def generate_launch_description():
         arguments=[
             "right_rizon_arm_controller",
             arm_controller_activation,
-            "--controller-manager",
-            "/controller_manager",
         ],
     )
 
@@ -513,8 +501,6 @@ def generate_launch_description():
         executable="spawner",
         arguments=[
             "cartesian_motion_force_controller",
-            "--controller-manager",
-            "/controller_manager",
         ],
         condition=IfCondition(
             PythonExpression(
@@ -554,10 +540,13 @@ def generate_launch_description():
             "gripper_node_name": "left_gripper_node",
             "robot_sn": robot_sn_left,
             "gripper_name": gripper_name_left,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix_left"),
+                "finger_width_joint]",
+            ],
         }.items(),
-        condition=IfCondition(load_gripper_left),
     )
     load_gripper_right_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -573,10 +562,13 @@ def generate_launch_description():
             "gripper_node_name": "right_gripper_node",
             "robot_sn": robot_sn_right,
             "gripper_name": gripper_name_right,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix_right"),
+                "finger_width_joint]",
+            ],
         }.items(),
-        condition=IfCondition(load_gripper_right),
     )
 
     left_gripper_ready_waiter = Node(
@@ -615,8 +607,6 @@ def generate_launch_description():
         executable="spawner",
         arguments=[
             "gpio_controller_left",
-            "--controller-manager",
-            "/controller_manager",
         ],
         condition=UnlessCondition(use_fake_hardware),
     )
@@ -625,8 +615,6 @@ def generate_launch_description():
         executable="spawner",
         arguments=[
             "gpio_controller_right",
-            "--controller-manager",
-            "/controller_manager",
         ],
         condition=UnlessCondition(use_fake_hardware),
     )

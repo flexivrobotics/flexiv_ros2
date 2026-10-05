@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot xmlns:xacro="http://wiki.ros.org/xacro" name="rizon_dual">
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="Rizon-Dual">
     <!-- parameters -->
     <xacro:arg name="robot_sn_left" default="" />
     <xacro:arg name="robot_sn_right" default="" />
@@ -7,16 +7,13 @@
     <xacro:arg name="load_gripper_right" default="false" />
     <xacro:arg name="load_mounted_ft_sensor_left" default="false" />
     <xacro:arg name="load_mounted_ft_sensor_right" default="false" />
-    <!-- Side names carry no trailing underscore; compute_prefix inserts the separator. -->
-    <xacro:arg name="prefix_left" default="left" />
-    <xacro:arg name="prefix_right" default="right" />
 
     <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
 
     <!-- Arm Prefixes. lazy_eval is off so each capture resolves before the next call. -->
-    <xacro:compute_prefix side="$(arg prefix_left)" robot_sn="$(arg robot_sn_left)" />
+    <xacro:compute_prefix side="left" robot_sn="$(arg robot_sn_left)" />
     <xacro:property name="left_arm_prefix" value="${computed_prefix}" lazy_eval="false" />
-    <xacro:compute_prefix side="$(arg prefix_right)" robot_sn="$(arg robot_sn_right)" />
+    <xacro:compute_prefix side="right" robot_sn="$(arg robot_sn_right)" />
     <xacro:property name="right_arm_prefix" value="${computed_prefix}" lazy_eval="false" />
 
     <!-- Left Arm -->

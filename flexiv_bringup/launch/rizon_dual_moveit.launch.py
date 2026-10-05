@@ -39,22 +39,12 @@ def arm_prefix(side, robot_sn):
 
 
 def load_yaml(package_name, file_path, replacements=None):
-    package_path = get_package_share_directory(package_name)
-    absolute_file_path = os.path.join(package_path, file_path)
-
-    try:
-        with open(absolute_file_path, "r") as file:
-            yaml_content = file.read()
-
-        if replacements:
-            for key, value in replacements.items():
-                yaml_content = yaml_content.replace(key, value)
-
-        return yaml.safe_load(yaml_content)
-    except (
-        EnvironmentError
-    ):  # parent of IOError, OSError *and* WindowsError where available
-        return None
+    path = os.path.join(get_package_share_directory(package_name), file_path)
+    with open(path) as file:
+        content = file.read()
+    for placeholder, value in (replacements or {}).items():
+        content = content.replace(placeholder, value)
+    return yaml.safe_load(content)
 
 
 def launch_setup(context):
@@ -214,12 +204,6 @@ def launch_setup(context):
                 " ",
                 "load_mounted_ft_sensor_right:=",
                 load_mounted_ft_sensor_right,
-                " ",
-                "prefix_left:=",
-                "left",
-                " ",
-                "prefix_right:=",
-                "right",
             ]
         ),
         value_type=str,
@@ -347,13 +331,7 @@ def launch_setup(context):
         parameters=[
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
-            {"robot_sn_left": robot_sn_left},
-            {"robot_sn_right": robot_sn_right},
-            {"prefix_left": prefix_left_str},
-            {"prefix_right": prefix_right_str},
-            {"rdk_control_mode": rdk_control_mode},
         ],
-        remappings=[("joint_states", "flexiv_dual_arm/joint_states")],
         output="both",
     )
 
@@ -380,8 +358,6 @@ def launch_setup(context):
         executable="spawner",
         arguments=[
             "left_rizon_arm_controller",
-            "--controller-manager",
-            "/controller_manager",
         ],
     )
 
@@ -390,8 +366,6 @@ def launch_setup(context):
         executable="spawner",
         arguments=[
             "right_rizon_arm_controller",
-            "--controller-manager",
-            "/controller_manager",
         ],
     )
 
@@ -401,8 +375,8 @@ def launch_setup(context):
         executable="spawner",
         arguments=[
             "joint_state_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
+            "--controller-ros-args",
+            "-r joint_states:=flexiv_dual_arm/joint_states",
         ],
     )
 
@@ -434,11 +408,14 @@ def launch_setup(context):
         launch_arguments={
             "robot_sn": robot_sn_left,
             "gripper_name": gripper_name_left,
-            "use_fake_hardware": use_fake_hardware,
             "gripper_node_name": "left_gripper_node",
             "use_lite_rdk": "true",
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix_left"),
+                "finger_width_joint]",
+            ],
         }.items(),
-        condition=IfCondition(load_gripper_left),
     )
 
     load_gripper_right_launch = IncludeLaunchDescription(
@@ -454,11 +431,14 @@ def launch_setup(context):
         launch_arguments={
             "robot_sn": robot_sn_right,
             "gripper_name": gripper_name_right,
-            "use_fake_hardware": use_fake_hardware,
             "gripper_node_name": "right_gripper_node",
             "use_lite_rdk": "true",
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix_right"),
+                "finger_width_joint]",
+            ],
         }.items(),
-        condition=IfCondition(load_gripper_right),
     )
 
     left_gripper_ready_waiter = Node(
@@ -497,8 +477,6 @@ def launch_setup(context):
         executable="spawner",
         arguments=[
             "gpio_controller_left",
-            "--controller-manager",
-            "/controller_manager",
         ],
         condition=UnlessCondition(use_fake_hardware),
     )
@@ -507,8 +485,6 @@ def launch_setup(context):
         executable="spawner",
         arguments=[
             "gpio_controller_right",
-            "--controller-manager",
-            "/controller_manager",
         ],
         condition=UnlessCondition(use_fake_hardware),
     )
@@ -579,18 +555,17 @@ def launch_setup(context):
         condition=IfCondition(right_gripper_ready_gate_condition),
     )
 
-    # Delay rviz start after right controller
-    delay_rviz_after_right_controller = RegisterEventHandler(
+    # Start move_group and RViz once both arm controllers are up
+    delay_moveit_after_right_controller = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=right_rizon_arm_controller_spawner,
-            on_exit=[rviz_node],
+            on_exit=[move_group_node, rviz_node],
         )
     )
 
     nodes = [
         set_prefix_left,
         set_prefix_right,
-        move_group_node,
         robot_state_publisher_node,
         ros2_control_node,
         joint_state_publisher_node,
@@ -606,7 +581,7 @@ def launch_setup(context):
         delay_right_controller_after_left_controller,
         delay_right_gripper_ready_waiter_after_left_controller,
         delay_right_controller_after_gripper_ready,
-        delay_rviz_after_right_controller,
+        delay_moveit_after_right_controller,
     ]
 
     return nodes

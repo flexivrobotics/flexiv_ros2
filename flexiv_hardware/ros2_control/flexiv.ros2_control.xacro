@@ -20,7 +20,8 @@
     <xacro:property name="initial_positions" value="${xacro.load_yaml(initial_positions_file)['initial_positions']}"/>
 
     <xacro:include filename="$(find flexiv_description)/urdf/common/flexiv_common.xacro" />
-    <!-- GPIO is named from robot_sn alone, matching the hardware interface. -->
+    <!-- GPIO is named from robot_sn alone, as gpio_controller expects. The hardware interface
+         names it from its prefix parameter, which is the same while arm_prefix is empty. -->
     <xacro:compute_arm_prefix robot_sn="${robot_sn}" />
     <xacro:property name="sn_prefix" value="${computed_arm_prefix}" lazy_eval="false" />
 
@@ -133,9 +134,8 @@
         <xacro:ext_axis_joint name="aico1_4_v1_joint2" />
       </xacro:if>
       <xacro:if value="${external_axis_type == 'aico1_4_v2'}">
+        <!-- joint2 and joint_head are not actuated on this variant. -->
         <xacro:ext_axis_joint name="aico1_4_v2_joint1" />
-        <xacro:ext_axis_joint name="aico1_4_v2_joint2" />
-        <xacro:ext_axis_joint name="aico1_4_v2_joint_head" />
       </xacro:if>
 
       <!-- Digital IO ports: 16 on the control box plus 2 in each wrist connector.
