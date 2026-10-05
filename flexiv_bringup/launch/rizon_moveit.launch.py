@@ -59,7 +59,9 @@ def launch_setup(context):
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
     warehouse_sqlite_path = LaunchConfiguration("warehouse_sqlite_path")
     start_servo = LaunchConfiguration("start_servo")
-    kinematics_params_file = LaunchConfiguration("kinematics_params_file").perform(context)
+    kinematics_params_file = LaunchConfiguration("kinematics_params_file").perform(
+        context
+    )
     # Passing an empty path through would reach xacro.load_yaml('') and abort.
     kinematics_xacro_arg = (
         f" kinematics_parameters_file:={kinematics_params_file}"
@@ -382,12 +384,13 @@ def launch_setup(context):
     servo_node = Node(
         package="moveit_servo",
         condition=IfCondition(start_servo),
-        executable="servo_node_main",
+        executable="servo_node",
         parameters=[
             servo_params,
             robot_description,
             robot_description_semantic,
             robot_description_kinematics,
+            joint_limits_yaml,
         ],
         output="screen",
     )
