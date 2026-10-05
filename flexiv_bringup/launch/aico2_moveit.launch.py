@@ -275,7 +275,6 @@ def launch_setup(context):
 
     publish_robot_description_semantic = {"publish_robot_description_semantic": True}
 
-    # Trajectory Execution Configuration
     replacements = {
         "$(var prefix_left)": prefix_left_str,
         "$(var prefix_right)": prefix_right_str,
@@ -283,55 +282,30 @@ def launch_setup(context):
         "$(var external_axis_type)": external_axis_type_str,
     }
 
-    robot_description_kinematics_yaml = load_yaml(
-        "flexiv_moveit_config", "config/aico/aico2_kinematics.yaml", replacements
-    )
     robot_description_kinematics = {
-        "robot_description_kinematics": robot_description_kinematics_yaml
+        "robot_description_kinematics": load_yaml(
+            "flexiv_moveit_config", "config/dual_arm/kinematics_dual.yaml", replacements
+        )
     }
 
-    # Planning Configuration
-    ompl_planning_pipeline_config = {
-        "move_group": {
-            "planning_plugins": ["ompl_interface/OMPLPlanner"],
-            "request_adapters": [
-                "default_planning_request_adapters/ResolveConstraintFrames",
-                "default_planning_request_adapters/ValidateWorkspaceBounds",
-                "default_planning_request_adapters/CheckStartStateBounds",
-                "default_planning_request_adapters/CheckStartStateCollision",
-            ],
-            "response_adapters": [
-                "default_planning_response_adapters/AddTimeOptimalParameterization",
-                "default_planning_response_adapters/ValidateSolution",
-                "default_planning_response_adapters/DisplayMotionPath",
-            ],
-            "start_state_max_bounds_error": 0.1,
-        }
+    # Without planner_configs in ompl_planning.yaml, add MoveIt's default
+    # planners the way MoveItConfigsBuilder does.
+    planning_pipelines = {
+        "planning_pipelines": ["ompl"],
+        "default_planning_pipeline": "ompl",
+        "ompl": {
+            **load_yaml("flexiv_moveit_config", "config/ompl_planning.yaml"),
+            **load_yaml("moveit_configs_utils", "default_configs/ompl_defaults.yaml"),
+        },
     }
-    ompl_planning_yaml = load_yaml(
-        "flexiv_moveit_config", "config/aico/aico2_ompl_planning.yaml", replacements
-    )
-    ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
     # One file covers every AICO2 platform: the external axis joint names come
     # from $(var external_axis_type).
-    moveit_simple_controllers_yaml = load_yaml(
+    moveit_controllers = load_yaml(
         "flexiv_moveit_config",
         "config/aico/aico2_moveit_controllers.yaml",
         replacements,
     )
-
-    moveit_controllers = {
-        "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
-        "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
-    }
-
-    trajectory_execution = {
-        "moveit_manage_controllers": False,
-        "trajectory_execution.allowed_execution_duration_scaling": 1.2,
-        "trajectory_execution.allowed_goal_duration_margin": 0.5,
-        "trajectory_execution.allowed_start_tolerance": 0.01,
-    }
 
     planning_scene_monitor_parameters = {
         "publish_planning_scene": True,
@@ -340,44 +314,26 @@ def launch_setup(context):
         "publish_transforms_updates": True,
     }
 
-    # Load for left arm
-    joint_limits_left = load_yaml(
+    # Both arms share joint_limits.yaml; the left copy is the base so its
+    # default scaling factors are kept.
+    joint_limits = load_yaml(
         "flexiv_moveit_config",
         "config/joint_limits.yaml",
-        {"$(var robot_sn)": prefix_left_str.rstrip("_")},
+        {"$(var prefix)": prefix_left_str},
     )
-    joint_limits_right = load_yaml(
-        "flexiv_moveit_config",
-        "config/joint_limits.yaml",
-        {"$(var robot_sn)": prefix_right_str.rstrip("_")},
+    joint_limits["joint_limits"].update(
+        load_yaml(
+            "flexiv_moveit_config",
+            "config/joint_limits.yaml",
+            {"$(var prefix)": prefix_right_str},
+        )["joint_limits"]
     )
-
-    # Load platform joint limits
-    external_axis_joint_limits = load_yaml(
-        "flexiv_moveit_config",
-        "config/aico/aico_joint_limits.yaml",
-        {
-            "$(var external_axis_prefix)": external_axis_prefix_str,
-            "$(var external_axis_type)": external_axis_type_str,
-        },
+    joint_limits["joint_limits"].update(
+        load_yaml(
+            "flexiv_moveit_config", "config/aico/aico_joint_limits.yaml", replacements
+        )["joint_limits"]
     )
-
-    joint_limits_yaml = {"robot_description_planning": {"joint_limits": {}}}
-
-    if joint_limits_left and "joint_limits" in joint_limits_left:
-        joint_limits_yaml["robot_description_planning"]["joint_limits"].update(
-            joint_limits_left["joint_limits"]
-        )
-
-    if joint_limits_right and "joint_limits" in joint_limits_right:
-        joint_limits_yaml["robot_description_planning"]["joint_limits"].update(
-            joint_limits_right["joint_limits"]
-        )
-
-    if external_axis_joint_limits and "joint_limits" in external_axis_joint_limits:
-        joint_limits_yaml["robot_description_planning"]["joint_limits"].update(
-            external_axis_joint_limits["joint_limits"]
-        )
+    joint_limits_yaml = {"robot_description_planning": joint_limits}
 
     warehouse_ros_config = {
         "warehouse_plugin": "warehouse_ros_sqlite::DatabaseConnection",
@@ -395,8 +351,7 @@ def launch_setup(context):
             publish_robot_description_semantic,
             robot_description_kinematics,
             joint_limits_yaml,
-            ompl_planning_pipeline_config,
-            trajectory_execution,
+            planning_pipelines,
             moveit_controllers,
             planning_scene_monitor_parameters,
             warehouse_ros_config,
@@ -417,7 +372,7 @@ def launch_setup(context):
         parameters=[
             robot_description,
             robot_description_semantic,
-            ompl_planning_pipeline_config,
+            planning_pipelines,
             robot_description_kinematics,
             joint_limits_yaml,
             warehouse_ros_config,

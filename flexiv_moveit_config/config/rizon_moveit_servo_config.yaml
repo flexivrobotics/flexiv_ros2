@@ -39,7 +39,7 @@ is_primary_planning_scene_monitor: true
 
 ## MoveIt properties
 # The planning frame and end effector frame are taken from this group's kinematic chain
-move_group_name:  $(var robot_sn)_arm  # Often 'manipulator' or 'arm'
+move_group_name:  $(var prefix)arm  # Often 'manipulator' or 'arm'
 
 ## Stopping behaviour
 incoming_command_timeout:  0.1  # Stop servoing if X seconds elapse without a new command

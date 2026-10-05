@@ -4,6 +4,7 @@ from launch.actions import (
     EmitEvent,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.events import Shutdown
@@ -411,7 +412,14 @@ def generate_launch_description():
         )
     )
 
+    # Matches compute_prefix in flexiv_description: no separator for an empty serial.
+    set_prefix = SetLaunchConfiguration(
+        name="prefix",
+        value=PythonExpression(["'", robot_sn, "_' if '", robot_sn, "' else ''"]),
+    )
+
     nodes = [
+        set_prefix,
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,

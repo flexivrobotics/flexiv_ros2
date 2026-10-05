@@ -9,6 +9,7 @@ from launch.actions import (
     IncludeLaunchDescription,
     OpaqueFunction,
     RegisterEventHandler,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.events import Shutdown
@@ -155,54 +156,28 @@ def launch_setup(context):
 
     publish_robot_description_semantic = {"publish_robot_description_semantic": True}
 
-    replacements = {"$(var robot_sn)": robot_sn_str}
+    prefix_str = robot_sn_str + "_" if robot_sn_str else ""
+    replacements = {"$(var prefix)": prefix_str}
+    set_prefix = SetLaunchConfiguration(name="prefix", value=prefix_str)
 
-    robot_description_kinematics_yaml = load_yaml(
-        "flexiv_moveit_config", "config/kinematics.yaml", replacements
-    )
     robot_description_kinematics = {
-        "robot_description_kinematics": robot_description_kinematics_yaml
+        "robot_description_kinematics": load_yaml(
+            "flexiv_moveit_config", "config/kinematics.yaml", replacements
+        )
     }
 
-    # Planning Configuration
-    ompl_planning_pipeline_config = {
-        "move_group": {
-            "planning_plugins": ["ompl_interface/OMPLPlanner"],
-            "request_adapters": [
-                "default_planning_request_adapters/ResolveConstraintFrames",
-                "default_planning_request_adapters/ValidateWorkspaceBounds",
-                "default_planning_request_adapters/CheckStartStateBounds",
-                "default_planning_request_adapters/CheckStartStateCollision",
-            ],
-            "response_adapters": [
-                "default_planning_response_adapters/AddTimeOptimalParameterization",
-                "default_planning_response_adapters/ValidateSolution",
-                "default_planning_response_adapters/DisplayMotionPath",
-            ],
-            "start_state_max_bounds_error": 0.1,
-        }
+    planning_pipelines = {
+        "planning_pipelines": ["ompl"],
+        "default_planning_pipeline": "ompl",
+        "ompl": {
+            **load_yaml("flexiv_moveit_config", "config/ompl_planning.yaml"),
+            **load_yaml("moveit_configs_utils", "default_configs/ompl_defaults.yaml"),
+        },
     }
-    ompl_planning_yaml = load_yaml(
-        "flexiv_moveit_config", "config/ompl_planning.yaml", replacements
-    )
-    ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
-    # Trajectory Execution Configuration
-    moveit_simple_controllers_yaml = load_yaml(
+    moveit_controllers = load_yaml(
         "flexiv_moveit_config", "config/moveit_controllers.yaml", replacements
     )
-
-    moveit_controllers = {
-        "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
-        "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
-    }
-
-    trajectory_execution = {
-        "moveit_manage_controllers": False,
-        "trajectory_execution.allowed_execution_duration_scaling": 1.2,
-        "trajectory_execution.allowed_goal_duration_margin": 0.5,
-        "trajectory_execution.allowed_start_tolerance": 0.01,
-    }
 
     planning_scene_monitor_parameters = {
         "publish_planning_scene": True,
@@ -233,8 +208,7 @@ def launch_setup(context):
             publish_robot_description_semantic,
             robot_description_kinematics,
             joint_limits_yaml,
-            ompl_planning_pipeline_config,
-            trajectory_execution,
+            planning_pipelines,
             moveit_controllers,
             planning_scene_monitor_parameters,
             warehouse_ros_config,
@@ -255,7 +229,7 @@ def launch_setup(context):
         parameters=[
             robot_description,
             robot_description_semantic,
-            ompl_planning_pipeline_config,
+            planning_pipelines,
             robot_description_kinematics,
             joint_limits_yaml,
             warehouse_ros_config,
@@ -448,6 +422,7 @@ def launch_setup(context):
     )
 
     nodes = [
+        set_prefix,
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
