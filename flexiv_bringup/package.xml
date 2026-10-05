@@ -10,6 +10,7 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <exec_depend>cartesian_motion_force_controller</exec_depend>
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>flexiv_description</exec_depend>
   <exec_depend>flexiv_gripper</exec_depend>

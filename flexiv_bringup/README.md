@@ -5,6 +5,7 @@ This package contains launch files: the main driver launcher, the MoveIt launch 
 - `rizon.launch.py` - the main launcher: starts *ros2_control* node including hardware interface, runs joint states, Flexiv robot states broadcaster, and a controller, and visualizes the current robot pose in RViZ. The default controller is `rizon_arm_controller`, a joint trajectory controller.
 - `rizon_moveit.launch.py` - runs MoveIt together with the main driver. The controller for robot joints started in this launch file is *rizon_arm_controller*.
 - `test_joint_trajectory_controller.launch` - sends joint trajectory goals to the *rizon_arm_controller*.
+- `test_cartesian_motion_force_controller.launch.py` - runs the Cartesian motion-force example against the *cartesian_motion_force_controller*, started with `rizon.launch.py robot_controller:=cartesian_motion_force_controller`.
 
 There are also launch files for other robot setups:
 
