@@ -213,7 +213,7 @@ class CartesianMotionForceExample(Node):
 
     # ------------------------------------------------------------ motion force
     def setup_motion_force(self):
-        self.get_logger().warn(
+        self.get_logger().warning(
             "The driver zeroed the force/torque sensor when the controller started. Force control "
             "is only accurate if nothing was in contact with the robot then."
         )

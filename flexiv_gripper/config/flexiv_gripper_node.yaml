@@ -4,3 +4,5 @@
     feedback_publish_rate: 30 # Hz
     default_velocity: 0.1 # m/s
     default_max_force: 20.0 # N
+    width_tolerance: 0.002 # m, how close to the target width a move counts as reached
+    action_timeout: 10.0 # s, maximum wait for a gripper action to finish
