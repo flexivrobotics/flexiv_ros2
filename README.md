@@ -14,17 +14,18 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 | ---------------- | ------------------------------------------------------------- |
 | Ubuntu 22.04     | [Humble Hawksbill](https://docs.ros.org/en/humble/index.html) |
 | Ubuntu 24.04     | [Jazzy Jalisco](https://docs.ros.org/en/jazzy/index.html)     |
+| Ubuntu 26.04     | [Lyrical Luth](https://docs.ros.org/en/lyrical/index.html)    |
 
 ### Release Status
 
-| **ROS 2 Distro**   | Humble                                                              | Jazzy                                                 |
-| ------------------ | ------------------------------------------------------------------- | ----------------------------------------------------- |
-| **Branch**         | [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) | [jazzy-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy-v1) |
-| **Release Status** | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) | [![Jazzy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml/badge.svg?branch=jazzy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml) |
+| **ROS 2 Distro**   | Humble                                                              | Jazzy                                                 | Lyrical                                               |
+| ------------------ | ------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| **Branch**         | [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) | [jazzy-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy-v1) | [lyrical-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/lyrical-v1) |
+| **Release Status** | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) | [![Jazzy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml/badge.svg?branch=jazzy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml) | [![Lyrical Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/lyrical-binary-build.yml/badge.svg?branch=lyrical)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/lyrical-binary-build.yml) |
 
 ## Getting Started
 
-This branch targets ROS 2 Jazzy (Ubuntu 24.04); for ROS 2 Humble use the [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) branch. Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
+This branch targets ROS 2 Jazzy (Ubuntu 24.04); for ROS 2 Humble use the [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) branch, ROS 2 Lyrical use the [lyrical-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/lyrical-v1) branch. Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
 
 1. Install [ROS 2 Jazzy via Debian Packages](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debians.html)
 
