@@ -23,13 +23,13 @@ rizon_arm_controller:
       - $(var external_axis_prefix)aico1_4_v2_joint1
       - $(var external_axis_prefix)aico1_4_v2_joint2
       - $(var external_axis_prefix)aico1_4_v2_joint_head
-      - $(var robot_sn)_joint1
-      - $(var robot_sn)_joint2
-      - $(var robot_sn)_joint3
-      - $(var robot_sn)_joint4
-      - $(var robot_sn)_joint5
-      - $(var robot_sn)_joint6
-      - $(var robot_sn)_joint7
+      - $(var prefix)joint1
+      - $(var prefix)joint2
+      - $(var prefix)joint3
+      - $(var prefix)joint4
+      - $(var prefix)joint5
+      - $(var prefix)joint6
+      - $(var prefix)joint7
     command_interfaces:
       - position
     state_interfaces:
@@ -45,4 +45,4 @@ rizon_arm_controller:
 cartesian_motion_force_controller:
   ros__parameters:
     prefixes:
-      - $(var robot_sn)_
+      - $(var prefix)
