@@ -30,6 +30,7 @@ add_library(
   src/recovery_node.cpp
   src/joint_impedance_config_node.cpp
   src/cartesian_motion_force_config_node.cpp
+  src/joint_motion_limits.cpp
 )
 
 if(flexiv_drdk_FOUND)
