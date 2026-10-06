@@ -23,8 +23,6 @@
 #include "flexiv_hardware/fault_recovery.hpp"
 
 namespace {
-constexpr double kMaxJointVelocity = 2.0;
-constexpr double kMaxJointAcceleration = 3.0;
 // Furthest a velocity target may lead the measured position [rad], so that a blocked or
 // lagging joint cannot build up a large step
 constexpr double kMaxVelocityTargetLead = 0.1;
@@ -173,6 +171,14 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    double max_joint_acc = 0.0;
+    try {
+        max_joint_acc = MaxJointAcceleration(info_);
+    } catch (const std::invalid_argument& ex) {
+        RCLCPP_FATAL(getLogger(), "%s", ex.what());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
     // Read translation parameters
     double left_x = 0.0, left_y = 0.0, left_z = 0.0;
     double right_x = 0.0, right_y = 0.0, right_z = 0.0;
@@ -281,6 +287,12 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
     for (size_t k = 0; k < extra_dof_right; k++) {
         joint_map_[unmapped_indices[unmapped_idx++]] = {1, (int)k};
     }
+
+    // Limits for the robots' joint motion generators, in DRDK order
+    const auto pair_info = robot_pair_->info();
+    max_joint_vel_ = ToDRDKOrder(JointVelocityLimits(info_), pair_info);
+    max_joint_acc_ = {std::vector<double>(pair_info.first.DoF, max_joint_acc),
+        std::vector<double>(pair_info.second.DoF, max_joint_acc)};
 
     RCLCPP_INFO(getLogger(), "Successfully connected to robots");
     return hardware_interface::CallbackReturn::SUCCESS;
@@ -874,12 +886,6 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
     }
 
     const auto info = robot_pair_->info();
-    const std::pair<std::vector<double>, std::vector<double>> max_vel {
-        std::vector<double>(info.first.DoF, kMaxJointVelocity),
-        std::vector<double>(info.second.DoF, kMaxJointVelocity)};
-    const std::pair<std::vector<double>, std::vector<double>> max_acc {
-        std::vector<double>(info.first.DoF, kMaxJointAcceleration),
-        std::vector<double>(info.second.DoF, kMaxJointAcceleration)};
 
     const auto any_nan = [](const std::vector<double>& values) {
         return std::any_of(values.begin(), values.end(), [](double v) { return std::isnan(v); });
@@ -907,15 +913,15 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
                                 ? 0.0
                                 : hw_commands_joint_velocities_[i];
         }
-        robot_pair_->SendJointPosition(
-            ToDRDKOrder(target_pos, info), ToDRDKOrder(target_vel, info), max_vel, max_acc);
+        robot_pair_->SendJointPosition(ToDRDKOrder(target_pos, info), ToDRDKOrder(target_vel, info),
+            max_joint_vel_, max_joint_acc_);
     } else if (stream_motion && velocity_controller_running_ && robot_pair_->mode() == joint_mode
                && !any_nan(hw_commands_joint_velocities_)) {
         // DRDK takes the velocity as the one to have on arriving at the target, so the target
         // moves ahead of the robots at the commanded velocity
         AdvanceVelocityTargets(period.seconds());
         robot_pair_->SendJointPosition(ToDRDKOrder(velocity_targets_, info),
-            ToDRDKOrder(hw_commands_joint_velocities_, info), max_vel, max_acc);
+            ToDRDKOrder(hw_commands_joint_velocities_, info), max_joint_vel_, max_joint_acc_);
     } else if (stream_motion && torque_controller_running_
                && robot_pair_->mode()
                       == std::pair {flexiv::rdk::Mode::RT_JOINT_TORQUE,

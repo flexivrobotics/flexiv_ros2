@@ -8,6 +8,7 @@
     robot_sn_left
     robot_sn_right
     rdk_control_mode:='joint_position'
+    max_joint_acceleration:=5.0
     use_fake_hardware:=false
     fake_sensor_commands:=false
     initial_positions_file_left
@@ -39,6 +40,7 @@
           <param name="prefix_left">${prefix_left}</param>
           <param name="prefix_right">${prefix_right}</param>
           <param name="rdk_control_mode">${rdk_control_mode}</param>
+          <param name="max_joint_acceleration">${max_joint_acceleration}</param>
           <param name="external_axis_type">${external_axis_type}</param>
           <param name="translation_left_x">${translation_left_x}</param>
           <param name="translation_left_y">${translation_left_y}</param>

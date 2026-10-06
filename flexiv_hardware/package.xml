@@ -16,6 +16,7 @@
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>
   <depend>flexiv_msgs</depend>
+  <depend>urdf</depend>
 
   <exec_depend>flexiv_description</exec_depend>
   <exec_depend>xacro</exec_depend>

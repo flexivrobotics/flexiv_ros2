@@ -25,8 +25,6 @@
 
 namespace {
 
-constexpr double kMaxJointVelocity = 2.0;
-constexpr double kMaxJointAcceleration = 3.0;
 // Furthest a velocity target may lead the measured position [rad], so that a blocked or
 // lagging joint cannot build up a large step
 constexpr double kMaxVelocityTargetLead = 0.1;
@@ -217,6 +215,23 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         RCLCPP_FATAL(getLogger(), "Parameter 'rdk_control_mode' not set");
         return hardware_interface::CallbackReturn::ERROR;
     }
+
+    // Limits for the robot's joint motion generator, in RDK order
+    const auto max_velocities = JointVelocityLimits(info_);
+    try {
+        max_joint_acc_ = std::vector<double>(info_.joints.size(), MaxJointAcceleration(info_));
+    } catch (const std::invalid_argument& ex) {
+        RCLCPP_FATAL(getLogger(), "%s", ex.what());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+    max_joint_vel_ = ConvertROSToRDKOrder(max_velocities, rdk_to_ros_map_);
+    std::string max_vel_str;
+    for (double v : max_joint_vel_) {
+        max_vel_str += std::to_string(v) + " ";
+    }
+    RCLCPP_INFO(getLogger(),
+        "Joint motion limits (RDK order): max_vel [ %s] rad/s, max_acc %f rad/s^2",
+        max_vel_str.c_str(), max_joint_acc_.front());
 
     // The connection is established in on_configure, which is the lifecycle stage that owns
     // communication with the hardware. This is what lets a lost connection be recovered by
@@ -711,9 +726,6 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     std::vector<double> target_pos(robot_->info().DoF);
     std::vector<double> target_vel(robot_->info().DoF);
 
-    std::vector<double> max_vel(robot_->info().DoF, kMaxJointVelocity);
-    std::vector<double> max_acc(robot_->info().DoF, kMaxJointAcceleration);
-
     bool is_pos_nan = false;
     bool is_vel_nan = false;
     bool is_eff_nan = false;
@@ -739,12 +751,13 @@ hardware_interface::return_type FlexivHardwareInterface::write(
 
     if (stream_motion && position_controller_running_ && robot_->mode() == rdk_control_mode_
         && !is_pos_nan) {
-        // Map ROS commands to RDK targets
+        // Map ROS commands to RDK targets. The target velocity stays zero: passing on the velocity
+        // of a 1 kHz command stream makes the robot overshoot and brake on every late command.
         for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
             size_t ros_idx = rdk_to_ros_map_[rdk_idx];
             target_pos[rdk_idx] = hw_commands_joint_positions_[ros_idx];
         }
-        robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
+        robot_->SendJointPosition(target_pos, target_vel, max_joint_vel_, max_joint_acc_);
     } else if (stream_motion && velocity_controller_running_ && robot_->mode() == rdk_control_mode_
                && !is_vel_nan) {
         // The RDK takes the velocity as the one to have on arriving at the target, so the target
@@ -755,7 +768,7 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             target_pos[rdk_idx] = velocity_targets_[ros_idx];
             target_vel[rdk_idx] = hw_commands_joint_velocities_[ros_idx];
         }
-        robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
+        robot_->SendJointPosition(target_pos, target_vel, max_joint_vel_, max_joint_acc_);
     } else if (stream_motion && torque_controller_running_
                && robot_->mode() == flexiv::rdk::Mode::RT_JOINT_TORQUE && !is_eff_nan) {
         std::vector<double> target_torque(robot_->info().DoF);

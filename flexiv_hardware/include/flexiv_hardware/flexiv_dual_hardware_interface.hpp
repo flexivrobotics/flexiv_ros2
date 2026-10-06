@@ -40,6 +40,7 @@
 #include "flexiv_hardware/cartesian_motion_force_config_node.hpp"
 #include "flexiv_hardware/fault_recovery.hpp"
 #include "flexiv_hardware/joint_impedance_config_node.hpp"
+#include "flexiv_hardware/joint_motion_limits.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
 #include "flexiv_hardware/robot_system_control.hpp"
 
@@ -193,6 +194,10 @@ private:
     // Position targets for velocity control, advanced by the commanded velocity every cycle
     std::vector<double> velocity_targets_;
     std::vector<double> hw_commands_joint_efforts_;
+
+    // Limits passed with every joint position command, in DRDK order
+    std::pair<std::vector<double>, std::vector<double>> max_joint_vel_;
+    std::pair<std::vector<double>, std::vector<double>> max_joint_acc_;
 
     // Joint states
     std::vector<double> hw_states_joint_positions_;
