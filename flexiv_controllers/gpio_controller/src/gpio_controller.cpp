@@ -8,6 +8,7 @@
 
 #include "gpio_controller/gpio_controller.hpp"
 
+#include <algorithm>
 #include <string>
 
 namespace gpio_controller {
@@ -67,8 +68,9 @@ controller_interface::return_type GPIOController::update(
     gpio_inputs_publisher_->publish(gpio_inputs_msg_);
 
     // set outputs
+    const auto& digital_outputs = *digital_outputs_cmd_.readFromRT();
     for (size_t i = 0; i < command_interfaces_.size(); ++i) {
-        command_interfaces_[i].set_value(digital_outputs_cmd_[i]);
+        command_interfaces_[i].set_value(digital_outputs[i]);
     }
 
     return controller_interface::return_type::OK;
@@ -97,17 +99,20 @@ controller_interface::CallbackReturn GPIOController::on_configure(
         gpio_outputs_command_
             = get_node()->create_subscription<CmdType>("/" + robot_sn + kGPIOOutputsTopic,
                 rclcpp::SystemDefaultsQoS(), [this](const CmdType::SharedPtr msg) {
+                    // Only this callback writes the buffer, so its non-RT copy is the latest
+                    auto digital_outputs = *digital_outputs_cmd_.readFromNonRT();
                     for (size_t i = 0; i < msg->states.size(); ++i) {
                         if (msg->states[i].pin >= kIOPorts) {
                             RCLCPP_WARN(get_node()->get_logger(),
-                                "Received command for pin %d, but only pins 0-15 are supported.",
-                                msg->states[i].pin);
+                                "Received command for pin %d, but only pins 0-%zu are supported.",
+                                msg->states[i].pin, kIOPorts - 1);
                             continue;
                         } else {
-                            digital_outputs_cmd_[msg->states[i].pin]
+                            digital_outputs[msg->states[i].pin]
                                 = static_cast<double>(msg->states[i].state);
                         }
                     }
+                    digital_outputs_cmd_.writeFromNonRT(digital_outputs);
                 });
     } catch (...) {
         return LifecycleNodeInterface::CallbackReturn::ERROR;
@@ -117,8 +122,8 @@ controller_interface::CallbackReturn GPIOController::on_configure(
 
 void GPIOController::initMsgs()
 {
-    gpio_inputs_msg_.states.resize(digital_outputs_cmd_.size());
-    digital_outputs_cmd_.fill(0.0);
+    gpio_inputs_msg_.states.resize(kIOPorts);
+    digital_outputs_cmd_.initRT(std::array<double, kIOPorts> {});
 }
 
 controller_interface::CallbackReturn GPIOController::on_activate(
@@ -130,12 +135,7 @@ controller_interface::CallbackReturn GPIOController::on_activate(
 controller_interface::CallbackReturn GPIOController::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
-    try {
-        // reset publisher
-        gpio_inputs_publisher_.reset();
-    } catch (...) {
-        return LifecycleNodeInterface::CallbackReturn::ERROR;
-    }
+    // The publisher is kept, it is created in on_configure and needed again on reactivation
     return LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 

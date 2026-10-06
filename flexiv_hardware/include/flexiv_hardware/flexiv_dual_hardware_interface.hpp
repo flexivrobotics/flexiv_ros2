@@ -10,11 +10,13 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
-#include <map>
 
 // ROS
 #include <rclcpp/clock.hpp>
@@ -110,6 +112,20 @@ public:
 
 private:
     /**
+     * @brief Check the joints in the URDF against the DoF of the connected robots.
+     * @return False if they do not match and the driver cannot run.
+     */
+    bool CheckJointCount() const;
+
+    /**
+     * @brief [Non-blocking] Split a ROS-ordered joint vector into the left/right pair DRDK takes.
+     * Joints no ROS joint maps to are 0.
+     */
+    std::pair<std::vector<double>, std::vector<double>> ToDRDKOrder(
+        const std::vector<double>& ros_values,
+        const std::pair<flexiv::rdk::RobotInfo, flexiv::rdk::RobotInfo>& info) const;
+
+    /**
      * @brief [Blocking] Wait for both robots to become operational, up to [timeout].
      * @return True if both became operational, false on timeout.
      */
@@ -120,6 +136,12 @@ private:
      * resuming control cannot apply a stale command.
      */
     void SynchronizeCommandsWithState();
+
+    /**
+     * @brief Advance the velocity control targets by the commanded velocities over one cycle,
+     * keeping each within kMaxVelocityTargetLead of the measured position.
+     */
+    void AdvanceVelocityTargets(double dt);
 
     /**
      * @brief Notice a robot that was moved while the driver was not ready, and warn about it once
@@ -156,8 +178,7 @@ private:
     std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor_;
     std::thread executor_thread_;
 
-    // Joint impedance interface, hosted on the same executor. Only brought up when the driver runs
-    // in a joint impedance control mode.
+    // Joint impedance interface, hosted on the same executor
     std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
 
     // Cartesian motion-force interface, hosted on the same executor
@@ -166,12 +187,11 @@ private:
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;
 
-    // External axis type
-    std::string external_axis_type_ = "";
-
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
     std::vector<double> hw_commands_joint_velocities_;
+    // Position targets for velocity control, advanced by the commanded velocity every cycle
+    std::vector<double> velocity_targets_;
     std::vector<double> hw_commands_joint_efforts_;
 
     // Joint states
@@ -229,7 +249,6 @@ private:
     static rclcpp::Logger getLogger();
 
     // Control modes
-    bool controllers_initialized_;
     std::vector<uint> stop_modes_;
     std::vector<std::string> start_modes_;
     bool position_controller_running_;

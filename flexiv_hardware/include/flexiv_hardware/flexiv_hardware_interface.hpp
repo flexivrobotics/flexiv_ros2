@@ -12,6 +12,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
@@ -124,6 +125,12 @@ private:
     void SynchronizeCommandsWithState();
 
     /**
+     * @brief Advance the velocity control targets by the commanded velocities over one cycle,
+     * keeping each within kMaxVelocityTargetLead of the measured position.
+     */
+    void AdvanceVelocityTargets(double dt);
+
+    /**
      * @brief Notice a robot that was moved while the driver was not ready, and warn about it once
      * on the return to READY. Called from read().
      */
@@ -156,8 +163,7 @@ private:
     std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor_;
     std::thread executor_thread_;
 
-    // Joint impedance interface, hosted on the same executor. Only brought up when the driver runs
-    // in a joint impedance control mode.
+    // Joint impedance interface, hosted on the same executor
     std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
 
     // Cartesian motion-force interface, hosted on the same executor
@@ -169,6 +175,8 @@ private:
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
     std::vector<double> hw_commands_joint_velocities_;
+    // Position targets for velocity control, advanced by the commanded velocity every cycle
+    std::vector<double> velocity_targets_;
     std::vector<double> hw_commands_joint_efforts_;
 
     // Joint states
@@ -215,7 +223,6 @@ private:
     static rclcpp::Logger getLogger();
 
     // Control modes
-    bool controllers_initialized_;
     std::vector<uint> stop_modes_;
     std::vector<std::string> start_modes_;
     bool position_controller_running_;

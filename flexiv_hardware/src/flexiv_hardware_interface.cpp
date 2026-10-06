@@ -27,6 +27,9 @@ namespace {
 
 constexpr double kMaxJointVelocity = 2.0;
 constexpr double kMaxJointAcceleration = 3.0;
+// Furthest a velocity target may lead the measured position [rad], so that a blocked or
+// lagging joint cannot build up a large step
+constexpr double kMaxVelocityTargetLead = 0.1;
 
 // Bounded wait for the robot to become operational during activation. Brake release dominates the
 // duration; a robot that is not ready within this window needs operator attention.
@@ -64,6 +67,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     hw_commands_joint_velocities_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+    velocity_targets_.resize(info_.joints.size(), 0.0);
     hw_commands_joint_efforts_.resize(
         info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     hw_states_gpio_in_.resize(flexiv::rdk::kIOPorts, std::numeric_limits<double>::quiet_NaN());
@@ -72,14 +76,10 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     hw_commands_cartesian_wrench_.fill(std::numeric_limits<double>::quiet_NaN());
     hw_commands_cartesian_velocity_.fill(std::numeric_limits<double>::quiet_NaN());
     hw_states_cartesian_pose_.fill(std::numeric_limits<double>::quiet_NaN());
-    stop_modes_ = {StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
-        StoppingInterface::NONE, StoppingInterface::NONE, StoppingInterface::NONE,
-        StoppingInterface::NONE};
     start_modes_ = {};
     position_controller_running_ = false;
     velocity_controller_running_ = false;
     torque_controller_running_ = false;
-    controllers_initialized_ = false;
 
     if (info_.joints.size() < 7) {
         RCLCPP_FATAL(getLogger(), "Got %ld joints. Expected at least 7.", info_.joints.size());
@@ -236,7 +236,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_configure(
         robot_ = std::make_unique<flexiv::rdk::Robot>(robot_sn);
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not connect to robot");
-        RCLCPP_FATAL(getLogger(), e.what());
+        RCLCPP_FATAL(getLogger(), "%s", e.what());
         return hardware_interface::CallbackReturn::ERROR;
     }
     RCLCPP_INFO(getLogger(), "Successfully connected to robot");
@@ -617,7 +617,7 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_activate(
         }
     } catch (const std::exception& e) {
         RCLCPP_FATAL(getLogger(), "Could not enable robot.");
-        RCLCPP_FATAL(getLogger(), e.what());
+        RCLCPP_FATAL(getLogger(), "%s", e.what());
         return hardware_interface::CallbackReturn::ERROR;
     }
 
@@ -698,7 +698,7 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 }
 
 hardware_interface::return_type FlexivHardwareInterface::write(
-    const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
+    const rclcpp::Time& /*time*/, const rclcpp::Duration& period)
 {
     // Issue no RDK call unless the robot is ready. While recovery runs it changes the control mode
     // and the fault state, and this early return is what guarantees the real-time loop is
@@ -732,6 +732,11 @@ hardware_interface::return_type FlexivHardwareInterface::write(
     // Withhold motion until a controller restart has re-synchronized the command buffers.
     const bool stream_motion = driver_status_->commands_synchronized.load();
 
+    // Velocity control resumes from the measured position after NaN commands
+    if (is_vel_nan) {
+        velocity_targets_ = hw_states_joint_positions_;
+    }
+
     if (stream_motion && position_controller_running_ && robot_->mode() == rdk_control_mode_
         && !is_pos_nan) {
         // Map ROS commands to RDK targets
@@ -742,10 +747,12 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
     } else if (stream_motion && velocity_controller_running_ && robot_->mode() == rdk_control_mode_
                && !is_vel_nan) {
-        // Map ROS commands/states to RDK targets
+        // The RDK takes the velocity as the one to have on arriving at the target, so the target
+        // moves ahead of the robot at the commanded velocity
+        AdvanceVelocityTargets(period.seconds());
         for (size_t rdk_idx = 0; rdk_idx < robot_->info().DoF; ++rdk_idx) {
             size_t ros_idx = rdk_to_ros_map_[rdk_idx];
-            target_pos[rdk_idx] = hw_states_joint_positions_[ros_idx];
+            target_pos[rdk_idx] = velocity_targets_[ros_idx];
             target_vel[rdk_idx] = hw_commands_joint_velocities_[ros_idx];
         }
         robot_->SendJointPosition(target_pos, target_vel, max_vel, max_acc);
@@ -776,7 +783,7 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         }
         digital_outputs[i] = static_cast<bool>(hw_commands_gpio_out_[i]);
     }
-    // Check if there are changes in the digital output values
+    // Check if there are changes in the digital output values. A port never sent counts as low.
     bool digital_outputs_changed = false;
     for (const auto& [index, value] : digital_outputs) {
         if (current_digital_outputs_[index] != value) {
@@ -784,17 +791,23 @@ hardware_interface::return_type FlexivHardwareInterface::write(
             digital_outputs_changed = true;
         }
     }
-    current_digital_outputs_.clear();
-    for (const auto& [index, value] : digital_outputs) {
-        current_digital_outputs_[index] = value;
-    }
 
     // Set digital outputs
-    if (digital_outputs_changed && !digital_outputs.empty()) {
+    if (digital_outputs_changed) {
         robot_->SetDigitalOutputs(digital_outputs);
     }
 
     return hardware_interface::return_type::OK;
+}
+
+void FlexivHardwareInterface::AdvanceVelocityTargets(double dt)
+{
+    for (size_t i = 0; i < velocity_targets_.size(); i++) {
+        const double measured = hw_states_joint_positions_[i];
+        velocity_targets_[i]
+            = std::clamp(velocity_targets_[i] + hw_commands_joint_velocities_[i] * dt,
+                measured - kMaxVelocityTargetLead, measured + kMaxVelocityTargetLead);
+    }
 }
 
 void FlexivHardwareInterface::SynchronizeCommandsWithState()
@@ -806,6 +819,7 @@ void FlexivHardwareInterface::SynchronizeCommandsWithState()
     // switch commands a hold instead of whatever setpoint was left over from before.
     hw_commands_joint_positions_ = hw_states_joint_positions_;
     std::fill(hw_commands_joint_velocities_.begin(), hw_commands_joint_velocities_.end(), 0.0);
+    velocity_targets_ = hw_states_joint_positions_;
 
     // Effort commands are deliberately left as NaN rather than zeroed. write() skips streaming
     // while they are NaN, whereas a zero torque command is streamed with gravity compensation
@@ -912,7 +926,6 @@ hardware_interface::return_type FlexivHardwareInterface::prepare_command_mode_sw
         return hardware_interface::return_type::ERROR;
     }
 
-    controllers_initialized_ = true;
     return hardware_interface::return_type::OK;
 }
 
