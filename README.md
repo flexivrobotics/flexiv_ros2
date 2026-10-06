@@ -24,31 +24,18 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 
 ## Getting Started
 
-This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
+This branch targets ROS 2 Humble (Ubuntu 22.04); for ROS 2 Jazzy use the [jazzy-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy-v1) branch. Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
 
 1. Install [ROS 2 Humble via Debian Packages](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html)
 
-2. Install `colcon` and additional ROS packages:
+2. Install the build tools. The ROS package dependencies are installed by `rosdep` in step 4:
 
    ```bash
    sudo apt install -y \
    python3-colcon-common-extensions \
-   python3-rosdep2 \
-   libeigen3-dev \
-   wget \
-   ros-humble-control-toolbox \
-   ros-humble-hardware-interface \
-   ros-humble-joint-state-publisher \
-   ros-humble-joint-state-publisher-gui \
-   ros-humble-moveit \
-   ros-humble-realtime-tools \
-   ros-humble-robot-state-publisher \
-   ros-humble-ros2-control \
-   ros-humble-ros2-controllers \
-   ros-humble-rviz2 \
-   ros-humble-test-msgs \
-   ros-humble-tinyxml2-vendor \
-   ros-humble-xacro
+   python3-rosdep \
+   python3-vcstool \
+   wget
    ```
 
 3. Setup workspace:
@@ -157,7 +144,9 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 - `robot_type` (default: *Rizon4*) - type of the Flexiv robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10, Rizon10s or Rizon10R)
 - `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*. In joint impedance mode the controller's impedance properties can be set at runtime, see [Joint Impedance Configuration](#joint-impedance-configuration)
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
-- `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
+- `gripper_name` (default: *Flexiv-GN01*) - full name of the gripper to be controlled, as shown in Flexiv Elements -> Settings -> Device.
+- `load_mounted_ft_sensor` (default: *false*) - loads the mounted force-torque sensor. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.
+- `use_fake_hardware` (default: *false*) - starts `mock_components/GenericSystem` instead of real hardware. This is a simple simulation that mirrors joint commands to their states. The gripper, GPIO and Flexiv robot states are not available with it.
 - `start_rviz` (default: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
 - `robot_controller` (default: *rizon_arm_controller*) - robot controller to start. Available controllers: *rizon_arm_controller*, *cartesian_motion_force_controller* (see [Cartesian Motion-Force Control](#cartesian-motion-force-control))
@@ -170,6 +159,10 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
 - `robot_type` (default: *AICO1-4-V1* for `aico1.launch.py`, *AICO2-4-V1* for `aico2.launch.py`) - type of the Flexiv AICO robot platform. AICO1 options: *AICO1-4-V1*, *AICO1-4-V2*. AICO2 options: *AICO2-4-V1*, *AICO2-4-V2*, *AICO2-4-D3*, *AICO2-4E-D1*, *AICO2-4U-D1*, *AICO2-10-V1*, *AICO2-10-D2*, *AICO2-10E-D1*, *AICO2-10U-D1*
 - `kinematics_params_file_left`, `kinematics_params_file_right` (default: *empty*, dual robot setups) - per-arm equivalents of `kinematics_params_file`.
 - `robot_controller` (default: *rizon_arm_controller*, dual robot setups) - *rizon_arm_controller* starts `left_rizon_arm_controller` and `right_rizon_arm_controller`. *cartesian_motion_force_controller* starts one controller for both arms and loads the arm controllers inactive.
+- `load_gripper_left`, `load_gripper_right`, `gripper_name_left`, `gripper_name_right`, `load_mounted_ft_sensor_left`, `load_mounted_ft_sensor_right` (dual robot setups) - per-arm equivalents of `load_gripper`, `gripper_name` and `load_mounted_ft_sensor`.
+- `arm_type_left`, `arm_type_right` (default: *Rizon4* and *Rizon4R*, `rizon_dual.launch.py`) - type of each arm.
+- `arm_type` (AICO setups) - arm carried by the platform. `aico1.launch.py` defaults to *Rizon4* (options: *Rizon4*, *Rizon4s*). `aico2.launch.py` defaults to empty, which picks the arm the selected `robot_type` carries: *Rizon4* for the AICO2-4 platforms, *Rizon10* for the AICO2-10 ones.
+- `external_axis_prefix` (default: *empty*, AICO setups) - prefix for the external axis links and joints.
 
 ### Example Commands
 
@@ -260,13 +253,16 @@ ros2 launch flexiv_bringup aico2_moveit.launch.py robot_sn_left:=[robot_sn_left]
 
 ### Robot States
 
-The robot driver (`rizon.launch.py`) publishes the following feedback states to the respective ROS topics:
+The robot driver (`rizon.launch.py`) publishes the following feedback states to the respective ROS topics. In the topic names, dashes in `${robot_sn}` become underscores (`Rizon4-123456` -> `Rizon4_123456`); in dual robot setups `${robot_sn}` is `left_${robot_sn_left}` or `right_${robot_sn_right}`:
 
 - `/${robot_sn}/flexiv_robot_states`: [Flexiv robot states](https://www.flexiv.com/software/rdk/api/structflexiv_1_1rdk_1_1_robot_states.html) including the joint- and Cartesian-space robot states. [[`flexiv_msgs/msg/RobotStates.msg`](flexiv_msgs/msg/RobotStates.msg)]
-- `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/JointState.msg`](https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/JointState.html)]
-- `/${robot_sn}/tcp_pose`: Measured TCP pose expressed in world frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
-- `/${robot_sn}/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
-- `/${robot_sn}/external_wrench_in_world`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
+- `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/msg/JointState`](https://docs.ros.org/en/humble/p/sensor_msgs/msg/JointState.html)]
+- `/${robot_sn}/tcp_pose`: Measured TCP pose expressed in world frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/msg/PoseStamped`](https://docs.ros.org/en/humble/p/geometry_msgs/msg/PoseStamped.html)]
+- `/${robot_sn}/tcp_velocity`: Measured TCP velocity expressed in world frame $^{0}\dot{x}$ in linear $[m/s]$ and angular $[rad/s]$ velocity, carried in the `accel` field. [[`geometry_msgs/msg/AccelStamped`](https://docs.ros.org/en/humble/p/geometry_msgs/msg/AccelStamped.html)]
+- `/${robot_sn}/flange_pose`: Measured flange pose expressed in world frame $^{0}T_{flange}$ in position $[m]$ and quaternion. [[`geometry_msgs/msg/PoseStamped`](https://docs.ros.org/en/humble/p/geometry_msgs/msg/PoseStamped.html)]
+- `/${robot_sn}/ft_sensor_wrench`: Force-torque (FT) sensor raw reading in flange frame $^{flange}F_{raw}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/msg/WrenchStamped`](https://docs.ros.org/en/humble/p/geometry_msgs/msg/WrenchStamped.html)]
+- `/${robot_sn}/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/msg/WrenchStamped`](https://docs.ros.org/en/humble/p/geometry_msgs/msg/WrenchStamped.html)]
+- `/${robot_sn}/external_wrench_in_world`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/msg/WrenchStamped`](https://docs.ros.org/en/humble/p/geometry_msgs/msg/WrenchStamped.html)]
 
 ### Fault Handling and Recovery
 
@@ -382,6 +378,8 @@ ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] load_gripper:=tr
 ```
 
 #### Gripper Actions
+
+The gripper actions finish when the fingers stop moving, not when the command is sent. `move` succeeds when the gripper reaches the target width and aborts if it stops short, for example on an object, so use `grasp` to hold objects. MoveIt uses the `gripper_action` (`control_msgs/action/GripperCommand`) interface. See [`flexiv_gripper`](flexiv_gripper/README.md) for the parameters and the completion rules.
 
 In a new terminal, send the gripper action `move` goal to open or close the gripper:
 

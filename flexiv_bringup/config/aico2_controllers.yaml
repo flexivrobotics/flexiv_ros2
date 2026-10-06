@@ -43,8 +43,8 @@ left_rizon_arm_controller:
     state_interfaces:
       - position
       - velocity
-    state_publish_rate: 100.0
     action_monitor_rate: 20.0
+    # MoveIt plans for the arm group alone, without the external axis joints
     allow_partial_joints_goal: true
     constraints:
       stopped_velocity_tolerance: 0.01
@@ -65,7 +65,6 @@ right_rizon_arm_controller:
     state_interfaces:
       - position
       - velocity
-    state_publish_rate: 100.0
     action_monitor_rate: 20.0
     allow_partial_joints_goal: false
     constraints:

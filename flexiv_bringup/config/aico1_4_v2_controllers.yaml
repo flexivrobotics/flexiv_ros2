@@ -21,8 +21,6 @@ rizon_arm_controller:
   ros__parameters:
     joints:
       - $(var external_axis_prefix)aico1_4_v2_joint1
-      - $(var external_axis_prefix)aico1_4_v2_joint2
-      - $(var external_axis_prefix)aico1_4_v2_joint_head
       - $(var prefix)joint1
       - $(var prefix)joint2
       - $(var prefix)joint3
@@ -35,12 +33,20 @@ rizon_arm_controller:
     state_interfaces:
       - position
       - velocity
-    state_publish_rate: 100.0
     action_monitor_rate: 20.0
+    # MoveIt plans for the arm group alone, without the external axis joints
     allow_partial_joints_goal: true
     constraints:
       stopped_velocity_tolerance: 0.01
       goal_time: 0.0
+
+flexiv_robot_states_broadcaster:
+  ros__parameters:
+    robot_sn: $(var robot_sn)
+
+gpio_controller:
+  ros__parameters:
+    robot_sn: $(var robot_sn)
 
 cartesian_motion_force_controller:
   ros__parameters:

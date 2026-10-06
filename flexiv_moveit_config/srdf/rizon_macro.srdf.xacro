@@ -19,7 +19,7 @@
     </xacro:macro>
 
     <!-- 'prefix' is the fully-formed prefix, normally from compute_prefix above. -->
-    <xacro:macro name="rizon_srdf" params="prefix load_mounted_ft_sensor use_virtual_joint:=true">
+    <xacro:macro name="rizon_srdf" params="prefix load_mounted_ft_sensor">
 
         <group name="${prefix}arm">
             <chain base_link="${prefix}base_link" tip_link="${prefix}flange" />
@@ -34,11 +34,6 @@
             <joint name="${prefix}joint6" value="${2*pi/9}" />
             <joint name="${prefix}joint7" value="0" />
         </group_state>
-
-        <xacro:if value="${use_virtual_joint}">
-            <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
-                child_link="${prefix}base_link" />
-        </xacro:if>
 
         <disable_collisions link1="${prefix}base_link" link2="${prefix}link1" reason="Adjacent" />
         <disable_collisions link1="${prefix}base_link" link2="${prefix}link2" reason="Never" />

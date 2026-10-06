@@ -6,10 +6,7 @@
 joint_limits:
   $(var external_axis_prefix)$(var external_axis_type)_joint1:
     has_acceleration_limits: true
-    max_acceleration: 1.0
+    max_acceleration: 4.0
   $(var external_axis_prefix)$(var external_axis_type)_joint2:
     has_acceleration_limits: true
-    max_acceleration: 1.0
-  $(var external_axis_prefix)aico1_4_v2_joint_head:
-    has_acceleration_limits: true
-    max_acceleration: 1.0
+    max_acceleration: 4.0

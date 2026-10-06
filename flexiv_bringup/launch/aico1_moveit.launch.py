@@ -1,5 +1,6 @@
 from ament_index_python.packages import get_package_share_directory
 import os
+import yaml
 
 from launch import LaunchDescription
 from launch.actions import (
@@ -27,22 +28,12 @@ from launch.substitutions import (
 
 
 def load_yaml(package_name, file_path, replacements=None):
-    package_path = get_package_share_directory(package_name)
-    absolute_file_path = os.path.join(package_path, file_path)
-
-    try:
-        with open(absolute_file_path, "r") as file:
-            file_content = file.read()
-            if replacements:
-                for key, value in replacements.items():
-                    file_content = file_content.replace(key, value)
-            import yaml
-
-            return yaml.safe_load(file_content)
-    except (
-        EnvironmentError
-    ):  # parent of IOError, OSError *and* WindowsError where available
-        return None
+    path = os.path.join(get_package_share_directory(package_name), file_path)
+    with open(path) as file:
+        content = file.read()
+    for placeholder, value in (replacements or {}).items():
+        content = content.replace(placeholder, value)
+    return yaml.safe_load(content)
 
 
 def launch_setup(context):
@@ -55,7 +46,6 @@ def launch_setup(context):
     load_mounted_ft_sensor = LaunchConfiguration("load_mounted_ft_sensor")
     use_fake_hardware = LaunchConfiguration("use_fake_hardware")
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
-    robot_controller = LaunchConfiguration("robot_controller")
     robot_type = LaunchConfiguration("robot_type")
     external_axis_prefix = LaunchConfiguration("external_axis_prefix")
     kinematics_params_file = LaunchConfiguration("kinematics_params_file").perform(
@@ -291,8 +281,6 @@ def launch_setup(context):
         parameters=[
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
-            {"robot_sn": robot_sn},
-            {"rdk_control_mode": rdk_control_mode},
         ],
         remappings=[("joint_states", "flexiv_rizon_arm/joint_states")],
         output="both",
@@ -318,22 +306,14 @@ def launch_setup(context):
     rizon_arm_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=[
-            robot_controller,
-            "--controller-manager",
-            "/controller_manager",
-        ],
+        arguments=["rizon_arm_controller"],
     )
 
     # Run joint state broadcaster
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=[
-            "joint_state_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
-        ],
+        arguments=["joint_state_broadcaster"],
     )
 
     # Run Flexiv robot states broadcaster
@@ -355,12 +335,15 @@ def launch_setup(context):
             )
         ),
         launch_arguments={
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix"),
+                "finger_width_joint]",
+            ],
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
         }.items(),
-        condition=IfCondition(load_gripper),
     )
 
     gripper_ready_waiter = Node(
@@ -385,8 +368,6 @@ def launch_setup(context):
         executable="spawner",
         arguments=[
             "gpio_controller",
-            "--controller-manager",
-            "/controller_manager",
         ],
         condition=UnlessCondition(use_fake_hardware),
     )
@@ -404,7 +385,7 @@ def launch_setup(context):
     delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_state_broadcaster_spawner,
-            on_exit=[load_gripper_launch],
+            on_exit=[load_gripper_launch, gripper_ready_waiter],
         ),
         condition=IfCondition(gripper_ready_gate_condition),
     )
@@ -417,28 +398,26 @@ def launch_setup(context):
         condition=IfCondition(gripper_ready_gate_condition),
     )
 
-    # Delay rviz start after controller
-    delay_rviz_after_controller = RegisterEventHandler(
+    # Start move_group and RViz once the arm controller is up
+    delay_moveit_after_controller = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=rizon_arm_controller_spawner,
-            on_exit=[rviz_node],
+            on_exit=[move_group_node, rviz_node],
         )
     )
 
     nodes = [
         set_prefix,
-        move_group_node,
         robot_state_publisher_node,
         ros2_control_node,
         joint_state_publisher_node,
-        gripper_ready_waiter,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
         gpio_controller_spawner,
         delay_gripper_launch_after_joint_state_broadcaster_spawner,
         delay_controller_after_jsb,
         delay_controller_after_gripper_ready,
-        delay_rviz_after_controller,
+        delay_moveit_after_controller,
     ]
 
     return nodes
@@ -518,14 +497,6 @@ def generate_launch_description():
             default_value="false",
             description="Enable fake command interfaces for sensors used for simple simulations. \
             Used only if 'use_fake_hardware' parameter is true.",
-        )
-    )
-
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            "robot_controller",
-            default_value="rizon_arm_controller",
-            description="Robot controller to start. Available: rizon_arm_controller",
         )
     )
 
