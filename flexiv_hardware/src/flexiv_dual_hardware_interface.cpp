@@ -80,6 +80,7 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         hw_states_cartesian_pose_[robot].fill(std::numeric_limits<double>::quiet_NaN());
     }
     start_modes_ = {};
+    joint_claimed_.assign(info_.joints.size(), false);
     position_controller_running_ = false;
     velocity_controller_running_ = false;
     torque_controller_running_ = false;
@@ -1161,6 +1162,26 @@ hardware_interface::return_type FlexivDualHardwareInterface::prepare_command_mod
         }
     }
 
+    // Once the robots stopped following the controllers, after a fault or withheld motion, a start
+    // resumes streaming for both robots. A running controller not restarted with it would resume
+    // from its stale setpoint, so the controllers of both robots must be restarted together.
+    if (!start_modes_.empty() && !driver_status_->commands_synchronized.load()) {
+        for (size_t i = 0; i < info_.joints.size(); i++) {
+            const auto names_joint = [this, i](const std::string& key) {
+                return key.rfind(info_.joints[i].name + "/", 0) == 0;
+            };
+            if (joint_claimed_[i]
+                && std::none_of(start_interfaces.begin(), start_interfaces.end(), names_joint)
+                && std::none_of(stop_interfaces.begin(), stop_interfaces.end(), names_joint)) {
+                RCLCPP_ERROR(getLogger(),
+                    "The robots are not following the controllers. Restart the controllers of "
+                    "both robots together, joint '%s' is claimed by one that is not restarted.",
+                    info_.joints[i].name.c_str());
+                return hardware_interface::return_type::ERROR;
+            }
+        }
+    }
+
     // The Cartesian command interfaces of both robots must all be claimed together
     const auto count_cartesian = [this](const std::vector<std::string>& keys) {
         return static_cast<size_t>(std::count_if(keys.begin(), keys.end(), [this](const auto& key) {
@@ -1205,8 +1226,8 @@ hardware_interface::return_type FlexivDualHardwareInterface::prepare_command_mod
 }
 
 hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mode_switch(
-    const std::vector<std::string>& /*start_interfaces*/,
-    const std::vector<std::string>& /*stop_interfaces*/)
+    const std::vector<std::string>& start_interfaces,
+    const std::vector<std::string>& stop_interfaces)
 {
     if (cartesian_stop_requested_) {
         cartesian_controller_running_ = false;
@@ -1214,46 +1235,97 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
         cartesian_config_node_->DisablePassiveForceControl();
     }
 
+    // A joint stopped and not restarted in this switch is released. It holds its position: write()
+    // holds a joint without a position command, and a zero velocity moves nothing.
+    bool joint_released = false;
+    interfaces_.ReadCommands();
+    for (size_t i = 0; i < info_.joints.size(); i++) {
+        const auto names_joint = [this, i](const std::string& key) {
+            return key.rfind(info_.joints[i].name + "/", 0) == 0;
+        };
+        const bool stopped
+            = std::any_of(stop_interfaces.begin(), stop_interfaces.end(), names_joint);
+        const bool started
+            = std::any_of(start_interfaces.begin(), start_interfaces.end(), names_joint);
+        if (stopped && !started) {
+            joint_claimed_[i] = false;
+            joint_released = true;
+            hw_commands_joint_positions_[i] = std::numeric_limits<double>::quiet_NaN();
+            hw_commands_joint_velocities_[i] = 0.0;
+        } else if (started) {
+            joint_claimed_[i] = true;
+        }
+    }
+    interfaces_.WriteCommands();
+    const bool joints_remain_claimed
+        = std::find(joint_claimed_.begin(), joint_claimed_.end(), true) != joint_claimed_.end();
+
+    // DRDK streams both robots together, so stopping one robot's controller keeps both in the mode
+    // and the released robot holds while the other's streams. The pair stops once no joint
+    // controller remains.
     if (stop_modes_.size() != 0
         && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_POSITION)
                != stop_modes_.end()) {
-        position_controller_running_ = false;
-        StopIfOperational();
+        if (!joints_remain_claimed) {
+            position_controller_running_ = false;
+            StopIfOperational();
+        }
     } else if (stop_modes_.size() != 0
                && std::find(
                       stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_VELOCITY)
                       != stop_modes_.end()) {
-        velocity_controller_running_ = false;
-        StopIfOperational();
+        if (!joints_remain_claimed) {
+            velocity_controller_running_ = false;
+            StopIfOperational();
+        }
     } else if (stop_modes_.size() != 0
                && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_EFFORT)
                       != stop_modes_.end()) {
-        torque_controller_running_ = false;
-        StopIfOperational();
+        // A robot cannot hold without torque commands, so releasing one stops the pair
+        if (joint_released || !joints_remain_claimed) {
+            if (joints_remain_claimed) {
+                RCLCPP_WARN(getLogger(),
+                    "An effort controller stopped while the other robot's still runs, so both "
+                    "robots are stopped. Restart the remaining effort controller to resume.");
+                driver_status_->commands_synchronized.store(false);
+            }
+            torque_controller_running_ = false;
+            StopIfOperational();
+        }
     }
+
+    // The two arms' controllers start separately. When the other arm's controller already runs in
+    // the same mode, switching again would interrupt it and reset the mode's settings.
+    const auto joint_mode = std::pair {rdk_control_mode_, rdk_control_mode_};
+    const auto torque_mode
+        = std::pair {flexiv::rdk::Mode::RT_JOINT_TORQUE, flexiv::rdk::Mode::RT_JOINT_TORQUE};
 
     if (start_modes_.size() != 0
         && std::find(start_modes_.begin(), start_modes_.end(), hardware_interface::HW_IF_POSITION)
                != start_modes_.end()) {
+        const bool other_arm_running
+            = position_controller_running_ && robot_pair_->mode() == joint_mode;
         velocity_controller_running_ = false;
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
         SynchronizeCommandsWithState();
 
-        // Set to joint position or joint impedance mode
-        robot_pair_->SwitchMode(rdk_control_mode_);
+        if (!other_arm_running) {
+            // Set to joint position or joint impedance mode
+            robot_pair_->SwitchMode(rdk_control_mode_);
 
-        // The robots reset their joint impedance properties on mode entry, so whatever was set has
-        // to be re-applied before any motion is streamed.
-        if (joint_impedance_config_node_ && !joint_impedance_config_node_->Reapply()) {
-            RCLCPP_FATAL(getLogger(),
-                "Could not re-apply the joint impedance properties. The robots would run at "
-                "nominal "
-                "stiffness instead of the requested one, so the controller start is refused.");
-            driver_status_->commands_synchronized.store(false);
-            StopIfOperational();
-            return hardware_interface::return_type::ERROR;
+            // The robots reset their joint impedance properties on mode entry, so whatever was
+            // set has to be re-applied before any motion is streamed.
+            if (joint_impedance_config_node_ && !joint_impedance_config_node_->Reapply()) {
+                RCLCPP_FATAL(getLogger(),
+                    "Could not re-apply the joint impedance properties. The robots would run at "
+                    "nominal "
+                    "stiffness instead of the requested one, so the controller start is refused.");
+                driver_status_->commands_synchronized.store(false);
+                StopIfOperational();
+                return hardware_interface::return_type::ERROR;
+            }
         }
 
         position_controller_running_ = true;
@@ -1261,25 +1333,29 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
                && std::find(
                       start_modes_.begin(), start_modes_.end(), hardware_interface::HW_IF_VELOCITY)
                       != start_modes_.end()) {
+        const bool other_arm_running
+            = velocity_controller_running_ && robot_pair_->mode() == joint_mode;
         position_controller_running_ = false;
         torque_controller_running_ = false;
 
         // Hold joints before user commands arrives
         SynchronizeCommandsWithState();
 
-        // Set to joint position or joint impedance mode
-        robot_pair_->SwitchMode(rdk_control_mode_);
+        if (!other_arm_running) {
+            // Set to joint position or joint impedance mode
+            robot_pair_->SwitchMode(rdk_control_mode_);
 
-        // The robots reset their joint impedance properties on mode entry, so whatever was set has
-        // to be re-applied before any motion is streamed.
-        if (joint_impedance_config_node_ && !joint_impedance_config_node_->Reapply()) {
-            RCLCPP_FATAL(getLogger(),
-                "Could not re-apply the joint impedance properties. The robots would run at "
-                "nominal "
-                "stiffness instead of the requested one, so the controller start is refused.");
-            driver_status_->commands_synchronized.store(false);
-            StopIfOperational();
-            return hardware_interface::return_type::ERROR;
+            // The robots reset their joint impedance properties on mode entry, so whatever was
+            // set has to be re-applied before any motion is streamed.
+            if (joint_impedance_config_node_ && !joint_impedance_config_node_->Reapply()) {
+                RCLCPP_FATAL(getLogger(),
+                    "Could not re-apply the joint impedance properties. The robots would run at "
+                    "nominal "
+                    "stiffness instead of the requested one, so the controller start is refused.");
+                driver_status_->commands_synchronized.store(false);
+                StopIfOperational();
+                return hardware_interface::return_type::ERROR;
+            }
         }
 
         velocity_controller_running_ = true;
@@ -1287,6 +1363,8 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
                && std::find(
                       start_modes_.begin(), start_modes_.end(), hardware_interface::HW_IF_EFFORT)
                       != start_modes_.end()) {
+        const bool other_arm_running
+            = torque_controller_running_ && robot_pair_->mode() == torque_mode;
         position_controller_running_ = false;
         velocity_controller_running_ = false;
 
@@ -1297,7 +1375,9 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
         // Set to joint torque mode. This is also the step that brings the robots back from IDLE to
         // RT_JOINT_TORQUE after a fault: recovery leaves them operational in IDLE, and restarting
         // the effort controller lands here with a freshly synchronized command buffer.
-        robot_pair_->SwitchMode(flexiv::rdk::Mode::RT_JOINT_TORQUE);
+        if (!other_arm_running) {
+            robot_pair_->SwitchMode(flexiv::rdk::Mode::RT_JOINT_TORQUE);
+        }
 
         // The joint impedance properties do not govern RT_JOINT_TORQUE, so what the driver holds is
         // no longer in effect while the effort controller runs.

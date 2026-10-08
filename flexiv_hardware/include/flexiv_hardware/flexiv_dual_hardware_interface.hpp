@@ -279,6 +279,9 @@ private:
     // Control modes
     std::vector<uint> stop_modes_;
     std::vector<std::string> start_modes_;
+    // Joints whose command interfaces a running controller claims, in ROS order. The two arms'
+    // controllers start and stop separately.
+    std::vector<bool> joint_claimed_;
     bool position_controller_running_;
     bool velocity_controller_running_;
     bool torque_controller_running_;
