@@ -911,14 +911,11 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
     if (stream_motion && position_controller_running_ && robot_pair_->mode() == joint_mode) {
         // A joint without a position command holds its measured position
         std::vector<double> target_pos(info_.joints.size());
-        std::vector<double> target_vel(info_.joints.size());
+        const std::vector<double> target_vel(info_.joints.size(), 0.0);
         for (size_t i = 0; i < info_.joints.size(); i++) {
             target_pos[i] = std::isnan(hw_commands_joint_positions_[i])
                                 ? hw_states_joint_positions_[i]
                                 : hw_commands_joint_positions_[i];
-            target_vel[i] = std::isnan(hw_commands_joint_velocities_[i])
-                                ? 0.0
-                                : hw_commands_joint_velocities_[i];
         }
         robot_pair_->SendJointPosition(ToDRDKOrder(target_pos, info), ToDRDKOrder(target_vel, info),
             max_joint_vel_, max_joint_acc_);
