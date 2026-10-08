@@ -40,6 +40,7 @@ def launch_setup(context):
     arm_type = LaunchConfiguration("arm_type")
     robot_sn = LaunchConfiguration("robot_sn")
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
+    rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
     start_rviz = LaunchConfiguration("start_rviz")
     load_gripper = LaunchConfiguration("load_gripper")
     gripper_name = LaunchConfiguration("gripper_name")
@@ -96,6 +97,9 @@ def launch_setup(context):
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
                 rdk_control_mode,
+                " ",
+                "rdk_realtime_mode:=",
+                rdk_realtime_mode,
                 " ",
                 "load_gripper:=",
                 load_gripper,
@@ -451,6 +455,15 @@ def generate_launch_description():
             default_value="joint_position",
             description="RDK control mode for the ROS 2 control joint position and velocity interfaces. Options: joint_position, joint_impedance",
             choices=["joint_position", "joint_impedance"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rdk_realtime_mode",
+            default_value="false",
+            description="Use the real-time RDK modes for the joint position, velocity and Cartesian interfaces, streamed at the controller manager rate. Requires a low-latency host. Options: true, false",
+            choices=["true", "false"],
         )
     )
 

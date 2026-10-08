@@ -83,6 +83,8 @@ def launch_setup(context):
     robot_sn_right_str = robot_sn_right.perform(context)
 
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
+
+    rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
     start_rviz = LaunchConfiguration("start_rviz")
     use_fake_hardware = LaunchConfiguration("use_fake_hardware")
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
@@ -195,6 +197,9 @@ def launch_setup(context):
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
                 rdk_control_mode,
+                " ",
+                "rdk_realtime_mode:=",
+                rdk_realtime_mode,
                 " ",
                 "use_fake_hardware:=",
                 use_fake_hardware,
@@ -677,6 +682,15 @@ def generate_launch_description():
             default_value="joint_position",
             description="RDK control mode for the ROS 2 control joint position and velocity interfaces.",
             choices=["joint_position", "joint_impedance"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rdk_realtime_mode",
+            default_value="false",
+            description="Use the real-time RDK modes for the joint position, velocity and Cartesian interfaces, streamed at the controller manager rate. Requires a low-latency host. Options: true, false",
+            choices=["true", "false"],
         )
     )
 

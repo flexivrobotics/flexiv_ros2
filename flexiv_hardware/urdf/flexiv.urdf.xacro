@@ -17,6 +17,8 @@
   <!-- Other args come from the description entry point included below. -->
   <xacro:arg name="ros2_control" default="true" />
   <xacro:arg name="rdk_control_mode" default="joint_position" />
+  <!-- Real-time RDK modes for the joint and Cartesian interfaces, streamed at the control rate -->
+  <xacro:arg name="rdk_realtime_mode" default="false" />
   <!-- Acceleration limit of the robot's joint motion generator [rad/s^2] -->
   <xacro:arg name="max_joint_acceleration" default="5.0" />
   <xacro:arg name="use_fake_hardware" default="false" />
@@ -84,6 +86,7 @@
         prefix="${prefix}"
         robot_sn="$(arg robot_sn)"
         rdk_control_mode="$(arg rdk_control_mode)"
+        rdk_realtime_mode="$(arg rdk_realtime_mode)"
         max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"
@@ -100,6 +103,7 @@
         prefix="${prefix}"
         robot_sn="$(arg robot_sn)"
         rdk_control_mode="$(arg rdk_control_mode)"
+        rdk_realtime_mode="$(arg rdk_realtime_mode)"
         max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"
@@ -122,6 +126,7 @@
         robot_sn_left="$(arg robot_sn_left)"
         robot_sn_right="$(arg robot_sn_right)"
         rdk_control_mode="$(arg rdk_control_mode)"
+        rdk_realtime_mode="$(arg rdk_realtime_mode)"
         max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"

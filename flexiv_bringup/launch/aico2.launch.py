@@ -96,6 +96,15 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            "rdk_realtime_mode",
+            default_value="false",
+            description="Use the real-time RDK modes for the joint position, velocity and Cartesian interfaces, streamed at the controller manager rate. Requires a low-latency host. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             robot_controller_param_name,
             default_value="rizon_arm_controller",
             description="Robot controller to start. rizon_arm_controller starts \
@@ -215,6 +224,7 @@ def generate_launch_description():
     robot_sn_left = LaunchConfiguration(robot_sn_left_param_name)
     robot_sn_right = LaunchConfiguration(robot_sn_right_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
+    rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
     robot_controller = LaunchConfiguration(robot_controller_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
@@ -372,6 +382,9 @@ def generate_launch_description():
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
                 rdk_control_mode,
+                " ",
+                "rdk_realtime_mode:=",
+                rdk_realtime_mode,
                 " ",
                 "use_fake_hardware:=",
                 use_fake_hardware,
