@@ -107,6 +107,20 @@ private:
         const std::pair<flexiv::rdk::RobotInfo, flexiv::rdk::RobotInfo>& info) const;
 
     /**
+     * @brief [Non-blocking] Same as ToDRDKOrder(), into [drdk_values] already sized to the robots'
+     * DoF, so that write() does not allocate.
+     */
+    void ToDRDKOrderInPlace(const std::vector<double>& ros_values,
+        std::pair<std::vector<double>, std::vector<double>>& drdk_values) const;
+
+    /**
+     * @brief Send the motion command of the running controller, if any. Throws whatever DRDK
+     * throws, which write() handles.
+     * @return True if a real-time command was streamed.
+     */
+    bool SendMotionCommands(double dt);
+
+    /**
      * @brief [Blocking] Wait for both robots to become operational, up to [timeout].
      * @return True if both became operational, false on timeout.
      */
@@ -164,8 +178,18 @@ private:
     // Cartesian motion-force interface, hosted on the same executor
     std::shared_ptr<CartesianMotionForceConfigNode> cartesian_config_node_;
 
-    // RDK control mode for joint position and velocity interfaces
+    // RDK control modes for the joint position and velocity interfaces and for the Cartesian
+    // interfaces, real-time (streamed every cycle) or non-real-time
     flexiv::rdk::Mode rdk_control_mode_;
+    flexiv::rdk::Mode rdk_cartesian_mode_;
+    bool rdk_realtime_ = false;
+
+    // Robot info, constant per connection, so that write() does not copy it every cycle
+    std::pair<flexiv::rdk::RobotInfo, flexiv::rdk::RobotInfo> pair_info_;
+
+    // The pair's underlying robots, for the timeliness failure flag DRDK does not expose
+    std::pair<std::shared_ptr<flexiv::rdk::Robot>, std::shared_ptr<flexiv::rdk::Robot>>
+        robot_instances_;
 
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
@@ -174,9 +198,24 @@ private:
     std::vector<double> velocity_targets_;
     std::vector<double> hw_commands_joint_efforts_;
 
-    // Limits passed with every joint position command, in DRDK order
+    // Limits passed with every non-real-time joint position command, in DRDK order
     std::pair<std::vector<double>, std::vector<double>> max_joint_vel_;
     std::pair<std::vector<double>, std::vector<double>> max_joint_acc_;
+
+    // Per-cycle target buffers in DRDK order, sized on connection so that write() does not allocate
+    std::pair<std::vector<double>, std::vector<double>> target_pos_;
+    std::pair<std::vector<double>, std::vector<double>> target_vel_;
+    std::pair<std::vector<double>, std::vector<double>> target_acc_;
+    std::pair<std::vector<double>, std::vector<double>> target_torque_;
+
+    // Last targets streamed in a real-time mode, held while the commands are not finite, since a
+    // real-time mode must receive a command every cycle. Joint targets are in DRDK order.
+    std::pair<std::vector<double>, std::vector<double>> last_joint_target_;
+    std::array<std::array<double, flexiv::rdk::kPoseSize>, 2> last_cartesian_target_;
+
+    // Whether the timeliness failure flag has been seen clear since the last controller start. The
+    // RDK flag does not decay while nothing is streamed, so a restart begins with it still raised.
+    bool timeliness_clear_since_sync_ = false;
 
     // Joint states
     std::vector<double> hw_states_joint_positions_;

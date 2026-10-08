@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <stdexcept>
 #include <variant>
 #include <vector>
 #include <string>
@@ -15,6 +16,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/clock.hpp>
+#include <hardware_interface/lexical_casts.hpp>
 #include <hardware_interface/types/hardware_interface_return_values.hpp>
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 
@@ -153,12 +155,24 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    // Optional, so that a description without it keeps the non-real-time modes
+    const auto realtime_it = info_.hardware_parameters.find("rdk_realtime_mode");
+    try {
+        rdk_realtime_ = realtime_it != info_.hardware_parameters.end()
+                        && hardware_interface::parse_bool(realtime_it->second);
+    } catch (const std::invalid_argument& ex) {
+        RCLCPP_FATAL(getLogger(), "Parameter 'rdk_realtime_mode': %s", ex.what());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
+
     try {
         auto rdk_control_mode_str = info_.hardware_parameters.at("rdk_control_mode");
         if (rdk_control_mode_str == "joint_position") {
-            rdk_control_mode_ = flexiv::rdk::Mode::NRT_JOINT_POSITION;
+            rdk_control_mode_ = rdk_realtime_ ? flexiv::rdk::Mode::RT_JOINT_POSITION
+                                              : flexiv::rdk::Mode::NRT_JOINT_POSITION;
         } else if (rdk_control_mode_str == "joint_impedance") {
-            rdk_control_mode_ = flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE;
+            rdk_control_mode_ = rdk_realtime_ ? flexiv::rdk::Mode::RT_JOINT_IMPEDANCE
+                                              : flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE;
         } else {
             RCLCPP_FATAL(getLogger(),
                 "Parameter 'rdk_control_mode' has invalid value '%s'. Options: joint_position, "
@@ -169,6 +183,17 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
     } catch (const std::out_of_range& ex) {
         RCLCPP_FATAL(getLogger(), "Parameter 'rdk_control_mode' not set");
         return hardware_interface::CallbackReturn::ERROR;
+    }
+    rdk_cartesian_mode_ = rdk_realtime_ ? flexiv::rdk::Mode::RT_CARTESIAN_MOTION_FORCE
+                                        : flexiv::rdk::Mode::NRT_CARTESIAN_MOTION_FORCE;
+    RCLCPP_INFO(getLogger(),
+        "RDK control modes: %s (joint), %s (Cartesian), RT_JOINT_TORQUE (effort)",
+        ControlModeName(rdk_control_mode_).c_str(), ControlModeName(rdk_cartesian_mode_).c_str());
+    if (rdk_realtime_) {
+        RCLCPP_INFO(getLogger(),
+            "Real-time modes stream every cycle without the robots' motion generators, so the "
+            "joint "
+            "and Cartesian motion limits do not apply");
     }
 
     double max_joint_acc = 0.0;
@@ -290,10 +315,20 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
     }
 
     // Limits for the robots' joint motion generators, in DRDK order
-    const auto pair_info = robot_pair_->info();
-    max_joint_vel_ = ToDRDKOrder(JointVelocityLimits(info_), pair_info);
-    max_joint_acc_ = {std::vector<double>(pair_info.first.DoF, max_joint_acc),
-        std::vector<double>(pair_info.second.DoF, max_joint_acc)};
+    pair_info_ = robot_pair_->info();
+    robot_instances_ = robot_pair_->instances();
+    max_joint_vel_ = ToDRDKOrder(JointVelocityLimits(info_), pair_info_);
+    max_joint_acc_ = {std::vector<double>(pair_info_.first.DoF, max_joint_acc),
+        std::vector<double>(pair_info_.second.DoF, max_joint_acc)};
+
+    const std::pair<std::vector<double>, std::vector<double>> zeros {
+        std::vector<double>(pair_info_.first.DoF, 0.0),
+        std::vector<double>(pair_info_.second.DoF, 0.0)};
+    target_pos_ = zeros;
+    target_vel_ = zeros;
+    target_acc_ = zeros;
+    target_torque_ = zeros;
+    last_joint_target_ = zeros;
 
     RCLCPP_INFO(getLogger(), "Successfully connected to robots");
     return hardware_interface::CallbackReturn::SUCCESS;
@@ -322,12 +357,18 @@ std::pair<std::vector<double>, std::vector<double>> FlexivDualHardwareInterface:
 {
     std::pair<std::vector<double>, std::vector<double>> values {
         std::vector<double>(info.first.DoF), std::vector<double>(info.second.DoF)};
+    ToDRDKOrderInPlace(ros_values, values);
+    return values;
+}
 
+void FlexivDualHardwareInterface::ToDRDKOrderInPlace(const std::vector<double>& ros_values,
+    std::pair<std::vector<double>, std::vector<double>>& drdk_values) const
+{
     for (size_t i = 0; i < joint_map_.size(); i++) {
-        auto& robot_values = joint_map_[i].robot_index == 0 ? values.first : values.second;
+        auto& robot_values
+            = joint_map_[i].robot_index == 0 ? drdk_values.first : drdk_values.second;
         robot_values[joint_map_[i].dof_index] = ros_values[i];
     }
-    return values;
 }
 
 std::vector<hardware_interface::StateInterface::ConstSharedPtr>
@@ -496,9 +537,11 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_configure(
                   inertia_scales, pair_joint_map, nominal_inertia_left, nominal_inertia_right));
           };
 
-    joint_impedance_config_node_ = std::make_shared<JointImpedanceConfigNode>(robot_sn_left,
-        joint_names, std::move(bounds), rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE,
-        driver_status_, std::move(setters));
+    joint_impedance_config_node_
+        = std::make_shared<JointImpedanceConfigNode>(robot_sn_left, joint_names, std::move(bounds),
+            rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE
+                || rdk_control_mode_ == flexiv::rdk::Mode::RT_JOINT_IMPEDANCE,
+            driver_status_, std::move(setters));
     executor->add_node(joint_impedance_config_node_->get_node_base_interface());
 
     CartesianMotionForceBounds cartesian_bounds;
@@ -547,6 +590,11 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_configure(
         robot_pair_->SetPassiveForceControl({enabled[0], enabled[1]});
     };
     cartesian_setters.set_motion_limits = [this](const std::vector<CartesianMotionLimits>& limits) {
+        if (rdk_realtime_) {
+            throw std::logic_error(
+                "the motion limits apply only to NRT_CARTESIAN_MOTION_FORCE, "
+                "relaunch with 'rdk_realtime_mode:=false' to use them");
+        }
         for (size_t robot = 0; robot < 2; robot++) {
             cartesian_max_linear_vel_[robot].store(limits[robot].max_linear_vel);
             cartesian_max_angular_vel_[robot].store(limits[robot].max_angular_vel);
@@ -745,6 +793,12 @@ void FlexivDualHardwareInterface::SynchronizeCommandsWithState()
         hw_commands_cartesian_velocity_[robot].fill(0.0);
     }
 
+    timeliness_clear_since_sync_ = false;
+
+    // What a real-time mode holds until the first finite command arrives
+    ToDRDKOrderInPlace(hw_states_joint_positions_, last_joint_target_);
+    last_cartesian_target_ = hw_states_cartesian_pose_;
+
     interfaces_.WriteCommands();
 }
 
@@ -892,60 +946,34 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
 
     interfaces_.ReadCommands();
 
-    const auto info = robot_pair_->info();
-
-    const auto any_nan = [](const std::vector<double>& values) {
-        return std::any_of(values.begin(), values.end(), [](double v) { return std::isnan(v); });
-    };
-
     // Withhold motion until a controller restart has re-synchronized the command buffers. Digital
     // outputs further down are unaffected -- they carry no setpoint that can go stale.
-    const bool stream_motion = driver_status_->commands_synchronized.load();
-    const auto joint_mode = std::pair {rdk_control_mode_, rdk_control_mode_};
-
-    // Velocity control resumes from the measured position after NaN commands
-    if (any_nan(hw_commands_joint_velocities_)) {
-        velocity_targets_ = hw_states_joint_positions_;
-    }
-
-    if (stream_motion && position_controller_running_ && robot_pair_->mode() == joint_mode) {
-        // A joint without a position command holds its measured position
-        std::vector<double> target_pos(info_.joints.size());
-        const std::vector<double> target_vel(info_.joints.size(), 0.0);
-        for (size_t i = 0; i < info_.joints.size(); i++) {
-            target_pos[i] = std::isnan(hw_commands_joint_positions_[i])
-                                ? hw_states_joint_positions_[i]
-                                : hw_commands_joint_positions_[i];
+    if (driver_status_->commands_synchronized.load()) {
+        // A fault is picked up by read() and recovered as usual. Anything else stops streaming
+        // until the controllers are restarted; the robots hold their position meanwhile.
+        const auto withhold_motion = [this](const char* reason) {
+            driver_status_->commands_synchronized.store(false);
+            RCLCPP_ERROR(
+                getLogger(), "Motion is withheld until the controller is restarted: %s", reason);
+        };
+        try {
+            // The RDK only warns once real-time commands arrive late too often, it does not throw.
+            // Act on the flag only once it was seen clear, since it is still raised from before a
+            // restart until about a second of commands has arrived on time.
+            if (SendMotionCommands(period.seconds())) {
+                if (!robot_instances_.first->reached_timeliness_failure_limit()
+                    && !robot_instances_.second->reached_timeliness_failure_limit()) {
+                    timeliness_clear_since_sync_ = true;
+                } else if (timeliness_clear_since_sync_) {
+                    withhold_motion(
+                        "too many real-time commands arrived late. The host cannot keep up "
+                        "with the control rate, run the controller manager at real-time "
+                        "priority.");
+                }
+            }
+        } catch (const std::exception& e) {
+            withhold_motion(e.what());
         }
-        robot_pair_->SendJointPosition(ToDRDKOrder(target_pos, info), ToDRDKOrder(target_vel, info),
-            max_joint_vel_, max_joint_acc_);
-    } else if (stream_motion && velocity_controller_running_ && robot_pair_->mode() == joint_mode
-               && !any_nan(hw_commands_joint_velocities_)) {
-        // DRDK takes the velocity as the one to have on arriving at the target, so the target
-        // moves ahead of the robots at the commanded velocity
-        AdvanceVelocityTargets(period.seconds());
-        robot_pair_->SendJointPosition(ToDRDKOrder(velocity_targets_, info),
-            ToDRDKOrder(hw_commands_joint_velocities_, info), max_joint_vel_, max_joint_acc_);
-    } else if (stream_motion && torque_controller_running_
-               && robot_pair_->mode()
-                      == std::pair {flexiv::rdk::Mode::RT_JOINT_TORQUE,
-                          flexiv::rdk::Mode::RT_JOINT_TORQUE}
-               && !any_nan(hw_commands_joint_efforts_)) {
-        robot_pair_->StreamJointTorque(ToDRDKOrder(hw_commands_joint_efforts_, info));
-    } else if (stream_motion && cartesian_controller_running_
-               && robot_pair_->mode()
-                      == std::pair {flexiv::rdk::Mode::NRT_CARTESIAN_MOTION_FORCE,
-                          flexiv::rdk::Mode::NRT_CARTESIAN_MOTION_FORCE}
-               && AllFinite(hw_commands_cartesian_pose_) && AllFinite(hw_commands_cartesian_wrench_)
-               && AllFinite(hw_commands_cartesian_velocity_)) {
-        robot_pair_->SendCartesianMotionForce(
-            {hw_commands_cartesian_pose_[0], hw_commands_cartesian_pose_[1]},
-            {hw_commands_cartesian_wrench_[0], hw_commands_cartesian_wrench_[1]},
-            {hw_commands_cartesian_velocity_[0], hw_commands_cartesian_velocity_[1]},
-            {cartesian_max_linear_vel_[0].load(), cartesian_max_linear_vel_[1].load()},
-            {cartesian_max_angular_vel_[0].load(), cartesian_max_angular_vel_[1].load()},
-            {cartesian_max_linear_acc_[0].load(), cartesian_max_linear_acc_[1].load()},
-            {cartesian_max_angular_acc_[0].load(), cartesian_max_angular_acc_[1].load()});
     }
 
     // Write digital outputs
@@ -983,6 +1011,109 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
     }
 
     return hardware_interface::return_type::OK;
+}
+
+bool FlexivDualHardwareInterface::SendMotionCommands(double dt)
+{
+    const auto any_nan = [](const std::vector<double>& values) {
+        return std::any_of(values.begin(), values.end(), [](double v) { return std::isnan(v); });
+    };
+    const auto mode = robot_pair_->mode();
+    const auto joint_mode = std::pair {rdk_control_mode_, rdk_control_mode_};
+
+    // Velocity control resumes from the measured position after NaN commands
+    if (any_nan(hw_commands_joint_velocities_)) {
+        velocity_targets_ = hw_states_joint_positions_;
+    }
+
+    if (position_controller_running_ && mode == joint_mode) {
+        // A joint without a position command holds its measured position, or in a real-time mode
+        // its last target, which does not sag under load
+        for (size_t i = 0; i < info_.joints.size(); i++) {
+            const auto& map = joint_map_[i];
+            auto& pos = map.robot_index == 0 ? target_pos_.first : target_pos_.second;
+            const auto& last
+                = map.robot_index == 0 ? last_joint_target_.first : last_joint_target_.second;
+            if (!std::isnan(hw_commands_joint_positions_[i])) {
+                pos[map.dof_index] = hw_commands_joint_positions_[i];
+            } else {
+                pos[map.dof_index]
+                    = rdk_realtime_ ? last[map.dof_index] : hw_states_joint_positions_[i];
+            }
+        }
+        // The target velocity stays zero. In the non-real-time mode it is the velocity to have on
+        // arriving at the target, and passing on that of a 1 kHz stream makes the robots overshoot.
+        std::fill(target_vel_.first.begin(), target_vel_.first.end(), 0.0);
+        std::fill(target_vel_.second.begin(), target_vel_.second.end(), 0.0);
+        if (rdk_realtime_) {
+            robot_pair_->StreamJointPosition(target_pos_, target_vel_, target_acc_);
+            last_joint_target_ = target_pos_;
+            return true;
+        } else {
+            robot_pair_->SendJointPosition(
+                target_pos_, target_vel_, max_joint_vel_, max_joint_acc_);
+        }
+    } else if (velocity_controller_running_ && mode == joint_mode) {
+        if (!any_nan(hw_commands_joint_velocities_)) {
+            // The target moves ahead of the robots at the commanded velocity. The velocity is the
+            // one to have on arriving at the target, or the feed-forward in a real-time mode.
+            AdvanceVelocityTargets(dt);
+            ToDRDKOrderInPlace(velocity_targets_, target_pos_);
+            ToDRDKOrderInPlace(hw_commands_joint_velocities_, target_vel_);
+        } else if (rdk_realtime_) {
+            // A real-time mode needs a command every cycle, so hold the last target
+            target_pos_ = last_joint_target_;
+            std::fill(target_vel_.first.begin(), target_vel_.first.end(), 0.0);
+            std::fill(target_vel_.second.begin(), target_vel_.second.end(), 0.0);
+        } else {
+            return false;
+        }
+        if (rdk_realtime_) {
+            robot_pair_->StreamJointPosition(target_pos_, target_vel_, target_acc_);
+            last_joint_target_ = target_pos_;
+            return true;
+        } else {
+            robot_pair_->SendJointPosition(
+                target_pos_, target_vel_, max_joint_vel_, max_joint_acc_);
+        }
+    } else if (torque_controller_running_
+               && mode
+                      == std::pair {flexiv::rdk::Mode::RT_JOINT_TORQUE,
+                          flexiv::rdk::Mode::RT_JOINT_TORQUE}
+               && !any_nan(hw_commands_joint_efforts_)) {
+        ToDRDKOrderInPlace(hw_commands_joint_efforts_, target_torque_);
+        robot_pair_->StreamJointTorque(target_torque_);
+        return true;
+    } else if (cartesian_controller_running_
+               && mode == std::pair {rdk_cartesian_mode_, rdk_cartesian_mode_}) {
+        const bool finite = AllFinite(hw_commands_cartesian_pose_)
+                            && AllFinite(hw_commands_cartesian_wrench_)
+                            && AllFinite(hw_commands_cartesian_velocity_);
+        if (rdk_realtime_) {
+            // A real-time mode needs a command every cycle, so hold the last poses without force
+            if (finite) {
+                last_cartesian_target_ = hw_commands_cartesian_pose_;
+                robot_pair_->StreamCartesianMotionForce(
+                    {hw_commands_cartesian_pose_[0], hw_commands_cartesian_pose_[1]},
+                    {hw_commands_cartesian_wrench_[0], hw_commands_cartesian_wrench_[1]},
+                    {hw_commands_cartesian_velocity_[0], hw_commands_cartesian_velocity_[1]});
+            } else {
+                robot_pair_->StreamCartesianMotionForce(
+                    {last_cartesian_target_[0], last_cartesian_target_[1]});
+            }
+            return true;
+        } else if (finite) {
+            robot_pair_->SendCartesianMotionForce(
+                {hw_commands_cartesian_pose_[0], hw_commands_cartesian_pose_[1]},
+                {hw_commands_cartesian_wrench_[0], hw_commands_cartesian_wrench_[1]},
+                {hw_commands_cartesian_velocity_[0], hw_commands_cartesian_velocity_[1]},
+                {cartesian_max_linear_vel_[0].load(), cartesian_max_linear_vel_[1].load()},
+                {cartesian_max_angular_vel_[0].load(), cartesian_max_angular_vel_[1].load()},
+                {cartesian_max_linear_acc_[0].load(), cartesian_max_linear_acc_[1].load()},
+                {cartesian_max_angular_acc_[0].load(), cartesian_max_angular_acc_[1].load()});
+        }
+    }
+    return false;
 }
 
 hardware_interface::return_type FlexivDualHardwareInterface::prepare_command_mode_switch(
@@ -1188,7 +1319,7 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
             cartesian_max_linear_acc_[robot].store(defaults.max_linear_acc);
             cartesian_max_angular_acc_[robot].store(defaults.max_angular_acc);
         }
-        robot_pair_->SwitchMode(flexiv::rdk::Mode::NRT_CARTESIAN_MOTION_FORCE);
+        robot_pair_->SwitchMode(rdk_cartesian_mode_);
 
         // The joint impedance properties do not govern the Cartesian mode
         if (joint_impedance_config_node_) {
