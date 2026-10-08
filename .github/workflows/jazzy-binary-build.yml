@@ -79,3 +79,4 @@ jobs:
               }
             }
           skip-tests: false
+          coverage-result: false
