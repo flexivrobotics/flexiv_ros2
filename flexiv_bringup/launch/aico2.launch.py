@@ -105,6 +105,15 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            "withhold_on_timeliness_failure",
+            default_value="true",
+            description="With rdk_realtime_mode, withhold motion until the controller is restarted once real-time commands arrive late too often. false only warns and keeps streaming, as the RDK does. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             robot_controller_param_name,
             default_value="rizon_arm_controller",
             description="Robot controller to start. rizon_arm_controller starts \
@@ -225,6 +234,9 @@ def generate_launch_description():
     robot_sn_right = LaunchConfiguration(robot_sn_right_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
     rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
+    withhold_on_timeliness_failure = LaunchConfiguration(
+        "withhold_on_timeliness_failure"
+    )
     robot_controller = LaunchConfiguration(robot_controller_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
@@ -385,6 +397,9 @@ def generate_launch_description():
                 " ",
                 "rdk_realtime_mode:=",
                 rdk_realtime_mode,
+                " ",
+                "withhold_on_timeliness_failure:=",
+                withhold_on_timeliness_failure,
                 " ",
                 "use_fake_hardware:=",
                 use_fake_hardware,

@@ -183,6 +183,8 @@ private:
     flexiv::rdk::Mode rdk_control_mode_;
     flexiv::rdk::Mode rdk_cartesian_mode_;
     bool rdk_realtime_ = false;
+    // Withhold motion once real-time commands arrive late too often, or only warn as the RDK does
+    bool withhold_on_timeliness_failure_ = true;
 
     // Robot info, constant per connection, so that write() does not copy it every cycle
     std::pair<flexiv::rdk::RobotInfo, flexiv::rdk::RobotInfo> pair_info_;

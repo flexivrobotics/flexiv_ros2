@@ -161,6 +161,8 @@ private:
     flexiv::rdk::Mode rdk_control_mode_;
     flexiv::rdk::Mode rdk_cartesian_mode_;
     bool rdk_realtime_ = false;
+    // Withhold motion once real-time commands arrive late too often, or only warn as the RDK does
+    bool withhold_on_timeliness_failure_ = true;
 
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;

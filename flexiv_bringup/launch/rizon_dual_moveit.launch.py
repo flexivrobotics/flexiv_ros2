@@ -60,6 +60,10 @@ def launch_setup(context):
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
 
     rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
+
+    withhold_on_timeliness_failure = LaunchConfiguration(
+        "withhold_on_timeliness_failure"
+    )
     start_rviz = LaunchConfiguration("start_rviz")
     use_fake_hardware = LaunchConfiguration("use_fake_hardware")
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
@@ -166,6 +170,9 @@ def launch_setup(context):
                 " ",
                 "rdk_realtime_mode:=",
                 rdk_realtime_mode,
+                " ",
+                "withhold_on_timeliness_failure:=",
+                withhold_on_timeliness_failure,
                 " ",
                 "use_fake_hardware:=",
                 use_fake_hardware,
@@ -657,6 +664,15 @@ def generate_launch_description():
             "rdk_realtime_mode",
             default_value="false",
             description="Use the real-time RDK modes for the joint position, velocity and Cartesian interfaces, streamed at the controller manager rate. Requires a low-latency host. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "withhold_on_timeliness_failure",
+            default_value="true",
+            description="With rdk_realtime_mode, withhold motion until the controller is restarted once real-time commands arrive late too often. false only warns and keeps streaming, as the RDK does. Options: true, false",
             choices=["true", "false"],
         )
     )

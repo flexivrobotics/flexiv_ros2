@@ -19,6 +19,8 @@
   <xacro:arg name="rdk_control_mode" default="joint_position" />
   <!-- Real-time RDK modes for the joint and Cartesian interfaces, streamed at the control rate -->
   <xacro:arg name="rdk_realtime_mode" default="false" />
+  <!-- Withhold motion when real-time commands arrive late too often, or only warn as the RDK does -->
+  <xacro:arg name="withhold_on_timeliness_failure" default="true" />
   <!-- Acceleration limit of the robot's joint motion generator [rad/s^2] -->
   <xacro:arg name="max_joint_acceleration" default="5.0" />
   <xacro:arg name="use_fake_hardware" default="false" />
@@ -87,6 +89,7 @@
         robot_sn="$(arg robot_sn)"
         rdk_control_mode="$(arg rdk_control_mode)"
         rdk_realtime_mode="$(arg rdk_realtime_mode)"
+        withhold_on_timeliness_failure="$(arg withhold_on_timeliness_failure)"
         max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"
@@ -104,6 +107,7 @@
         robot_sn="$(arg robot_sn)"
         rdk_control_mode="$(arg rdk_control_mode)"
         rdk_realtime_mode="$(arg rdk_realtime_mode)"
+        withhold_on_timeliness_failure="$(arg withhold_on_timeliness_failure)"
         max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"
@@ -127,6 +131,7 @@
         robot_sn_right="$(arg robot_sn_right)"
         rdk_control_mode="$(arg rdk_control_mode)"
         rdk_realtime_mode="$(arg rdk_realtime_mode)"
+        withhold_on_timeliness_failure="$(arg withhold_on_timeliness_failure)"
         max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"

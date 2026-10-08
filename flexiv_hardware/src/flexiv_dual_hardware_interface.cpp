@@ -165,6 +165,14 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
         RCLCPP_FATAL(getLogger(), "Parameter 'rdk_realtime_mode': %s", ex.what());
         return hardware_interface::CallbackReturn::ERROR;
     }
+    const auto withhold_it = info_.hardware_parameters.find("withhold_on_timeliness_failure");
+    try {
+        withhold_on_timeliness_failure_ = withhold_it == info_.hardware_parameters.end()
+                                          || hardware_interface::parse_bool(withhold_it->second);
+    } catch (const std::invalid_argument& ex) {
+        RCLCPP_FATAL(getLogger(), "Parameter 'withhold_on_timeliness_failure': %s", ex.what());
+        return hardware_interface::CallbackReturn::ERROR;
+    }
 
     try {
         auto rdk_control_mode_str = info_.hardware_parameters.at("rdk_control_mode");
@@ -965,11 +973,18 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
                 if (!robot_instances_.first->reached_timeliness_failure_limit()
                     && !robot_instances_.second->reached_timeliness_failure_limit()) {
                     timeliness_clear_since_sync_ = true;
-                } else if (timeliness_clear_since_sync_) {
+                } else if (timeliness_clear_since_sync_ && withhold_on_timeliness_failure_) {
                     withhold_motion(
                         "too many real-time commands arrived late. The host cannot keep up "
                         "with the control rate, run the controller manager at real-time "
                         "priority.");
+                } else if (timeliness_clear_since_sync_) {
+                    // Warned once until the flag clears again
+                    timeliness_clear_since_sync_ = false;
+                    RCLCPP_WARN(getLogger(),
+                        "Too many real-time commands arrived late. Streaming continues as "
+                        "withhold_on_timeliness_failure is false, run the controller manager at "
+                        "real-time priority.");
                 }
             }
         } catch (const std::exception& e) {
