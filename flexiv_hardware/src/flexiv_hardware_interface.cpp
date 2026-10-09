@@ -339,19 +339,12 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_configure(
         robot_->SetJointInertiaScale(ConvertROSToRDKOrder(inertia_scales, rdk_to_ros_map_));
     };
 
-<<<<<<< HEAD
-    joint_impedance_config_node_ = std::make_shared<JointImpedanceConfigNode>(robot_sn, joint_names,
-        std::move(bounds), rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE,
-        driver_status_, std::move(setters));
-    executor_->add_node(joint_impedance_config_node_->get_node_base_interface());
-=======
     joint_impedance_config_node_
         = std::make_shared<JointImpedanceConfigNode>(robot_sn, joint_names, std::move(bounds),
             rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE
                 || rdk_control_mode_ == flexiv::rdk::Mode::RT_JOINT_IMPEDANCE,
             driver_status_, std::move(setters));
-    executor->add_node(joint_impedance_config_node_->get_node_base_interface());
->>>>>>> 5709191 (Feature/Add option to start RDK in realtime (RT) control modes (#134))
+    executor_->add_node(joint_impedance_config_node_->get_node_base_interface());
 
     CartesianMotionForceBounds cartesian_bounds;
     cartesian_bounds.k_x_nom = {robot_->info().K_x_nom};
@@ -774,29 +767,6 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         return hardware_interface::return_type::OK;
     }
 
-<<<<<<< HEAD
-    // Initialize target vectors to hold position
-    std::vector<double> target_pos(robot_->info().DoF);
-    std::vector<double> target_vel(robot_->info().DoF);
-
-    bool is_pos_nan = false;
-    bool is_vel_nan = false;
-    bool is_eff_nan = false;
-    for (std::size_t i = 0; i < robot_->info().DoF; i++) {
-        if (hw_commands_joint_positions_[i] != hw_commands_joint_positions_[i]) {
-            is_pos_nan = true;
-        }
-        if (hw_commands_joint_velocities_[i] != hw_commands_joint_velocities_[i]) {
-            is_vel_nan = true;
-        }
-        if (hw_commands_joint_efforts_[i] != hw_commands_joint_efforts_[i]) {
-            is_eff_nan = true;
-        }
-    }
-=======
-    interfaces_.ReadCommands();
->>>>>>> 5709191 (Feature/Add option to start RDK in realtime (RT) control modes (#134))
-
     // Withhold motion until a controller restart has re-synchronized the command buffers.
     if (driver_status_->commands_synchronized.load()) {
         // A fault is picked up by read() and recovered as usual. Anything else stops streaming
@@ -971,17 +941,12 @@ void FlexivHardwareInterface::SynchronizeCommandsWithState()
     hw_commands_cartesian_pose_ = hw_states_cartesian_pose_;
     hw_commands_cartesian_wrench_.fill(0.0);
     hw_commands_cartesian_velocity_.fill(0.0);
-<<<<<<< HEAD
-=======
 
     timeliness_clear_since_sync_ = false;
 
     // What a real-time mode holds until the first finite command arrives
     last_joint_target_ = ConvertROSToRDKOrder(hw_states_joint_positions_, rdk_to_ros_map_);
     last_cartesian_target_ = hw_states_cartesian_pose_;
-
-    interfaces_.WriteCommands();
->>>>>>> 5709191 (Feature/Add option to start RDK in realtime (RT) control modes (#134))
 }
 
 hardware_interface::return_type FlexivHardwareInterface::prepare_command_mode_switch(

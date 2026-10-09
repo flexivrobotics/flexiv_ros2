@@ -541,19 +541,12 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_configure(
                   inertia_scales, pair_joint_map, nominal_inertia_left, nominal_inertia_right));
           };
 
-<<<<<<< HEAD
-    joint_impedance_config_node_ = std::make_shared<JointImpedanceConfigNode>(robot_sn_left,
-        joint_names, std::move(bounds), rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE,
-        driver_status_, std::move(setters));
-    executor_->add_node(joint_impedance_config_node_->get_node_base_interface());
-=======
     joint_impedance_config_node_
         = std::make_shared<JointImpedanceConfigNode>(robot_sn_left, joint_names, std::move(bounds),
             rdk_control_mode_ == flexiv::rdk::Mode::NRT_JOINT_IMPEDANCE
                 || rdk_control_mode_ == flexiv::rdk::Mode::RT_JOINT_IMPEDANCE,
             driver_status_, std::move(setters));
-    executor->add_node(joint_impedance_config_node_->get_node_base_interface());
->>>>>>> 5709191 (Feature/Add option to start RDK in realtime (RT) control modes (#134))
+    executor_->add_node(joint_impedance_config_node_->get_node_base_interface());
 
     CartesianMotionForceBounds cartesian_bounds;
     cartesian_bounds.k_x_nom = {info.first.K_x_nom, info.second.K_x_nom};
@@ -807,17 +800,12 @@ void FlexivDualHardwareInterface::SynchronizeCommandsWithState()
         hw_commands_cartesian_wrench_[robot].fill(0.0);
         hw_commands_cartesian_velocity_[robot].fill(0.0);
     }
-<<<<<<< HEAD
-=======
 
     timeliness_clear_since_sync_ = false;
 
     // What a real-time mode holds until the first finite command arrives
     ToDRDKOrderInPlace(hw_states_joint_positions_, last_joint_target_);
     last_cartesian_target_ = hw_states_cartesian_pose_;
-
-    interfaces_.WriteCommands();
->>>>>>> 5709191 (Feature/Add option to start RDK in realtime (RT) control modes (#134))
 }
 
 hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_activate(
@@ -959,16 +947,6 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
     if (driver_status_->driver_state.load() != DriverState::READY) {
         return hardware_interface::return_type::OK;
     }
-
-<<<<<<< HEAD
-    const auto info = robot_pair_->info();
-
-    const auto any_nan = [](const std::vector<double>& values) {
-        return std::any_of(values.begin(), values.end(), [](double v) { return std::isnan(v); });
-    };
-=======
-    interfaces_.ReadCommands();
->>>>>>> 5709191 (Feature/Add option to start RDK in realtime (RT) control modes (#134))
 
     // Withhold motion until a controller restart has re-synchronized the command buffers. Digital
     // outputs further down are unaffected -- they carry no setpoint that can go stale.
@@ -1268,7 +1246,6 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
     // A joint stopped and not restarted in this switch is released. It holds its position: write()
     // holds a joint without a position command, and a zero velocity moves nothing.
     bool joint_released = false;
-    interfaces_.ReadCommands();
     for (size_t i = 0; i < info_.joints.size(); i++) {
         const auto names_joint = [this, i](const std::string& key) {
             return key.rfind(info_.joints[i].name + "/", 0) == 0;
@@ -1286,7 +1263,6 @@ hardware_interface::return_type FlexivDualHardwareInterface::perform_command_mod
             joint_claimed_[i] = true;
         }
     }
-    interfaces_.WriteCommands();
     const bool joints_remain_claimed
         = std::find(joint_claimed_.begin(), joint_claimed_.end(), true) != joint_claimed_.end();
 
