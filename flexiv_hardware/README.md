@@ -3,11 +3,37 @@
 `ros2_control` hardware interfaces for Flexiv robots, backed by Flexiv RDK.
 
 - `FlexivHardwareInterface` — a single robot.
-- `FlexivDualHardwareInterface` — a robot pair, backed by Flexiv DRDK. Built only when
-  `flexiv_drdk` is found at configure time.
+- `FlexivDualHardwareInterface` — a robot pair, backed by Flexiv DRDK. Built only when `flexiv_drdk` is found at configure time.
 
 Both export position, velocity and effort command and state interfaces, plus the 18 digital I/O
 ports and the aggregated Flexiv robot states.
+
+## Joint motion limits
+
+The joint position and velocity interfaces drive the robot through RDK's non-real-time `SendJointPosition()`, whose motion generator chases each command within a velocity and an acceleration limit:
+
+- `max_vel` is each joint's URDF velocity limit.
+- `max_acc` is the `max_joint_acceleration` hardware parameter (xacro arg of the same name), default 5.0 rad/s², the acceleration limit `flexiv_moveit_config` plans with.
+
+These limits apply only to the non-real-time modes.
+
+## Real-time control modes
+
+The `rdk_realtime_mode` hardware parameter (xacro and launch arg of the same name, default `false`) selects the real-time RDK modes:
+
+| Interface        | `false` (default)                                  | `true`                                                |
+| ---------------- | -------------------------------------------------- | ----------------------------------------------------- |
+| Position         | `NRT_JOINT_POSITION` / `NRT_JOINT_IMPEDANCE`, `SendJointPosition()` | `RT_JOINT_POSITION` / `RT_JOINT_IMPEDANCE`, `StreamJointPosition()` |
+| Velocity         | same as position                                   | same as position, commanded velocity as feed-forward |
+| Cartesian        | `NRT_CARTESIAN_MOTION_FORCE`, `SendCartesianMotionForce()` | `RT_CARTESIAN_MOTION_FORCE`, `StreamCartesianMotionForce()` |
+| Effort           | `RT_JOINT_TORQUE`                                  | `RT_JOINT_TORQUE`                                     |
+
+In a real-time mode the robot tracks each command directly, without its motion generator:
+
+- The [joint motion limits](#joint-motion-limits) and the Cartesian motion limits do not apply, and `~/set_cartesian_motion_limits` is refused. The commands must already be smooth, as `joint_trajectory_controller` output at 1 kHz is.
+- A command is streamed every cycle. While a command is not finite, the last target is held rather than skipped.
+- A command arriving late counts as a timeliness failure. Past the RDK limit (2 % within one second) the RDK only logs a warning per command and keeps tracking, so the driver stops streaming itself: motion is withheld until the controller is restarted, the same as after an [interruption](#step-3-restoring-a-control-mode). Run on a PREEMPT_RT kernel with the controller manager at real-time priority.
+- `withhold_on_timeliness_failure:=false` (default `true`) makes the driver only log a warning each time the limit is reached and keep streaming, but the robot tracking performance may degrade.
 
 ## Error recovery
 
@@ -43,7 +69,7 @@ and recommended actions.
 ros2 action send_goal /Rizon4_123456/flexiv_recovery_node/error_recovery flexiv_msgs/action/ErrorRecovery "{}" --feedback
 ```
 
-The sequence is `Stop` → `ClearFault` → `Enable` → wait for operational. Each step has its own deadline, so an unrecoverable robot fails with a message instead of hanging.
+The sequence is `Stop` → `ClearFault` → `Enable` → wait for operational. Every step is bounded in time, so an unrecoverable robot fails with a message instead of hanging.
 
 On success the robot is **operational and in `IDLE`**, and the result reports `requires_controller_restart: true`.
 
@@ -55,7 +81,7 @@ Recovery does not restore the control mode. Restart the controller:
 ros2 control switch_controllers --deactivate rizon_arm_controller --activate rizon_arm_controller
 ```
 
-The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `NRT_JOINT_POSITION` for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step. In a joint impedance control mode it also re-applies whatever joint impedance properties were set, see [Joint impedance configuration](#joint-impedance-configuration).
+The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `NRT_JOINT_POSITION`, or `RT_JOINT_POSITION` with `rdk_realtime_mode:=true`, for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step. In a joint impedance control mode it also re-applies whatever joint impedance properties were set, see [Joint impedance configuration](#joint-impedance-configuration).
 
 **The restart is required after every interruption, not only after a recovery action.** Once the driver has left `READY` for any reason, motion stays withheld until a controller restart, even if the robot became operational again on its own or the operator resolved the condition in Flexiv Elements.
 
@@ -93,8 +119,7 @@ back into range and **requires a robot reboot afterwards**.
 
 The recovery interface is namespaced by the **left** robot's serial number and acts on the pair as
 one unit: either robot faulted means the pair is faulted, and both must clear for the pair to be
-considered clear. DRDK exposes no timeliness accessor for a pair, so that field is always false;
-a timeliness failure surfaces as an exception from the streaming call instead.
+considered clear. Its timeliness failure field is raised when either robot has reached the limit.
 
 ## Joint impedance configuration
 
@@ -139,3 +164,46 @@ the **left** robot's serial number. A request covers every joint of both arms in
 `left_`/`right_` joint name prefixes on the topics tell you which entry is which. Both halves are
 always sent in full, because an empty half means "nominal" to DRDK and would silently reset the
 other arm.
+
+## Cartesian motion-force configuration
+
+Interfaces and settings used by [`cartesian_motion_force_controller`](../flexiv_controllers/cartesian_motion_force_controller), see [Cartesian Motion-Force Control](../README.md#cartesian-motion-force-control) for its usage.
+
+Each robot exports these interfaces under `<prefix>tcp`, with the same prefix as its joints, e.g. `Rizon4-123456_tcp`:
+
+| Interface | Type | Meaning |
+| --------- | ---- | ------- |
+| `cartesian_pose_{x,y,z,qw,qx,qy,qz}`     | command, state | TCP pose in world frame |
+| `cartesian_wrench_{fx,fy,fz,mx,my,mz}`   | command | Target wrench in the force control frame, tracked on force-controlled axes only |
+| `cartesian_velocity_{vx,vy,vz,wx,wy,wz}` | command | Target TCP velocity in world frame, 0 is the most robust |
+
+The target wrench is the wrench sensed at the TCP, not the one it exerts: `f_z = +5 N` in world frame moves the TCP down until the sensed force is +5 N.
+
+The settings are services, one per RDK call, namespaced like the recovery interface. For `Rizon4-123456`, the first service is `/Rizon4_123456/flexiv_cartesian_motion_force_config_node/set_cartesian_impedance`.
+
+| RDK call | Service | Valid range |
+| -------- | ------- | ----------- |
+| `SetCartesianImpedance()`  | `~/set_cartesian_impedance`     | `k_x` in `[0, RobotInfo::K_x_nom]`, empty means nominal; `z_x` in `[0.3, 0.8]`, nominal 0.7 |
+| `SetMaxContactWrench()`    | `~/set_max_contact_wrench`      | `≥ 0`, infinity disables it |
+| `SetNullSpacePosture()`    | `~/set_null_space_posture`      | `[RobotInfo::q_min, RobotInfo::q_max]`, one per joint in URDF order |
+| `SetNullSpaceObjectives()` | `~/set_null_space_objectives`   | `[0, 1]`, `[0, 1]`, `[0.1, 1]` |
+| `SetForceControlAxis()`    | `~/set_force_control_axis`      | `max_linear_vel` in `[0.005, 2.0]` m/s |
+| `SetForceControlFrame()`   | `~/set_force_control_frame`     | `WORLD` or `TCP` |
+| `SetPassiveForceControl()` | `~/set_passive_force_control`   | – |
+| Motion limits              | `~/set_cartesian_motion_limits` | `> 0`, defaults 0.5 m/s, 1.0 rad/s, 2.0 m/s², 5.0 rad/s²; non-real-time mode only |
+
+For example, to force-control the Z axis:
+
+```bash
+ros2 service call /Rizon4_123456/flexiv_cartesian_motion_force_config_node/set_force_control_axis flexiv_msgs/srv/SetForceControlAxis "{enabled_axes: [false, false, true, false, false, false]}"
+```
+
+Notes:
+- The force/torque sensor is zeroed every time the controller starts, so nothing may be in contact with the robot then.
+- A joint controller and the Cartesian controller cannot run at the same time.
+- Passive force control is disabled again when the controller stops.
+- The maximum contact wrench only limits motion-controlled axes, and cannot be enabled while a rotational axis is force-controlled.
+
+### Dual robot setups
+
+The pair has one Cartesian interface, namespaced by the **left** robot's serial number. Every per-robot array holds the left robot's values first, e.g. 12 values for `max_wrench`, and the null-space posture covers every joint of both arms in URDF order.

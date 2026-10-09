@@ -8,13 +8,4 @@
             uses Flexiv RDK. Position, Velocity and Effort interfaces are supported.
         </description>
     </class>
-    <class name="flexiv_hardware/FlexivDualHardwareInterface"
-           type="flexiv_hardware::FlexivDualHardwareInterface"
-           base_class_type="hardware_interface::SystemInterface">
-
-        <description>
-            ROS 2 Control Hardware interface for a pair of Flexiv robots. This driver
-            uses Flexiv DRDK. Position, Velocity and Effort interfaces are supported.
-        </description>
-    </class>
 </library>

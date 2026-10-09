@@ -29,43 +29,30 @@ jobs:
           submodules: recursive
       - name: Install dependencies
         run: |
+          # ROS dependencies come from package.xml through rosdep in action-ros-ci
           sudo apt-get update && sudo apt-get install -y \
           wget \
-          libeigen3-dev \
-          ros-jazzy-control-toolbox \
-          ros-jazzy-hardware-interface \
-          ros-jazzy-joint-state-publisher \
-          ros-jazzy-joint-state-publisher-gui \
-          ros-jazzy-moveit \
-          ros-jazzy-realtime-tools \
-          ros-jazzy-robot-state-publisher \
-          ros-jazzy-ros2-control \
-          ros-jazzy-ros2-controllers \
-          ros-jazzy-test-msgs \
-          ros-jazzy-tinyxml2-vendor \
-          ros-jazzy-xacro
+          libeigen3-dev
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
-          git clone --branch v1.9.3 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
+          git clone --branch v1.9.4.1 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
-          source /opt/ros/jazzy/setup.bash
-          bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install 8
+          bash build_and_install_dependencies.sh ~/flexiv_install $(nproc)
           cd ..
           mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DRDK_SUPPORT_ROS2_JAZZY=ON
-          make install
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
+          cmake --build . --target install --config Release -j $(nproc)
       - name: Build and install flexiv_drdk
         shell: bash
         run: |
-          git clone --branch v1.2.3 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
+          git clone --branch v1.2.4 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
           cd flexiv_drdk/thirdparty
-          source /opt/ros/jazzy/setup.bash
-          bash build_and_install_dependencies.sh ~/flexiv_install 8 --skip-rdk
+          bash build_and_install_dependencies.sh ~/flexiv_install $(nproc) --skip-rdk
           cd ..
           mkdir -p build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DDRDK_SUPPORT_ROS2_JAZZY=ON
-          make install
+          cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DCMAKE_PREFIX_PATH=~/flexiv_install
+          cmake --build . --target install --config Release -j $(nproc)
       - name: Build and run tests
         id: action-ros-ci
         uses: ros-tooling/action-ros-ci@v0.4
@@ -73,6 +60,7 @@ jobs:
           target-ros2-distro: ${{ env.ROS_DISTRO }}
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.jazzy.repos
           package-name: |
+            cartesian_motion_force_controller
             flexiv_bringup
             flexiv_calibration
             flexiv_gripper
@@ -90,4 +78,5 @@ jobs:
                 ]
               }
             }
-          skip-tests: true
+          skip-tests: false
+          coverage-result: false

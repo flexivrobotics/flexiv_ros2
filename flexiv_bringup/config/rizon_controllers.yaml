@@ -14,24 +14,40 @@ controller_manager:
     flexiv_robot_states_broadcaster:
       type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
 
+    cartesian_motion_force_controller:
+      type: cartesian_motion_force_controller/CartesianMotionForceController
+
 rizon_arm_controller:
   ros__parameters:
     joints:
-      - $(var robot_sn)_joint1
-      - $(var robot_sn)_joint2
-      - $(var robot_sn)_joint3
-      - $(var robot_sn)_joint4
-      - $(var robot_sn)_joint5
-      - $(var robot_sn)_joint6
-      - $(var robot_sn)_joint7
+      - $(var prefix)joint1
+      - $(var prefix)joint2
+      - $(var prefix)joint3
+      - $(var prefix)joint4
+      - $(var prefix)joint5
+      - $(var prefix)joint6
+      - $(var prefix)joint7
     command_interfaces:
       - position
     state_interfaces:
       - position
       - velocity
-    state_publish_rate: 100.0
     action_monitor_rate: 20.0
     allow_partial_joints_goal: false
+    allow_nonzero_velocity_at_trajectory_end: true
     constraints:
       stopped_velocity_tolerance: 0.01
       goal_time: 0.0
+
+flexiv_robot_states_broadcaster:
+  ros__parameters:
+    robot_sn: $(var robot_sn)
+
+gpio_controller:
+  ros__parameters:
+    robot_sn: $(var robot_sn)
+
+cartesian_motion_force_controller:
+  ros__parameters:
+    prefixes:
+      - $(var prefix)
