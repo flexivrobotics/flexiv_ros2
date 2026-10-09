@@ -9,6 +9,7 @@
 #ifndef FLEXIV_HARDWARE__ROBOT_SYSTEM_CONTROL_HPP_
 #define FLEXIV_HARDWARE__ROBOT_SYSTEM_CONTROL_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -125,6 +126,7 @@ class DualRobotSystemControl : public RobotSystemControl
 public:
     explicit DualRobotSystemControl(flexiv::drdk::RobotPair& robot_pair)
     : robot_pair_(robot_pair)
+    , instances_(robot_pair.instances())
     {
     }
 
@@ -154,9 +156,12 @@ public:
         return is_reduced.first || is_reduced.second;
     }
 
-    // DRDK exposes no timeliness accessor for a pair; a timeliness failure surfaces as a
-    // runtime_error thrown by the streaming calls instead.
-    bool reached_timeliness_failure_limit() const override { return false; }
+    // DRDK exposes no timeliness accessor for a pair, so ask the underlying robots
+    bool reached_timeliness_failure_limit() const override
+    {
+        return instances_.first->reached_timeliness_failure_limit()
+               || instances_.second->reached_timeliness_failure_limit();
+    }
 
     flexiv::rdk::OperationalStatus operational_status() const override
     {
@@ -202,6 +207,8 @@ public:
 
 private:
     flexiv::drdk::RobotPair& robot_pair_;
+    const std::pair<std::shared_ptr<flexiv::rdk::Robot>, std::shared_ptr<flexiv::rdk::Robot>>
+        instances_;
 };
 
 #endif /* FLEXIV_DRDK_AVAILABLE */

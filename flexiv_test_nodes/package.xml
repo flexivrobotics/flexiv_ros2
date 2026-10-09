@@ -2,14 +2,22 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>flexiv_test_nodes</name>
-  <version>1.9.3</version>
+  <version>1.9.4</version>
   <description>Demo nodes for testing flexiv_ros2</description>
   <maintainer email="munseng.phoon@flexiv.com">Mun Seng Phoon</maintainer>
   <license>Apache-2.0</license>
   <author email="munseng.phoon@flexiv.com">Mun Seng Phoon</author>
 
-  <depend>rclpy</depend>
-  <depend>std_msgs</depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <exec_depend>flexiv_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>trajectory_msgs</exec_depend>
+
   <test_depend>python3-pytest</test_depend>
 
   <export>

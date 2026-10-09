@@ -18,6 +18,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from rcl_interfaces.msg import ParameterDescriptor
+from rclpy.parameter import Parameter
 
 
 class PublisherJointTrajectory(Node):
@@ -27,7 +28,7 @@ class PublisherJointTrajectory(Node):
         self.declare_parameter("controller_name", "joint_trajectory_controller")
         self.declare_parameter("wait_sec_between_publish", 6)
         self.declare_parameter("goal_names", ["pos1", "pos2"])
-        self.declare_parameter("joints", [""])
+        self.declare_parameter("joints", Parameter.Type.STRING_ARRAY)
         self.declare_parameter("check_starting_point", False)
         self.declare_parameter("starting_point_limits", False)
 
@@ -35,11 +36,11 @@ class PublisherJointTrajectory(Node):
         controller_name = self.get_parameter("controller_name").value
         wait_sec_between_publish = self.get_parameter("wait_sec_between_publish").value
         goal_names = self.get_parameter("goal_names").value
-        self.joints = self.get_parameter("joints").value
+        self.joints = self.get_parameter_or("joints").value
         self.check_starting_point = self.get_parameter("check_starting_point").value
         self.starting_point = {}
 
-        if self.joints is None or len(self.joints) == 0:
+        if not self.joints or not all(self.joints):
             raise Exception('"joints" parameter is not set!')
 
         # starting point stuff
@@ -103,35 +104,33 @@ class PublisherJointTrajectory(Node):
             self.i %= len(self.goals)
 
         elif self.check_starting_point and not self.joint_state_msg_received:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 'Start configuration could not be checked! Check "joint_state" topic!'
             )
         else:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 "Start configuration is not within configured limits!"
             )
 
     def joint_state_callback(self, msg):
-        if not self.joint_state_msg_received:
-            # check start state
-            limit_exceeded = [False] * len(msg.name)
-            for idx, enum in enumerate(msg.name):
-                if (msg.position[idx] < self.starting_point[enum][0]) or (
-                    msg.position[idx] > self.starting_point[enum][1]
-                ):
-                    self.get_logger().warn(
-                        f"Starting point limits exceeded for joint {enum} !"
-                    )
-                    limit_exceeded[idx] = True
-
-            if any(limit_exceeded):
-                self.starting_point_ok = False
-            else:
-                self.starting_point_ok = True
-
-            self.joint_state_msg_received = True
-        else:
+        if self.joint_state_msg_received:
             return
+        positions = dict(zip(msg.name, msg.position))
+        # Other joints, e.g. a gripper's, are ignored; wait for one with all of ours
+        if any(name not in positions for name in self.joints):
+            return
+
+        limit_exceeded = False
+        for name in self.joints:
+            lower, upper = self.starting_point[name]
+            if not lower <= positions[name] <= upper:
+                self.get_logger().warning(
+                    f"Starting point limits exceeded for joint {name} !"
+                )
+                limit_exceeded = True
+
+        self.starting_point_ok = not limit_exceeded
+        self.joint_state_msg_received = True
 
 
 def main(args=None):

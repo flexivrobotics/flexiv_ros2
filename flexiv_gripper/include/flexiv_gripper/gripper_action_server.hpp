@@ -7,12 +7,15 @@
 #ifndef FLEXIV_GRIPPER__GRIPPER_ACTION_SERVER_HPP_
 #define FLEXIV_GRIPPER__GRIPPER_ACTION_SERVER_HPP_
 
+#include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <functional>
-#include <future>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <string>
-#include <thread>
+#include <vector>
 
 // ROS
 #include "control_msgs/action/gripper_command.hpp"
@@ -32,31 +35,7 @@
 
 #include "flexiv_hardware/fault_recovery.hpp"
 
-namespace {
-
-const int kDefaultStatePublishRate = 30;    // [Hz]
-const int kDefaultFeedbackPublishRate = 10; // [Hz]
-const double kDefaultVelocity = 0.1;        // [m/s]
-const double kDefaultMaxForce = 20;         // [N]
-
-// Bounded wait for the robot to become operational when using a normal RDK instance.
-const std::chrono::seconds kOperationalTimeout {30};
-}
-
 namespace flexiv_gripper {
-
-/**
- * @brief Check if the result of the asynchronous command is ready.
- * @tparam T The return type of the future.
- * @param[in] result_future The future object to check.
- * @param[in] timeout Future wait timeout.
- * @return True if the function has finished, false otherwise.
- */
-template <typename T>
-bool IsResultReady(std::future<T>& result_future, std::chrono::nanoseconds timeout)
-{
-    return result_future.wait_for(timeout) == std::future_status::ready;
-}
 
 class GripperActionServer : public rclcpp::Node
 {
@@ -84,20 +63,21 @@ private:
         kGripperCommand
     };
 
-    // return string of the gripper action
-    static std::string GetGripperActionName(GripperAction action)
+    // How a gripper action ended, as observed from the gripper states
+    enum class Completion
     {
-        switch (action) {
-            case GripperAction::kGrasp:
-                return {"Grasping"};
-            case GripperAction::kMove:
-                return {"Moving"};
-            case GripperAction::kGripperCommand:
-                return {"GripperCommand"};
-            default:
-                throw std::invalid_argument("Invalid gripper action");
-        }
+        kReachedGoal, // stopped at the target width, or a grasp settled
+        kStalled,     // stopped before reaching the target width
+        kUnverified,  // states never changed (e.g. lite RDK), assumed done after an estimate
+        kNoMotion,    // states are live but a grasp moved nothing
+        kTimedOut,
+        kCanceled,
+        kPreempted, // superseded by a newer goal or a stop request
+        kShutdown
     };
+
+    // return string of the gripper action
+    static std::string GetGripperActionName(GripperAction action);
 
     // Flexiv RDK
     std::unique_ptr<flexiv::rdk::Robot> robot_;
@@ -110,12 +90,30 @@ private:
     rclcpp::Service<Trigger>::SharedPtr stop_service_;
     rclcpp::TimerBase::SharedPtr state_publish_timer_;
 
+    // Limits of the enabled gripper, read once after Enable()
+    flexiv::rdk::GripperParams gripper_params_;
+
     std::mutex gripper_states_mutex_;
     flexiv::rdk::GripperStates current_gripper_states_;
 
+    // Set once the gripper states are seen to change, which proves they are received
+    std::atomic<bool> states_live_ {false};
+
+    bool use_lite_rdk_ = false;
     double default_velocity_;
     double default_max_force_;
-    std::chrono::nanoseconds future_wait_timeout_ {0};
+
+    /**
+     * @brief Clamp a commanded velocity or force magnitude into the gripper's range, keeping its
+     * sign, and warn when it changes. The defaults suit one gripper and may not suit another.
+     */
+    double ClampToGripperRange(double value, double min, double max, const char* what) const;
+    double width_tolerance_;
+    std::chrono::nanoseconds action_timeout_ {0};
+    std::chrono::nanoseconds feedback_period_ {0};
+
+    // Incremented by every new goal and stop request, so that older goals stop waiting
+    std::atomic<std::uint64_t> active_goal_id_ {0};
 
     // Gripper joint states publisher
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr gripper_ready_publisher_;
@@ -162,104 +160,33 @@ private:
     void ExecuteGripperCommand(const std::shared_ptr<GoalHandleGripperCommand>& goal_handle);
 
     /**
-     * @brief Execute the gripper command and return the result.
-     * @param[in] goal_handle The goal handle of the action.
-     * @param[in] command The RDK function to execute the gripper command.
-     */
-    void ExecuteGripperCommandHelper(const std::shared_ptr<GoalHandleGripperCommand>& goal_handle,
-        const std::function<void()>& command);
-
-    /**
-     * @brief Execute the gripper command and return the result.
+     * @brief Send a Move or Grasp command, wait for it to complete and report the result.
      * @tparam T Gripper action message type (Grasp or Move).
      * @param[in] goal_handle The goal handle of the action.
      * @param[in] action The gripper action to execute.
      * @param[in] command The RDK function to execute the gripper command.
+     * @param[in] target_width Target width for position commands, empty for a grasp.
+     * @param[in] velocity Finger velocity used to estimate the motion duration [m/s].
      */
     template <typename T>
     void ExecuteCommand(const std::shared_ptr<rclcpp_action::ServerGoalHandle<T>>& goal_handle,
-        GripperAction action, const std::function<void()>& command)
-    {
-        const auto action_name = GetGripperActionName(action);
-        RCLCPP_INFO(this->get_logger(), "Gripper %s action has been received", action_name.c_str());
-
-        auto command_execution_result = CommandExecutionResult<T>(command);
-
-        std::future<std::shared_ptr<typename T::Result>> result_future
-            = std::async(std::launch::async, command_execution_result);
-
-        while (!IsResultReady(result_future, future_wait_timeout_) && rclcpp::ok()) {
-            if (goal_handle->is_canceling()) {
-                gripper_->Stop();
-                auto result = result_future.get();
-                RCLCPP_INFO(
-                    this->get_logger(), "Gripper %s action has been canceled", action_name.c_str());
-                goal_handle->canceled(result);
-                return;
-            }
-            PublishGripperStatesFeedback(goal_handle);
-        }
-
-        if (rclcpp::ok()) {
-            const auto result = result_future.get();
-            if (result->success) {
-                RCLCPP_INFO(this->get_logger(), "Gripper %s action has been completed",
-                    action_name.c_str());
-                goal_handle->succeed(result);
-            } else {
-                RCLCPP_ERROR(
-                    this->get_logger(), "Gripper %s action has failed", action_name.c_str());
-                goal_handle->abort(result);
-            }
-        }
-    }
+        GripperAction action, const std::function<void()>& command,
+        std::optional<double> target_width, double velocity);
 
     /**
-     * @brief Return the command execution result.
-     * @tparam T Gripper action message type (Grasp or Move).
-     * @param[in] command  The function to execute the gripper command.
-     * @return Success or failure of the command execution.
+     * @brief Poll the gripper states until the command just sent has finished.
+     * @param[in] goal_id ID of the goal waiting, see active_goal_id_.
+     * @param[in] target_width Target width for position commands, empty for a grasp.
+     * @param[in] velocity Finger velocity used to estimate the motion duration [m/s].
+     * @param[in] is_canceling Returns true when the goal is being canceled.
+     * @param[in] publish_feedback Called with the latest gripper states at the feedback rate.
+     * @param[out] final_states Gripper states when the wait ended.
+     * @return How the command ended.
      */
-    template <typename T>
-    std::function<std::shared_ptr<typename T::Result>()> CommandExecutionResult(
-        const std::function<void()>& command)
-    {
-        return std::function<std::shared_ptr<typename T::Result>()>([command]() {
-            auto result = std::make_shared<typename T::Result>();
-            try {
-                command();
-                result->success = true;
-            } catch (const std::exception& e) {
-                result->success = false;
-                result->error = e.what();
-            }
-            return result;
-        });
-    }
-
-    /**
-     * @brief Publish the gripper states feedback in the action server.
-     * @tparam T Gripper action message type (Grasp or Move).
-     * @param[in] goal_handle The goal handle of the action.
-     */
-    template <typename T>
-    void PublishGripperStatesFeedback(
-        const std::shared_ptr<rclcpp_action::ServerGoalHandle<T>>& goal_handle)
-    {
-        auto feedback = std::make_shared<typename T::Feedback>();
-        std::lock_guard<std::mutex> lock(gripper_states_mutex_);
-        feedback->current_width = current_gripper_states_.width;
-        feedback->current_force = current_gripper_states_.force;
-        feedback->moving = current_gripper_states_.is_moving;
-        goal_handle->publish_feedback(feedback);
-    }
-
-    /**
-     * @brief Publish the gripper command feedback in the action server.
-     * @param[in] goal_handle The goal handle of the action.
-     */
-    void PublishGripperCommandFeedback(
-        const std::shared_ptr<rclcpp_action::ServerGoalHandle<GripperCommand>>& goal_handle);
+    Completion WaitForCompletion(std::uint64_t goal_id, std::optional<double> target_width,
+        double velocity, const std::function<bool()>& is_canceling,
+        const std::function<void(const flexiv::rdk::GripperStates&)>& publish_feedback,
+        flexiv::rdk::GripperStates& final_states);
 };
 
 } // namespace flexiv_gripper

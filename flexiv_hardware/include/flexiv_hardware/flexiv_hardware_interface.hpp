@@ -9,7 +9,10 @@
 #ifndef FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 #define FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 
+#include <array>
+#include <atomic>
 #include <chrono>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
@@ -34,8 +37,10 @@
 // Flexiv
 #include "flexiv/rdk/robot.hpp"
 
+#include "flexiv_hardware/cartesian_motion_force_config_node.hpp"
 #include "flexiv_hardware/fault_recovery.hpp"
 #include "flexiv_hardware/joint_impedance_config_node.hpp"
+#include "flexiv_hardware/joint_motion_limits.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
 #include "flexiv_hardware/robot_system_control.hpp"
 
@@ -121,6 +126,12 @@ private:
     void SynchronizeCommandsWithState();
 
     /**
+     * @brief Advance the velocity control targets by the commanded velocities over one cycle,
+     * keeping each within kMaxVelocityTargetLead of the measured position.
+     */
+    void AdvanceVelocityTargets(double dt);
+
+    /**
      * @brief Notice a robot that was moved while the driver was not ready, and warn about it once
      * on the return to READY. Called from read().
      */
@@ -132,6 +143,20 @@ private:
      * operational is not executing anything, so there is nothing to stop.
      */
     void StopIfOperational();
+
+    /**
+     * @brief [Blocking] Zero the force/torque sensor with the ZeroFTSensor primitive, then return
+     * the robot to IDLE. Called before entering the Cartesian motion-force mode.
+     * @return False if the robot is not ready, faulted or the primitive did not finish in time.
+     */
+    bool ZeroForceTorqueSensor();
+
+    /**
+     * @brief Send the motion command of the running controller, if any. Throws whatever the RDK
+     * throws, which write() handles.
+     * @return True if a real-time command was streamed.
+     */
+    bool SendMotionCommands(double dt);
 
     /** @brief Tear down the recovery node and release the robot connection. */
     void Disconnect();
@@ -146,22 +171,67 @@ private:
     std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor_;
     std::thread executor_thread_;
 
-    // Joint impedance interface, hosted on the same executor. Only brought up when the driver runs
-    // in a joint impedance control mode.
+    // Joint impedance interface, hosted on the same executor
     std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
 
-    // RDK control mode for joint position and velocity interfaces
+    // Cartesian motion-force interface, hosted on the same executor
+    std::shared_ptr<CartesianMotionForceConfigNode> cartesian_config_node_;
+
+    // RDK control modes for the joint position and velocity interfaces and for the Cartesian
+    // interfaces, real-time (streamed every cycle) or non-real-time
     flexiv::rdk::Mode rdk_control_mode_;
+    flexiv::rdk::Mode rdk_cartesian_mode_;
+    bool rdk_realtime_ = false;
+    // Withhold motion once real-time commands arrive late too often, or only warn as the RDK does
+    bool withhold_on_timeliness_failure_ = true;
 
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
     std::vector<double> hw_commands_joint_velocities_;
+    // Position targets for velocity control, advanced by the commanded velocity every cycle
+    std::vector<double> velocity_targets_;
     std::vector<double> hw_commands_joint_efforts_;
+
+    // Limits passed with every non-real-time joint position command, in RDK order
+    std::vector<double> max_joint_vel_;
+    std::vector<double> max_joint_acc_;
+
+    // Robot DoF and per-cycle target buffers in RDK order, sized on configure so that write()
+    // neither copies RobotInfo nor allocates
+    size_t rdk_dof_ = 0;
+    std::vector<double> target_pos_;
+    std::vector<double> target_vel_;
+    std::vector<double> target_acc_;
+    std::vector<double> target_torque_;
+
+    // Last targets streamed in a real-time mode, held while the commands are not finite, since a
+    // real-time mode must receive a command every cycle
+    std::vector<double> last_joint_target_;
+    std::array<double, flexiv::rdk::kPoseSize> last_cartesian_target_;
+
+    // Whether the timeliness failure flag has been seen clear since the last controller start. The
+    // RDK flag does not decay while nothing is streamed, so a restart begins with it still raised.
+    bool timeliness_clear_since_sync_ = false;
 
     // Joint states
     std::vector<double> hw_states_joint_positions_;
     std::vector<double> hw_states_joint_velocities_;
     std::vector<double> hw_states_joint_efforts_;
+
+    // Cartesian commands and states, in RDK order
+    std::array<double, flexiv::rdk::kPoseSize> hw_commands_cartesian_pose_;
+    std::array<double, flexiv::rdk::kCartDoF> hw_commands_cartesian_wrench_;
+    std::array<double, flexiv::rdk::kCartDoF> hw_commands_cartesian_velocity_;
+    std::array<double, flexiv::rdk::kPoseSize> hw_states_cartesian_pose_;
+
+    // Limits passed with every Cartesian command, written by the Cartesian config node
+    std::atomic<double> cartesian_max_linear_vel_ {CartesianMotionLimits {}.max_linear_vel};
+    std::atomic<double> cartesian_max_angular_vel_ {CartesianMotionLimits {}.max_angular_vel};
+    std::atomic<double> cartesian_max_linear_acc_ {CartesianMotionLimits {}.max_linear_acc};
+    std::atomic<double> cartesian_max_angular_acc_ {CartesianMotionLimits {}.max_angular_acc};
+
+    // Full names of the Cartesian command interfaces, for matching controller claims
+    std::vector<std::string> cartesian_command_interface_names_;
 
     // Robot States
     flexiv::rdk::RobotStates hw_flexiv_robot_states_;
@@ -187,12 +257,14 @@ private:
     static rclcpp::Logger getLogger();
 
     // Control modes
-    bool controllers_initialized_;
     std::vector<uint> stop_modes_;
     std::vector<std::string> start_modes_;
     bool position_controller_running_;
     bool velocity_controller_running_;
     bool torque_controller_running_;
+    bool cartesian_controller_running_ = false;
+    bool cartesian_start_requested_ = false;
+    bool cartesian_stop_requested_ = false;
 };
 
 } /* namespace flexiv_hardware */

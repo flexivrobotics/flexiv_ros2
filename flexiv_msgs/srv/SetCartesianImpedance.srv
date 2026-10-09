@@ -1,0 +1,19 @@
+# Set the impedance properties of the robot's Cartesian motion controller, used in the Cartesian
+# motion-force control mode. For a robot pair, each array holds the left robot's values first.
+#
+# An invalid request is rejected as a whole and nothing changes.
+
+# Cartesian stiffness [k_x, k_y, k_z, k_Rx, k_Ry, k_Rz], 6 per robot. Valid range [0, k_x_nom].
+# Empty means k_x_nom. [N/m]:[Nm/rad]
+float64[] k_x
+
+# Cartesian damping ratio, 6 per robot. Valid range [0.3, 0.8]. Empty means the nominal 0.7.
+float64[] z_x
+---
+bool success
+
+# Operator-facing explanation of the outcome
+string message
+
+# Nominal Cartesian stiffness, the upper bound of k_x, 6 per robot. [N/m]:[Nm/rad]
+float64[] k_x_nom

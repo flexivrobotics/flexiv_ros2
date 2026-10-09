@@ -1,24 +1,34 @@
-controller_names:
-  - rizon_arm_controller
-  - flexiv_gripper_node
+# MoveIt uses this configuration for controller management
+moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControllerManager
+moveit_manage_controllers: false
 
-rizon_arm_controller:
-  action_ns: follow_joint_trajectory
-  type: FollowJointTrajectory
-  default: true
-  joints:
-    - $(var external_axis_prefix)aico1_4_v1_joint2
-    - $(var prefix)joint1
-    - $(var prefix)joint2
-    - $(var prefix)joint3
-    - $(var prefix)joint4
-    - $(var prefix)joint5
-    - $(var prefix)joint6
-    - $(var prefix)joint7
+trajectory_execution:
+  allowed_execution_duration_scaling: 1.2
+  allowed_goal_duration_margin: 0.5
+  allowed_start_tolerance: 0.01
 
-flexiv_gripper_node:
-  action_ns: gripper_action
-  type: GripperCommand
-  default: true
-  joints:
-    - $(var prefix)finger_width_joint
+moveit_simple_controller_manager:
+  controller_names:
+    - rizon_arm_controller
+    - flexiv_gripper_node
+
+  rizon_arm_controller:
+    action_ns: follow_joint_trajectory
+    type: FollowJointTrajectory
+    default: true
+    joints:
+      - $(var external_axis_prefix)aico1_4_v1_joint2
+      - $(var prefix)joint1
+      - $(var prefix)joint2
+      - $(var prefix)joint3
+      - $(var prefix)joint4
+      - $(var prefix)joint5
+      - $(var prefix)joint6
+      - $(var prefix)joint7
+
+  flexiv_gripper_node:
+    action_ns: gripper_action
+    type: GripperCommand
+    default: true
+    joints:
+      - $(var prefix)finger_width_joint
