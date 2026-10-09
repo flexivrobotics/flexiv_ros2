@@ -131,6 +131,13 @@ private:
      */
     bool ZeroForceTorqueSensor();
 
+    /**
+     * @brief Send the motion command of the running controller, if any. Throws whatever the RDK
+     * throws, which write() handles.
+     * @return True if a real-time command was streamed.
+     */
+    bool SendMotionCommands(double dt);
+
     /** @brief Tear down the recovery node and release the robot connection. */
     void Disconnect();
 
@@ -149,8 +156,13 @@ private:
     // Cartesian motion-force interface, hosted on the same executor
     std::shared_ptr<CartesianMotionForceConfigNode> cartesian_config_node_;
 
-    // RDK control mode for joint position and velocity interfaces
+    // RDK control modes for the joint position and velocity interfaces and for the Cartesian
+    // interfaces, real-time (streamed every cycle) or non-real-time
     flexiv::rdk::Mode rdk_control_mode_;
+    flexiv::rdk::Mode rdk_cartesian_mode_;
+    bool rdk_realtime_ = false;
+    // Withhold motion once real-time commands arrive late too often, or only warn as the RDK does
+    bool withhold_on_timeliness_failure_ = true;
 
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
@@ -159,9 +171,26 @@ private:
     std::vector<double> velocity_targets_;
     std::vector<double> hw_commands_joint_efforts_;
 
-    // Limits passed with every joint position command, in RDK order
+    // Limits passed with every non-real-time joint position command, in RDK order
     std::vector<double> max_joint_vel_;
     std::vector<double> max_joint_acc_;
+
+    // Robot DoF and per-cycle target buffers in RDK order, sized on configure so that write()
+    // neither copies RobotInfo nor allocates
+    size_t rdk_dof_ = 0;
+    std::vector<double> target_pos_;
+    std::vector<double> target_vel_;
+    std::vector<double> target_acc_;
+    std::vector<double> target_torque_;
+
+    // Last targets streamed in a real-time mode, held while the commands are not finite, since a
+    // real-time mode must receive a command every cycle
+    std::vector<double> last_joint_target_;
+    std::array<double, flexiv::rdk::kPoseSize> last_cartesian_target_;
+
+    // Whether the timeliness failure flag has been seen clear since the last controller start. The
+    // RDK flag does not decay while nothing is streamed, so a restart begins with it still raised.
+    bool timeliness_clear_since_sync_ = false;
 
     // Joint states
     std::vector<double> hw_states_joint_positions_;

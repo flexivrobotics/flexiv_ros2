@@ -42,6 +42,10 @@ def launch_setup(context):
     robot_sn = LaunchConfiguration("robot_sn")
     robot_sn_str = robot_sn.perform(context)
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
+    rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
+    withhold_on_timeliness_failure = LaunchConfiguration(
+        "withhold_on_timeliness_failure"
+    )
     start_rviz = LaunchConfiguration("start_rviz")
     load_gripper = LaunchConfiguration("load_gripper")
     gripper_name = LaunchConfiguration("gripper_name")
@@ -91,6 +95,12 @@ def launch_setup(context):
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
                 rdk_control_mode,
+                " ",
+                "rdk_realtime_mode:=",
+                rdk_realtime_mode,
+                " ",
+                "withhold_on_timeliness_failure:=",
+                withhold_on_timeliness_failure,
                 " ",
                 "load_gripper:=",
                 load_gripper,
@@ -451,6 +461,24 @@ def generate_launch_description():
             default_value="joint_position",
             description="RDK control mode for the ROS 2 control joint position and velocity interfaces. Options: joint_position, joint_impedance",
             choices=["joint_position", "joint_impedance"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rdk_realtime_mode",
+            default_value="false",
+            description="Use the real-time RDK modes for the joint position, velocity and Cartesian interfaces, streamed at the controller manager rate. Requires a low-latency host. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "withhold_on_timeliness_failure",
+            default_value="true",
+            description="With rdk_realtime_mode, withhold motion until the controller is restarted once real-time commands arrive late too often. false only warns and keeps streaming, as the RDK does. Options: true, false",
+            choices=["true", "false"],
         )
     )
 
