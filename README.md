@@ -144,6 +144,8 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
 - `robot_type` (default: *Rizon4*) - type of the Flexiv robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10, Rizon10s or Rizon10R)
 - `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*. In joint impedance mode the controller's impedance properties can be set at runtime, see [Joint Impedance Configuration](#joint-impedance-configuration)
+- `rdk_realtime_mode` (default: *false*) - use the real-time RDK modes (`RT_JOINT_POSITION`, `RT_JOINT_IMPEDANCE`, `RT_CARTESIAN_MOTION_FORCE`) instead of the non-real-time ones. See [Real-time control modes](flexiv_hardware/README.md#real-time-control-modes)
+- `withhold_on_timeliness_failure` (default: *true*) - with `rdk_realtime_mode:=true`, withhold motion until the controller is restarted once real-time commands arrive late too often. *false* only logs a warning and keeps streaming.
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
 - `gripper_name` (default: *Flexiv-GN01*) - full name of the gripper to be controlled, as shown in Flexiv Elements -> Settings -> Device.
 - `load_mounted_ft_sensor` (default: *false*) - loads the mounted force-torque sensor. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.
@@ -309,7 +311,7 @@ See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance-conf
 
 ### Cartesian Motion-Force Control
 
-`cartesian_motion_force_controller` sends TCP pose, wrench and velocity targets to the robot's unified motion-force controller (RDK `SendCartesianMotionForce()` in `NRT_CARTESIAN_MOTION_FORCE` mode). Any Cartesian axes can be force-controlled while the rest stay motion-controlled.
+`cartesian_motion_force_controller` sends TCP pose, wrench and velocity targets to the robot's unified motion-force controller (RDK `SendCartesianMotionForce()` in `NRT_CARTESIAN_MOTION_FORCE` mode, or `StreamCartesianMotionForce()` in `RT_CARTESIAN_MOTION_FORCE` mode with `rdk_realtime_mode:=true`). Any Cartesian axes can be force-controlled while the rest stay motion-controlled.
 
 ```bash
 # Start the robot driver with the Cartesian motion-force controller
