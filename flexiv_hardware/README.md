@@ -15,6 +15,26 @@ The joint position and velocity interfaces drive the robot through RDK's non-rea
 - `max_vel` is each joint's URDF velocity limit.
 - `max_acc` is the `max_joint_acceleration` hardware parameter (xacro arg of the same name), default 5.0 rad/s², the acceleration limit `flexiv_moveit_config` plans with.
 
+These limits apply only to the non-real-time modes.
+
+## Real-time control modes
+
+The `rdk_realtime_mode` hardware parameter (xacro and launch arg of the same name, default `false`) selects the real-time RDK modes:
+
+| Interface        | `false` (default)                                  | `true`                                                |
+| ---------------- | -------------------------------------------------- | ----------------------------------------------------- |
+| Position         | `NRT_JOINT_POSITION` / `NRT_JOINT_IMPEDANCE`, `SendJointPosition()` | `RT_JOINT_POSITION` / `RT_JOINT_IMPEDANCE`, `StreamJointPosition()` |
+| Velocity         | same as position                                   | same as position, commanded velocity as feed-forward |
+| Cartesian        | `NRT_CARTESIAN_MOTION_FORCE`, `SendCartesianMotionForce()` | `RT_CARTESIAN_MOTION_FORCE`, `StreamCartesianMotionForce()` |
+| Effort           | `RT_JOINT_TORQUE`                                  | `RT_JOINT_TORQUE`                                     |
+
+In a real-time mode the robot tracks each command directly, without its motion generator:
+
+- The [joint motion limits](#joint-motion-limits) and the Cartesian motion limits do not apply, and `~/set_cartesian_motion_limits` is refused. The commands must already be smooth, as `joint_trajectory_controller` output at 1 kHz is.
+- A command is streamed every cycle. While a command is not finite, the last target is held rather than skipped.
+- A command arriving late counts as a timeliness failure. Past the RDK limit (2 % within one second) the RDK only logs a warning per command and keeps tracking, so the driver stops streaming itself: motion is withheld until the controller is restarted, the same as after an [interruption](#step-3-restoring-a-control-mode). Run on a PREEMPT_RT kernel with the controller manager at real-time priority.
+- `withhold_on_timeliness_failure:=false` (default `true`) makes the driver only log a warning each time the limit is reached and keep streaming, but the robot tracking performance may degrade.
+
 ## Error recovery
 
 A fault stops the robot and drops it to `IDLE` control mode. The driver detects this, withholds all
@@ -62,7 +82,7 @@ ros2 control switch_controllers --deactivate rizon_arm_controller
 ros2 control switch_controllers --activate rizon_arm_controller
 ```
 
-The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `NRT_JOINT_POSITION` for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step. In a joint impedance control mode it also re-applies whatever joint impedance properties were set, see [Joint impedance configuration](#joint-impedance-configuration).
+The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `NRT_JOINT_POSITION`, or `RT_JOINT_POSITION` with `rdk_realtime_mode:=true`, for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step. In a joint impedance control mode it also re-applies whatever joint impedance properties were set, see [Joint impedance configuration](#joint-impedance-configuration).
 
 **The restart is required after every interruption, not only after a recovery action.** Once the driver has left `READY` for any reason, motion stays withheld until a controller restart, even if the robot became operational again on its own or the operator resolved the condition in Flexiv Elements.
 
@@ -100,8 +120,7 @@ back into range and **requires a robot reboot afterwards**.
 
 The recovery interface is namespaced by the **left** robot's serial number and acts on the pair as
 one unit: either robot faulted means the pair is faulted, and both must clear for the pair to be
-considered clear. DRDK exposes no timeliness accessor for a pair, so that field is always false;
-a timeliness failure surfaces as an exception from the streaming call instead.
+considered clear. Its timeliness failure field is raised when either robot has reached the limit.
 
 ## Joint impedance configuration
 
@@ -172,7 +191,7 @@ The settings are services, one per RDK call, namespaced like the recovery interf
 | `SetForceControlAxis()`    | `~/set_force_control_axis`      | `max_linear_vel` in `[0.005, 2.0]` m/s |
 | `SetForceControlFrame()`   | `~/set_force_control_frame`     | `WORLD` or `TCP` |
 | `SetPassiveForceControl()` | `~/set_passive_force_control`   | – |
-| Motion limits              | `~/set_cartesian_motion_limits` | `> 0`, defaults 0.5 m/s, 1.0 rad/s, 2.0 m/s², 5.0 rad/s² |
+| Motion limits              | `~/set_cartesian_motion_limits` | `> 0`, defaults 0.5 m/s, 1.0 rad/s, 2.0 m/s², 5.0 rad/s²; non-real-time mode only |
 
 For example, to force-control the Z axis:
 
