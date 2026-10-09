@@ -36,7 +36,7 @@ jobs:
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
-          git clone --branch v1.9.4 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
+          git clone --branch v1.9.4.1 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
           bash build_and_install_dependencies.sh ~/flexiv_install $(nproc)
           cd ..
@@ -79,3 +79,4 @@ jobs:
               }
             }
           skip-tests: false
+          coverage-result: false
