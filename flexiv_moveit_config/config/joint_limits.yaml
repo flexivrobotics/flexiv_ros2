@@ -5,53 +5,30 @@
 default_velocity_scaling_factor: 0.1
 default_acceleration_scaling_factor: 0.1
 
-# Specific joint properties can be changed with the keys [max_position, min_position, max_velocity, max_acceleration]
-# Joint limits can be turned off with [has_velocity_limits, has_acceleration_limits]
+# Position and velocity limits come from the URDF, which flexiv_description sets per robot type.
+# The URDF has no acceleration limits, so they are added here for time parameterization.
 joint_limits:
-  $(var robot_sn)_joint1:
-    has_velocity_limits: true
-    max_velocity: 2.0944 # Rizon 4
-    # max_velocity: 1.7453 # Rizon 10
+  $(var prefix)joint1:
     has_acceleration_limits: true
-    max_acceleration: 2.0
-  $(var robot_sn)_joint2:
-    has_velocity_limits: true
-    max_velocity: 2.0944 # Rizon 4
-    # max_velocity: 1.7453 # Rizon 10
+    max_acceleration: 5.0
+  $(var prefix)joint2:
     has_acceleration_limits: true
-    max_acceleration: 2.0
-  $(var robot_sn)_joint3:
-    has_velocity_limits: true
-    max_velocity: 2.4435 # Rizon 4
-    # max_velocity: 2.0944 # Rizon 10
+    max_acceleration: 5.0
+  $(var prefix)joint3:
     has_acceleration_limits: true
-    max_acceleration: 2.0
-  $(var robot_sn)_joint4:
-    has_velocity_limits: true
-    max_velocity: 2.4435 # Rizon 4
-    # max_velocity: 2.0944 # Rizon 10
+    max_acceleration: 5.0
+  $(var prefix)joint4:
     has_acceleration_limits: true
-    max_acceleration: 2.0
-  $(var robot_sn)_joint5:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Rizon 4
-    # max_velocity: 3.8397 # Rizon 10
+    max_acceleration: 5.0
+  $(var prefix)joint5:
     has_acceleration_limits: true
-    max_acceleration: 2.0
-  $(var robot_sn)_joint6:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Rizon 4
-    # max_velocity: 3.8397 # Rizon 10
+    max_acceleration: 5.0
+  $(var prefix)joint6:
     has_acceleration_limits: true
-    max_acceleration: 2.0
-  $(var robot_sn)_joint7:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Rizon 4
-    # max_velocity: 3.8397 # Rizon 10
+    max_acceleration: 5.0
+  $(var prefix)joint7:
     has_acceleration_limits: true
-    max_acceleration: 2.0
-  $(var robot_sn)_finger_width_joint:
-    has_velocity_limits: true
-    max_velocity: 0.5
+    max_acceleration: 5.0
+  $(var prefix)finger_width_joint:
     has_acceleration_limits: true
     max_acceleration: 1.0
