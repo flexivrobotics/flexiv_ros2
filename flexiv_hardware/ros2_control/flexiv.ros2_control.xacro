@@ -152,6 +152,9 @@
         <xacro:loop_gpio idx="0" />
       </gpio>
 
+      <!-- The TCP belongs to the arm, so it is named like the joints. -->
+      <xacro:flexiv_cartesian_gpio name="${prefix}tcp" />
+
     </ros2_control>
   </xacro:macro>
 </robot>

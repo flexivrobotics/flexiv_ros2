@@ -1,0 +1,13 @@
+# Set the maximum contact wrench for the motion-controlled axes of the Cartesian motion-force
+# control mode. For a robot pair, the array holds the left robot's values first.
+#
+# An invalid request is rejected as a whole and nothing changes.
+
+# Maximum contact wrench [f_x, f_y, f_z, m_x, m_y, m_z], 6 per robot. Must not be negative. Use
+# infinity to disable the regulation. [N]:[Nm]
+float64[] max_wrench
+---
+bool success
+
+# Operator-facing explanation of the outcome
+string message

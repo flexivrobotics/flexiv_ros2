@@ -1,0 +1,13 @@
+# Set the reference joint positions of the null-space posture control, used in the Cartesian
+# motion-force control mode.
+#
+# An invalid request is rejected as a whole and nothing changes.
+
+# Reference joint positions, one entry per joint of the hardware component in URDF order. Valid
+# range [q_min, q_max]. [rad]
+float64[] ref_positions
+---
+bool success
+
+# Operator-facing explanation of the outcome
+string message

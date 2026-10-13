@@ -29,6 +29,7 @@
     <xacro:include filename="$(find flexiv_description)/urdf/common/flexiv_common.xacro" />
     <xacro:include filename="$(find flexiv_hardware)/ros2_control/flexiv.ros2_control.xacro" />
     <xacro:include filename="$(find flexiv_hardware)/ros2_control/rizon_dual.ros2_control.xacro" />
+    <xacro:include filename="$(find flexiv_hardware)/ros2_control/cartesian.ros2_control.xacro" />
 
     <xacro:property name="cfg" value="$(find flexiv_description)/config" />
     <xacro:property name="rtype" value="$(arg robot_type)" />

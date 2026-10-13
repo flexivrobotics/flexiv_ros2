@@ -9,6 +9,8 @@
 #ifndef FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 #define FLEXIV_HARDWARE__FLEXIV_HARDWARE_INTERFACE_HPP_
 
+#include <array>
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <string>
@@ -32,6 +34,7 @@
 // Flexiv
 #include "flexiv/rdk/robot.hpp"
 
+#include "flexiv_hardware/cartesian_motion_force_config_node.hpp"
 #include "flexiv_hardware/fault_recovery.hpp"
 #include "flexiv_hardware/joint_impedance_config_node.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
@@ -67,8 +70,9 @@ public:
     hardware_interface::CallbackReturn on_error(
         const rclcpp_lifecycle::State& previous_state) override;
 
-    std::vector<hardware_interface::InterfaceDescription>
-    export_unlisted_state_interface_descriptions() override;
+    std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
+
+    std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
     hardware_interface::return_type prepare_command_mode_switch(
         const std::vector<std::string>& start_interfaces,
@@ -117,25 +121,15 @@ private:
      */
     void StopIfOperational();
 
+    /**
+     * @brief [Blocking] Zero the force/torque sensor with the ZeroFTSensor primitive, then return
+     * the robot to IDLE. Called before entering the Cartesian motion-force mode.
+     * @return False if the robot is not ready, faulted or the primitive did not finish in time.
+     */
+    bool ZeroForceTorqueSensor();
+
     /** @brief Tear down the recovery node and release the robot connection. */
     void Disconnect();
-
-    /**
-     * @brief Resolve the framework-owned interface handles once, in declaration order, so that
-     * read() and write() need no name lookup. Called from on_configure(), by which point the
-     * resource manager has already created the interfaces from the URDF.
-     * @return True if every expected interface was found.
-     */
-    bool ResolveInterfaceHandles();
-
-    /** @brief Copy the internal state buffers into the framework's state interfaces. */
-    void PublishStatesToInterfaces();
-
-    /** @brief Copy the framework's command interfaces into the internal command buffers. */
-    void ReadCommandsFromInterfaces();
-
-    /** @brief Copy the internal command buffers into the framework's command interfaces. */
-    void PushCommandsToInterfaces();
 
     // Flexiv RDK
     std::unique_ptr<flexiv::rdk::Robot> robot_;
@@ -150,6 +144,9 @@ private:
     // in a joint impedance control mode.
     std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
 
+    // Cartesian motion-force interface, hosted on the same executor
+    std::shared_ptr<CartesianMotionForceConfigNode> cartesian_config_node_;
+
     // RDK control mode for joint position and velocity interfaces
     flexiv::rdk::Mode rdk_control_mode_;
 
@@ -163,8 +160,24 @@ private:
     std::vector<double> hw_states_joint_velocities_;
     std::vector<double> hw_states_joint_efforts_;
 
+    // Cartesian commands and states, in RDK order
+    std::array<double, flexiv::rdk::kPoseSize> hw_commands_cartesian_pose_;
+    std::array<double, flexiv::rdk::kCartDoF> hw_commands_cartesian_wrench_;
+    std::array<double, flexiv::rdk::kCartDoF> hw_commands_cartesian_velocity_;
+    std::array<double, flexiv::rdk::kPoseSize> hw_states_cartesian_pose_;
+
+    // Limits passed with every Cartesian command, written by the Cartesian config node
+    std::atomic<double> cartesian_max_linear_vel_ {CartesianMotionLimits {}.max_linear_vel};
+    std::atomic<double> cartesian_max_angular_vel_ {CartesianMotionLimits {}.max_angular_vel};
+    std::atomic<double> cartesian_max_linear_acc_ {CartesianMotionLimits {}.max_linear_acc};
+    std::atomic<double> cartesian_max_angular_acc_ {CartesianMotionLimits {}.max_angular_acc};
+
+    // Full names of the Cartesian command interfaces, for matching controller claims
+    std::vector<std::string> cartesian_command_interface_names_;
+
     // Robot States
     flexiv::rdk::RobotStates hw_flexiv_robot_states_;
+    flexiv::rdk::RobotStates* hw_flexiv_robot_states_addr_ = &hw_flexiv_robot_states_;
 
     // GPIO commands and states
     std::vector<double> hw_commands_gpio_out_;
@@ -175,19 +188,6 @@ private:
     bool was_ready_ = false;
 
     std::vector<double> hw_states_gpio_in_;
-
-    // Framework-owned interface handles, resolved once in on_configure() and stored in the same
-    // order as info_.joints / info_.gpios, so that read() and write() do no name lookup and take no
-    // lock on the real-time path.
-    std::vector<hardware_interface::StateInterface::SharedPtr> handles_state_joint_positions_;
-    std::vector<hardware_interface::StateInterface::SharedPtr> handles_state_joint_velocities_;
-    std::vector<hardware_interface::StateInterface::SharedPtr> handles_state_joint_efforts_;
-    std::vector<hardware_interface::CommandInterface::SharedPtr> handles_command_joint_positions_;
-    std::vector<hardware_interface::CommandInterface::SharedPtr> handles_command_joint_velocities_;
-    std::vector<hardware_interface::CommandInterface::SharedPtr> handles_command_joint_efforts_;
-    std::vector<hardware_interface::StateInterface::SharedPtr> handles_state_gpio_in_;
-    std::vector<hardware_interface::CommandInterface::SharedPtr> handles_command_gpio_out_;
-    hardware_interface::StateInterface::SharedPtr handle_state_flexiv_robot_states_;
 
     // Map from RDK joint index to ROS joint index
     // RDK expects: [ext_axis_1, ..., ext_axis_N, arm_joint_1, ..., arm_joint_7]
@@ -205,6 +205,9 @@ private:
     bool position_controller_running_;
     bool velocity_controller_running_;
     bool torque_controller_running_;
+    bool cartesian_controller_running_ = false;
+    bool cartesian_start_requested_ = false;
+    bool cartesian_stop_requested_ = false;
 };
 
 } /* namespace flexiv_hardware */

@@ -11,6 +11,7 @@ import pytest
 # robot_states_publisher imports flexivrdk, the RDK Python binding, which is installed alongside
 # flexiv_rdk rather than through rosdep.
 MODULES = [
+    "flexiv_test_nodes.cartesian_motion_force_example",
     "flexiv_test_nodes.publisher_joint_trajectory_controller",
     "flexiv_test_nodes.robot_states_monitor",
 ]
