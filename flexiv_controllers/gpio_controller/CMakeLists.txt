@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.5)
 project(gpio_controller LANGUAGES CXX)
 
-# Default to C++14
+# Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -22,14 +22,13 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
-  builtin_interfaces
   controller_interface
   flexiv_msgs
   generate_parameter_library
   hardware_interface
   pluginlib
+  rclcpp
   rclcpp_lifecycle
-  rcutils
   realtime_tools
 )
 

@@ -1,0 +1,22 @@
+# Set the motion limits the driver passes with every Cartesian motion-force command. Each array
+# holds one entry per robot, left first. Only accepted while the Cartesian motion-force controller
+# is running, and reset to the defaults on every controller start.
+#
+# An invalid request is rejected as a whole and nothing changes.
+
+# Maximum linear velocity. Must be positive. RDK default 0.5. [m/s]
+float64[] max_linear_vel
+
+# Maximum angular velocity. Must be positive. RDK default 1.0. [rad/s]
+float64[] max_angular_vel
+
+# Maximum linear acceleration. Must be positive. RDK default 2.0. [m/s^2]
+float64[] max_linear_acc
+
+# Maximum angular acceleration. Must be positive. RDK default 5.0. [rad/s^2]
+float64[] max_angular_acc
+---
+bool success
+
+# Operator-facing explanation of the outcome
+string message

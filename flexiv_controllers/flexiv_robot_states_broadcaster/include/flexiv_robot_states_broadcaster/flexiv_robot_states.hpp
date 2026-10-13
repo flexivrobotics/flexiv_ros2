@@ -7,8 +7,11 @@
 #ifndef SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 #define SEMANTIC_COMPONENTS__FLEXIV_ROBOT_STATES_HPP_
 
+#include <algorithm>
+#include <cstring>
 #include <limits>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
@@ -31,6 +34,7 @@ namespace {
 
 const std::string kWorldFrameId = "world";
 const std::string kFlangeFrameId = "flange";
+const std::string kTcpFrameId = "tcp";
 
 // Example implementation of bit_cast: https://en.cppreference.com/w/cpp/numeric/bit_cast
 template <class To, class From>
@@ -68,9 +72,9 @@ public:
         message.tcp_vel.header.frame_id = kWorldFrameId;
         message.flange_pose.header.frame_id = kWorldFrameId;
         message.ft_sensor_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.ext_wrench_in_tcp.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.ext_wrench_in_tcp.header.frame_id = name_ + "_" + kTcpFrameId;
         message.ext_wrench_in_world.header.frame_id = kWorldFrameId;
-        message.ext_wrench_in_tcp_raw.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.ext_wrench_in_tcp_raw.header.frame_id = name_ + "_" + kTcpFrameId;
         message.ext_wrench_in_world_raw.header.frame_id = kWorldFrameId;
     }
 
@@ -85,13 +89,18 @@ public:
                     return state_interface.get().get_name() == flexiv_robot_states_interface_name;
                 });
 
-        if (flexiv_robot_states_interface != state_interfaces_.end()) {
-            // Get the robot states pointer via bit_cast
-            flexiv_robot_states_ptr = bit_cast<flexiv::rdk::RobotStates*>(
-                (*flexiv_robot_states_interface).get().get_optional().value());
-        } else {
+        if (flexiv_robot_states_interface == state_interfaces_.end()) {
             RCLCPP_ERROR(
                 rclcpp::get_logger("FlexivRobotStates"), "Robot states interface not found.");
+            return false;
+        }
+
+        // The interface value is the address of the robot states. It never changes, so a value
+        // that cannot be read right now is covered by the last one.
+        if (const auto address = flexiv_robot_states_interface->get().get_optional()) {
+            flexiv_robot_states_ptr = bit_cast<flexiv::rdk::RobotStates*>(*address);
+        }
+        if (!flexiv_robot_states_ptr) {
             return false;
         }
 
@@ -135,7 +144,7 @@ public:
     }
 
 protected:
-    flexiv::rdk::RobotStates* flexiv_robot_states_ptr;
+    flexiv::rdk::RobotStates* flexiv_robot_states_ptr = nullptr;
 
     const std::string state_interface_name_ {"flexiv_robot_states"};
 

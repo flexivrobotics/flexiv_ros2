@@ -11,11 +11,9 @@
 
 namespace {
 
-// Per-state deadlines. A minor fault normally clears in under 3 seconds and a critical one in under
-// 30, so the clear deadline covers the worst case.
-constexpr std::chrono::seconds kClearFaultTimeout {30};
+// Deadlines of the waiting states. CLEAR_FAULT and ENABLE need none: each makes one call and leaves
+// the state in the same step, and ClearFault() is bounded by its own timeout.
 constexpr std::chrono::seconds kWaitFaultClearedTimeout {5};
-constexpr std::chrono::seconds kEnableTimeout {5};
 constexpr std::chrono::seconds kWaitOperationalTimeout {20};
 
 }
@@ -418,15 +416,6 @@ bool RecoveryStateMachine::Step()
         }
     } catch (const std::exception& e) {
         Fail("Recovery step " + RecoveryStateName(state_) + " failed: " + e.what());
-    }
-
-    // CLEAR_FAULT blocks internally for as long as its own timeout, so guard it here only as a
-    // backstop against an RDK call that returns without clearing and without reporting failure.
-    if (state_ == RecoveryState::CLEAR_FAULT && DeadlineExceeded(kClearFaultTimeout)) {
-        Fail("Timed out waiting for the fault to clear.");
-    }
-    if (state_ == RecoveryState::ENABLE && DeadlineExceeded(kEnableTimeout)) {
-        Fail("Timed out delivering the enable request to the robot.");
     }
 
     return state_ != RecoveryState::COMPLETE && state_ != RecoveryState::FAILED;

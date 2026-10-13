@@ -14,39 +14,29 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 | ---------------- | ------------------------------------------------------------- |
 | Ubuntu 22.04     | [Humble Hawksbill](https://docs.ros.org/en/humble/index.html) |
 | Ubuntu 24.04     | [Jazzy Jalisco](https://docs.ros.org/en/jazzy/index.html)     |
+| Ubuntu 26.04     | [Lyrical Luth](https://docs.ros.org/en/lyrical/index.html)    |
 
 ### Release Status
 
-| **ROS 2 Distro**   | Humble                                                              | Jazzy                                                 |
-| ------------------ | ------------------------------------------------------------------- | ----------------------------------------------------- |
-| **Branch**         | [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) | [jazzy-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy-v1) |
-| **Release Status** | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) | [![Jazzy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml/badge.svg?branch=jazzy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml) |
+| **ROS 2 Distro**   | Humble                                                              | Jazzy                                                 | Lyrical                                               |
+| ------------------ | ------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| **Branch**         | [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) | [jazzy-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/jazzy-v1) | [lyrical-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/lyrical-v1) |
+| **Release Status** | [![Humble Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml/badge.svg?branch=humble)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/humble-binary-build.yml) | [![Jazzy Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml/badge.svg?branch=jazzy)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/jazzy-binary-build.yml) | [![Lyrical Binary Build](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/lyrical-binary-build.yml/badge.svg?branch=lyrical)](https://github.com/flexivrobotics/flexiv_ros2/actions/workflows/lyrical-binary-build.yml) |
 
 ## Getting Started
 
-This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
+This branch targets ROS 2 Jazzy (Ubuntu 24.04); for ROS 2 Humble use the [humble-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/humble-v1) branch, ROS 2 Lyrical use the [lyrical-v1](https://github.com/flexivrobotics/flexiv_ros2/tree/lyrical-v1) branch. Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
 
 1. Install [ROS 2 Jazzy via Debian Packages](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debians.html)
 
-2. Install `colcon` and additional ROS packages:
+2. Install the build tools. The ROS package dependencies are installed by `rosdep` in step 4:
 
    ```bash
    sudo apt install -y \
    python3-colcon-common-extensions \
-   libeigen3-dev \
-   wget \
-   ros-jazzy-xacro \
-   ros-jazzy-tinyxml2-vendor \
-   ros-jazzy-ros2-control \
-   ros-jazzy-realtime-tools \
-   ros-jazzy-control-toolbox \
-   ros-jazzy-moveit \
-   ros-jazzy-ros2-controllers \
-   ros-jazzy-test-msgs \
-   ros-jazzy-joint-state-publisher \
-   ros-jazzy-joint-state-publisher-gui \
-   ros-jazzy-robot-state-publisher \
-   ros-jazzy-rviz2
+   python3-rosdep \
+   python3-vcstool \
+   wget
    ```
 
 3. Setup workspace:
@@ -71,8 +61,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk/thirdparty
-   source /opt/ros/jazzy/setup.bash
-   bash build_and_install_dependencies_not_in_ros2.sh ~/flexiv_install
+   bash build_and_install_dependencies.sh ~/flexiv_install
    ```
 
 6. Configure and install `flexiv_rdk`:
@@ -80,9 +69,8 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_rdk
    rm -rf build && mkdir build && cd build
-   source /opt/ros/jazzy/setup.bash
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DRDK_SUPPORT_ROS2_JAZZY=ON
-   make install
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install
+   cmake --build . --target install --config Release
    ```
 
 7. Build and source the workspace:
@@ -102,7 +90,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src
-   git clone --branch v1.2.3 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
+   git clone --branch v1.2.4 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
    touch flexiv_drdk/COLCON_IGNORE
    ```
 
@@ -110,8 +98,7 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk/thirdparty
-   source /opt/ros/jazzy/setup.bash
-   bash build_and_install_dependencies.sh ~/flexiv_install 8 --skip-rdk
+   bash build_and_install_dependencies.sh ~/flexiv_install --skip-rdk
    ```
 
 3. Configure and install `flexiv_drdk`:
@@ -119,8 +106,8 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
    ```bash
    cd ~/flexiv_ros2_ws/src/flexiv_drdk
    rm -rf build && mkdir build && cd build
-   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DDRDK_SUPPORT_ROS2_JAZZY=ON
-   make install
+   cmake .. -DCMAKE_INSTALL_PREFIX=~/flexiv_install -DCMAKE_PREFIX_PATH=~/flexiv_install
+   cmake --build . --target install --config Release
    ```
 
 4. Rebuild the workspace with `flexiv_drdk` included:
@@ -145,24 +132,40 @@ If you are using a Flexiv dual robot setup, you can install `flexiv_drdk` as wel
 
 The prerequisites of using ROS 2 with Flexiv Rizon robot are [enable RDK on the robot server](https://www.flexiv.com/software/rdk/manual/activate_rdk_server.html) and [establish connection](https://www.flexiv.com/software/rdk/manual/establish_connection.html) between the workstation PC and the robot.
 
+> [!TIP]
+> If ROS 2 discovery is slow, or topics and services of the driver are missing, while connected to the robot, restrict ROS 2 discovery to the workstation PC in every terminal, including the one running the driver. This also stops ROS 2 nodes on other machines from communicating with it.
+>
+> ```bash
+> export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+> ```
+
 The main launch file to start the robot driver is the `rizon.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Rizon4s-123456
 - `robot_type` (default: *Rizon4*) - type of the Flexiv robot. (Rizon4, Rizon4M, Rizon4R, Rizon4s, Rizon10, Rizon10s or Rizon10R)
 - `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*. In joint impedance mode the controller's impedance properties can be set at runtime, see [Joint Impedance Configuration](#joint-impedance-configuration)
+- `rdk_realtime_mode` (default: *false*) - use the real-time RDK modes (`RT_JOINT_POSITION`, `RT_JOINT_IMPEDANCE`, `RT_CARTESIAN_MOTION_FORCE`) instead of the non-real-time ones. See [Real-time control modes](flexiv_hardware/README.md#real-time-control-modes)
+- `withhold_on_timeliness_failure` (default: *true*) - with `rdk_realtime_mode:=true`, withhold motion until the controller is restarted once real-time commands arrive late too often. *false* only logs a warning and keeps streaming.
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
-- `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
+- `gripper_name` (default: *Flexiv-GN01*) - full name of the gripper to be controlled, as shown in Flexiv Elements -> Settings -> Device.
+- `load_mounted_ft_sensor` (default: *false*) - loads the mounted force-torque sensor. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.
+- `use_fake_hardware` (default: *false*) - starts `mock_components/GenericSystem` instead of real hardware. This is a simple simulation that mirrors joint commands to their states. The gripper, GPIO and Flexiv robot states are not available with it.
 - `start_rviz` (default: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
-- `robot_controller` (default: *rizon_arm_controller*) - robot controller to start. Available controllers: *rizon_arm_controller*
+- `robot_controller` (default: *rizon_arm_controller*) - robot controller to start. Available controllers: *rizon_arm_controller*, *cartesian_motion_force_controller* (see [Cartesian Motion-Force Control](#cartesian-motion-force-control))
 - `kinematics_params_file` (default: *empty*) - kinematics YAML file holding this robot's measured parameters, as generated by [`flexiv_calibration`](#robot-calibration). When empty, `flexiv_description/config/[robot_type]/default_kinematics.yaml` is used.
 
 There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual robot setups. *(Details about other launch files can be found in [`flexiv_bringup`](/flexiv_bringup))*
 
 - `robot_sn_left` (*required for dual robot setup*) - Serial number of the left robot to connect to. Remove any space, for example: Rizon4-123456
 - `robot_sn_right` (*required for dual robot setup*) - Serial number of the right robot to connect to. Remove any space, for example: Rizon4R-654321
-- `robot_type` (default: *AICO1-4-V1*) - type of the Flexiv AICO1 robot platform. Options: *AICO1-4-V1* or *AICO1-4-V2*
+- `robot_type` (default: *AICO1-4-V1* for `aico1.launch.py`, *AICO2-4-V1* for `aico2.launch.py`) - type of the Flexiv AICO robot platform. AICO1 options: *AICO1-4-V1*, *AICO1-4-V2*. AICO2 options: *AICO2-4-V1*, *AICO2-4-V2*, *AICO2-4-D3*, *AICO2-4E-D1*, *AICO2-4U-D1*, *AICO2-10-V1*, *AICO2-10-D2*, *AICO2-10E-D1*, *AICO2-10U-D1*
 - `kinematics_params_file_left`, `kinematics_params_file_right` (default: *empty*, dual robot setups) - per-arm equivalents of `kinematics_params_file`.
+- `robot_controller` (default: *rizon_arm_controller*, dual robot setups) - *rizon_arm_controller* starts `left_rizon_arm_controller` and `right_rizon_arm_controller`. *cartesian_motion_force_controller* starts one controller for both arms and loads the arm controllers inactive.
+- `load_gripper_left`, `load_gripper_right`, `gripper_name_left`, `gripper_name_right`, `load_mounted_ft_sensor_left`, `load_mounted_ft_sensor_right` (dual robot setups) - per-arm equivalents of `load_gripper`, `gripper_name` and `load_mounted_ft_sensor`.
+- `arm_type_left`, `arm_type_right` (default: *Rizon4* and *Rizon4R*, `rizon_dual.launch.py`) - type of each arm.
+- `arm_type` (AICO setups) - arm carried by the platform. `aico1.launch.py` defaults to *Rizon4* (options: *Rizon4*, *Rizon4s*). `aico2.launch.py` defaults to empty, which picks the arm the selected `robot_type` carries: *Rizon4* for the AICO2-4 platforms, *Rizon10* for the AICO2-10 ones.
+- `external_axis_prefix` (default: *empty*, AICO setups) - prefix for the external axis links and joints.
 
 ### Example Commands
 
@@ -207,6 +210,12 @@ ros2 launch flexiv_bringup aico1.launch.py robot_sn:=[robot_sn] robot_type:=AICO
 ros2 launch flexiv_bringup aico2.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-4-V1
 ```
 
+**AICO2-10** robot:
+
+```bash
+ros2 launch flexiv_bringup aico2.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-10E-D1
+```
+
 ### Using MoveIt
 
 You can also run the MoveIt example and use the `MotionPlanning` plugin in RViZ to start planning:
@@ -239,15 +248,24 @@ With AICO2-4 setup:
 ros2 launch flexiv_bringup aico2_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-4-V1
 ```
 
+With AICO2-10 setup:
+
+```bash
+ros2 launch flexiv_bringup aico2_moveit.launch.py robot_sn_left:=[robot_sn_left] robot_sn_right:=[robot_sn_right] robot_type:=AICO2-10E-D1
+```
+
 ### Robot States
 
-The robot driver (`rizon.launch.py`) publishes the following feedback states to the respective ROS topics:
+The robot driver (`rizon.launch.py`) publishes the following feedback states to the respective ROS topics. In the topic names, dashes in `${robot_sn}` become underscores (`Rizon4-123456` -> `Rizon4_123456`); in dual robot setups `${robot_sn}` is `left_${robot_sn_left}` or `right_${robot_sn_right}`:
 
 - `/${robot_sn}/flexiv_robot_states`: [Flexiv robot states](https://www.flexiv.com/software/rdk/api/structflexiv_1_1rdk_1_1_robot_states.html) including the joint- and Cartesian-space robot states. [[`flexiv_msgs/msg/RobotStates.msg`](flexiv_msgs/msg/RobotStates.msg)]
-- `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/JointState.msg`](https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/JointState.html)]
-- `/${robot_sn}/tcp_pose`: Measured TCP pose expressed in world frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/PoseStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/PoseStamped.html)]
-- `/${robot_sn}/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
-- `/${robot_sn}/external_wrench_in_world`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
+- `/joint_states`: Measured joint states of the robot: joint position, velocity and torque. [[`sensor_msgs/msg/JointState`](https://docs.ros.org/en/jazzy/p/sensor_msgs/msg/JointState.html)]
+- `/${robot_sn}/tcp_pose`: Measured TCP pose expressed in world frame $^{0}T_{TCP}$ in position $[m]$ and quaternion. [[`geometry_msgs/msg/PoseStamped`](https://docs.ros.org/en/jazzy/p/geometry_msgs/msg/PoseStamped.html)]
+- `/${robot_sn}/tcp_velocity`: Measured TCP velocity expressed in world frame $^{0}\dot{x}$ in linear $[m/s]$ and angular $[rad/s]$ velocity, carried in the `accel` field. [[`geometry_msgs/msg/AccelStamped`](https://docs.ros.org/en/jazzy/p/geometry_msgs/msg/AccelStamped.html)]
+- `/${robot_sn}/flange_pose`: Measured flange pose expressed in world frame $^{0}T_{flange}$ in position $[m]$ and quaternion. [[`geometry_msgs/msg/PoseStamped`](https://docs.ros.org/en/jazzy/p/geometry_msgs/msg/PoseStamped.html)]
+- `/${robot_sn}/ft_sensor_wrench`: Force-torque (FT) sensor raw reading in flange frame $^{flange}F_{raw}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/msg/WrenchStamped`](https://docs.ros.org/en/jazzy/p/geometry_msgs/msg/WrenchStamped.html)]
+- `/${robot_sn}/external_wrench_in_tcp`: Estimated external wrench applied on TCP and expressed in TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/msg/WrenchStamped`](https://docs.ros.org/en/jazzy/p/geometry_msgs/msg/WrenchStamped.html)]
+- `/${robot_sn}/external_wrench_in_world`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/msg/WrenchStamped`](https://docs.ros.org/en/jazzy/p/geometry_msgs/msg/WrenchStamped.html)]
 
 ### Fault Handling and Recovery
 
@@ -291,6 +309,23 @@ The robot resets these properties whenever it enters a control mode, so the driv
 
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance-configuration) for the valid ranges, the hold-and-reapply behaviour and the dual-robot notes.
 
+### Cartesian Motion-Force Control
+
+`cartesian_motion_force_controller` sends TCP pose, wrench and velocity targets to the robot's unified motion-force controller (RDK `SendCartesianMotionForce()` in `NRT_CARTESIAN_MOTION_FORCE` mode, or `StreamCartesianMotionForce()` in `RT_CARTESIAN_MOTION_FORCE` mode with `rdk_realtime_mode:=true`). Any Cartesian axes can be force-controlled while the rest stay motion-controlled.
+
+```bash
+# Start the robot driver with the Cartesian motion-force controller
+ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_controller:=cartesian_motion_force_controller
+
+# Send a target: pose in world frame, wrench in the force control frame, velocity in world frame
+# This moves the TCP 5 cm up from the home position
+ros2 topic pub /cartesian_motion_force_controller/cartesian_motion_force flexiv_msgs/msg/CartesianMotionForce "{pose: {position: {x: 0.68, y: -0.11, z: 0.34}, orientation: {w: 0.0, x: 0.0, y: 1.0, z: 0.0}}}" --once
+```
+
+The force control settings, such as the force-controlled axes and the Cartesian impedance, are set at runtime with services on `/[robot_sn]/flexiv_cartesian_motion_force_config_node/`, while the controller is running. Every controller start, including the one after a fault recovery, begins from the robot's defaults, so set them again after each start.
+
+See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#cartesian-motion-force-configuration) for the interfaces, the services with their valid ranges, and the dual-robot notes.
+
 ### GPIO
 
 All digital inputs on the robot control box can be accessed via the ROS topic `/{robot_sn}/gpio_inputs`, which publishes the current state of all the 18 *(16 on control box + 2 inside the wrist connector)* digital input ports *(True: port high, false: port low)*.
@@ -325,7 +360,7 @@ ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_type:=[rob
 
 The gripper control is implemented in the `flexiv_gripper` package to interface with the gripper that is connected to the robot.
 
-Start the `flexiv_gripper_node` with the following launch file, the default gripper is Flexiv Grav (Flexiv-GN01). . This standalone launch uses a normal RDK instance by default, so it can run without the ROS 2 robot driver:
+Start the `flexiv_gripper_node` with the following launch file, the default gripper is Flexiv Grav (Flexiv-GN01). This standalone launch uses a normal RDK instance by default, so it can run without the ROS 2 robot driver:
 
 ```bash
 ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01
@@ -346,6 +381,8 @@ ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] load_gripper:=tr
 ```
 
 #### Gripper Actions
+
+The gripper actions finish when the fingers stop moving, not when the command is sent. `move` succeeds when the gripper reaches the target width and aborts if it stops short, for example on an object, so use `grasp` to hold objects. MoveIt uses the `gripper_action` (`control_msgs/action/GripperCommand`) interface. See [`flexiv_gripper`](flexiv_gripper/README.md) for the parameters and the completion rules.
 
 In a new terminal, send the gripper action `move` goal to open or close the gripper:
 

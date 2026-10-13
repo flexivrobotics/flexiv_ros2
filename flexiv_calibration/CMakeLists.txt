@@ -11,9 +11,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-find_package(fastcdr REQUIRED NO_CMAKE_PATH)
-find_package(spdlog REQUIRED NO_CMAKE_PATH)
-
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(ament_index_cpp REQUIRED)
@@ -25,8 +22,6 @@ add_executable(calibration_correction
 
 target_link_libraries(calibration_correction
   flexiv::flexiv_rdk
-  fastcdr
-  spdlog::spdlog
 )
 
 ament_target_dependencies(calibration_correction
