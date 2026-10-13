@@ -324,12 +324,15 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix"),
+                "finger_width_joint]",
+            ],
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
         }.items(),
-        condition=IfCondition(load_gripper),
     )
 
     gripper_ready_waiter = Node(
@@ -378,7 +381,7 @@ def generate_launch_description():
     delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_state_broadcaster_spawner,
-            on_exit=[load_gripper_launch],
+            on_exit=[load_gripper_launch, gripper_ready_waiter],
         ),
         condition=IfCondition(gripper_ready_gate_condition),
     )
@@ -410,7 +413,6 @@ def generate_launch_description():
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
-        gripper_ready_waiter,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
         gpio_controller_spawner,

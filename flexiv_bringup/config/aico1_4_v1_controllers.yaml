@@ -39,11 +39,11 @@ rizon_arm_controller:
       stopped_velocity_tolerance: 0.01
       goal_time: 0.0
 
-gpio_controller:
+flexiv_robot_states_broadcaster:
   ros__parameters:
     robot_sn: $(var robot_sn)
 
-flexiv_robot_states_broadcaster:
+gpio_controller:
   ros__parameters:
     robot_sn: $(var robot_sn)
 

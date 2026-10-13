@@ -10,21 +10,29 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <exec_depend>ament_index_python</exec_depend>
   <exec_depend>cartesian_motion_force_controller</exec_depend>
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>flexiv_description</exec_depend>
   <exec_depend>flexiv_gripper</exec_depend>
   <exec_depend>flexiv_hardware</exec_depend>
+  <exec_depend>flexiv_moveit_config</exec_depend>
   <exec_depend>flexiv_robot_states_broadcaster</exec_depend>
   <exec_depend>gpio_controller</exec_depend>
   <exec_depend>flexiv_test_nodes</exec_depend>
-  <exec_depend>forward_command_controller</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>joint_state_publisher</exec_depend>
-  <exec_depend>joint_state_publisher_gui</exec_depend>
   <exec_depend>joint_trajectory_controller</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>moveit_configs_utils</exec_depend>
+  <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_ros_visualization</exec_depend>
+  <exec_depend>moveit_servo</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>rviz2</exec_depend>
+  <exec_depend>warehouse_ros_sqlite</exec_depend>
   <exec_depend>xacro</exec_depend>
 
   <export>

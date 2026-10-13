@@ -28,22 +28,12 @@ from launch.substitutions import (
 
 
 def load_yaml(package_name, file_path, replacements=None):
-    package_path = get_package_share_directory(package_name)
-    absolute_file_path = os.path.join(package_path, file_path)
-
-    try:
-        with open(absolute_file_path, "r") as file:
-            yaml_content = file.read()
-
-        if replacements:
-            for placeholder, replacement in replacements.items():
-                yaml_content = yaml_content.replace(placeholder, replacement)
-
-        return yaml.safe_load(yaml_content)
-    except (
-        EnvironmentError
-    ):  # parent of IOError, OSError *and* WindowsError where available
-        return None
+    path = os.path.join(get_package_share_directory(package_name), file_path)
+    with open(path) as file:
+        content = file.read()
+    for placeholder, value in (replacements or {}).items():
+        content = content.replace(placeholder, value)
+    return yaml.safe_load(content)
 
 
 def launch_setup(context):
@@ -332,12 +322,15 @@ def launch_setup(context):
             )
         ),
         launch_arguments={
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix"),
+                "finger_width_joint]",
+            ],
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
         }.items(),
-        condition=IfCondition(load_gripper),
     )
 
     gripper_ready_waiter = Node(
@@ -406,7 +399,7 @@ def launch_setup(context):
     delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_state_broadcaster_spawner,
-            on_exit=[load_gripper_launch],
+            on_exit=[load_gripper_launch, gripper_ready_waiter],
         ),
         condition=IfCondition(gripper_ready_gate_condition),
     )
@@ -419,19 +412,11 @@ def launch_setup(context):
         condition=IfCondition(gripper_ready_gate_condition),
     )
 
-    # Delay move_group start after `robot_controller_spawner`
-    delay_move_group_after_robot_controller_spawner = RegisterEventHandler(
+    # Start move_group and RViz once the arm controller is up
+    delay_moveit_after_robot_controller_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=robot_controller_spawner,
-            on_exit=[move_group_node],
-        )
-    )
-
-    # Delay rviz start after `robot_controller_spawner`
-    delay_rviz_after_robot_controller_spawner = RegisterEventHandler(
-        event_handler=OnProcessExit(
-            target_action=robot_controller_spawner,
-            on_exit=[rviz_node],
+            on_exit=[move_group_node, rviz_node],
         )
     )
 
@@ -440,7 +425,6 @@ def launch_setup(context):
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
-        gripper_ready_waiter,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
         gpio_controller_spawner,
@@ -448,8 +432,7 @@ def launch_setup(context):
         delay_gripper_launch_after_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
         delay_robot_controller_spawner_after_gripper_ready,
-        delay_move_group_after_robot_controller_spawner,
-        delay_rviz_after_robot_controller_spawner,
+        delay_moveit_after_robot_controller_spawner,
     ]
 
     return nodes

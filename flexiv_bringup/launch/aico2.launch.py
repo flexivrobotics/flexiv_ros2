@@ -4,6 +4,7 @@ from launch.actions import (
     EmitEvent,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.events import Shutdown
@@ -297,7 +298,6 @@ def generate_launch_description():
     )
 
     # Construct prefixes
-    from launch.actions import SetLaunchConfiguration
 
     set_prefix_left = SetLaunchConfiguration(
         name="prefix_left",
@@ -484,11 +484,11 @@ def generate_launch_description():
         parameters=[ParameterFile(robot_controllers, allow_substs=True)],
         arguments=[
             "left_rizon_arm_controller",
-            arm_controller_activation,
             "--controller-manager",
             "/controller_manager",
             "--controller-manager-timeout",
             "60",
+            arm_controller_activation,
         ],
     )
 
@@ -499,11 +499,11 @@ def generate_launch_description():
         parameters=[ParameterFile(robot_controllers, allow_substs=True)],
         arguments=[
             "right_rizon_arm_controller",
-            arm_controller_activation,
             "--controller-manager",
             "/controller_manager",
             "--controller-manager-timeout",
             "60",
+            arm_controller_activation,
         ],
     )
 
@@ -571,10 +571,13 @@ def generate_launch_description():
             "gripper_node_name": "left_gripper_node",
             "robot_sn": robot_sn_left,
             "gripper_name": gripper_name_left,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix_left"),
+                "finger_width_joint]",
+            ],
         }.items(),
-        condition=IfCondition(load_gripper_left),
     )
     load_gripper_right_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -590,10 +593,13 @@ def generate_launch_description():
             "gripper_node_name": "right_gripper_node",
             "robot_sn": robot_sn_right,
             "gripper_name": gripper_name_right,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix_right"),
+                "finger_width_joint]",
+            ],
         }.items(),
-        condition=IfCondition(load_gripper_right),
     )
 
     left_gripper_ready_waiter = Node(

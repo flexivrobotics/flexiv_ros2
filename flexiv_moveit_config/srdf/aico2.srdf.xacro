@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot xmlns:xacro="http://wiki.ros.org/xacro" name="aico2">
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg robot_type)">
     <!-- parameters -->
     <xacro:arg name="robot_type" default="AICO2-4-V1" />
     <!-- Axis macro/link names are the robot type lowercased with dashes as
@@ -13,32 +13,28 @@
     <xacro:arg name="load_gripper_right" default="false" />
     <xacro:arg name="load_mounted_ft_sensor_left" default="false" />
     <xacro:arg name="load_mounted_ft_sensor_right" default="false" />
-    <xacro:arg name="arm_prefix_left" default="left" />
-    <xacro:arg name="arm_prefix_right" default="right" />
 
     <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
 
     <!-- Prefixes. lazy_eval is off so each capture resolves before the next call. -->
-    <xacro:compute_prefix side="$(arg arm_prefix_left)" robot_sn="$(arg robot_sn_left)" />
+    <xacro:compute_prefix side="left" robot_sn="$(arg robot_sn_left)" />
     <xacro:property name="prefix_left" value="${computed_prefix}" lazy_eval="false" />
-    <xacro:compute_prefix side="$(arg arm_prefix_right)" robot_sn="$(arg robot_sn_right)" />
+    <xacro:compute_prefix side="right" robot_sn="$(arg robot_sn_right)" />
     <xacro:property name="prefix_right" value="${computed_prefix}" lazy_eval="false" />
     <xacro:property name="external_axis_prefix" value="$(arg external_axis_prefix)" />
 
     <!-- Left Arm -->
     <xacro:rizon_srdf prefix="${prefix_left}"
-        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_left)" use_virtual_joint="false" />
+        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_left)" />
 
     <!-- Right Arm -->
     <xacro:rizon_srdf prefix="${prefix_right}"
-        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" use_virtual_joint="false" />
+        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" />
 
-    <!-- Virtual Joint and External Axis Group. Every AICO2 axis has the same
+    <!-- External Axis Group. Every AICO2 axis has the same
          base_link/link1/link2 topology, so one block covers all of them. -->
     <xacro:property name="axis" value="${external_axis_prefix}${axis_name}" />
 
-    <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
-        child_link="${axis}_base_link" />
     <group name="${axis}_platform_${prefix_left}arm">
         <chain base_link="${axis}_base_link" tip_link="${prefix_left}flange" />
     </group>
