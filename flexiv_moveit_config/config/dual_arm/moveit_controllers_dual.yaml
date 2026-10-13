@@ -1,45 +1,55 @@
-controller_names:
-  - left_rizon_arm_controller
-  - right_rizon_arm_controller
-  - left_gripper_node
-  - right_gripper_node
+# MoveIt uses this configuration for controller management
+moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControllerManager
+moveit_manage_controllers: false
 
-left_rizon_arm_controller:
-  action_ns: follow_joint_trajectory
-  type: FollowJointTrajectory
-  default: true
-  joints:
-    - $(var prefix_left)joint1
-    - $(var prefix_left)joint2
-    - $(var prefix_left)joint3
-    - $(var prefix_left)joint4
-    - $(var prefix_left)joint5
-    - $(var prefix_left)joint6
-    - $(var prefix_left)joint7
+trajectory_execution:
+  allowed_execution_duration_scaling: 1.2
+  allowed_goal_duration_margin: 0.5
+  allowed_start_tolerance: 0.01
 
-right_rizon_arm_controller:
-  action_ns: follow_joint_trajectory
-  type: FollowJointTrajectory
-  default: true
-  joints:
-    - $(var prefix_right)joint1
-    - $(var prefix_right)joint2
-    - $(var prefix_right)joint3
-    - $(var prefix_right)joint4
-    - $(var prefix_right)joint5
-    - $(var prefix_right)joint6
-    - $(var prefix_right)joint7
+moveit_simple_controller_manager:
+  controller_names:
+    - left_rizon_arm_controller
+    - right_rizon_arm_controller
+    - left_gripper_node
+    - right_gripper_node
 
-left_gripper_node:
-  action_ns: gripper_action
-  type: GripperCommand
-  default: true
-  joints:
-    - $(var prefix_left)finger_width_joint
+  left_rizon_arm_controller:
+    action_ns: follow_joint_trajectory
+    type: FollowJointTrajectory
+    default: true
+    joints:
+      - $(var prefix_left)joint1
+      - $(var prefix_left)joint2
+      - $(var prefix_left)joint3
+      - $(var prefix_left)joint4
+      - $(var prefix_left)joint5
+      - $(var prefix_left)joint6
+      - $(var prefix_left)joint7
 
-right_gripper_node:
-  action_ns: gripper_action
-  type: GripperCommand
-  default: true
-  joints:
-    - $(var prefix_right)finger_width_joint
+  right_rizon_arm_controller:
+    action_ns: follow_joint_trajectory
+    type: FollowJointTrajectory
+    default: true
+    joints:
+      - $(var prefix_right)joint1
+      - $(var prefix_right)joint2
+      - $(var prefix_right)joint3
+      - $(var prefix_right)joint4
+      - $(var prefix_right)joint5
+      - $(var prefix_right)joint6
+      - $(var prefix_right)joint7
+
+  left_gripper_node:
+    action_ns: gripper_action
+    type: GripperCommand
+    default: true
+    joints:
+      - $(var prefix_left)finger_width_joint
+
+  right_gripper_node:
+    action_ns: gripper_action
+    type: GripperCommand
+    default: true
+    joints:
+      - $(var prefix_right)finger_width_joint

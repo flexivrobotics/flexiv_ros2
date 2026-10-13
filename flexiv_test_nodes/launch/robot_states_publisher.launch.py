@@ -1,14 +1,14 @@
 """Launch file for Robot States Publisher Node.
 
 Example usage:
-    # Auto-detect network interface:
+    # Try all network interfaces:
     ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
         robot_sn:=Rizon4s-123456
 
-    # With specific network interface:
+    # Only use the network interface with this IPv4 address:
     ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
         robot_sn:=Rizon4s-123456 \
-        network_interface:=eth0
+        network_interface:=192.168.2.100
 
     # Custom publish rate:
     ros2 launch flexiv_test_nodes robot_states_publisher.launch.py \
@@ -36,7 +36,8 @@ def generate_launch_description():
     network_interface_arg = DeclareLaunchArgument(
         "network_interface",
         default_value="",
-        description="Network interface name (e.g., eth0, enp0s31f6). Leave empty to auto-detect.",
+        description="IPv4 address of the local network interface to reach the robot "
+        "through (e.g., 192.168.2.100), not its name. Leave empty to try all interfaces.",
     )
 
     publish_rate_arg = DeclareLaunchArgument(

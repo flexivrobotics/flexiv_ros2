@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Cartesian motion-force interfaces of one robot, in RDK order, used by
+       cartesian_motion_force_controller. Declared here so that mock_components/GenericSystem
+       exposes them too: it mirrors each command into the state interface of the same name. -->
+  <xacro:macro name="flexiv_cartesian_gpio" params="name">
+    <gpio name="${name}">
+      <xacro:macro name="cartesian_pose" params="axis initial_value">
+        <command_interface name="cartesian_pose_${axis}" />
+        <state_interface name="cartesian_pose_${axis}">
+          <param name="initial_value">${initial_value}</param>
+        </state_interface>
+      </xacro:macro>
+      <xacro:cartesian_pose axis="x" initial_value="0.0" />
+      <xacro:cartesian_pose axis="y" initial_value="0.0" />
+      <xacro:cartesian_pose axis="z" initial_value="0.0" />
+      <xacro:cartesian_pose axis="qw" initial_value="1.0" />
+      <xacro:cartesian_pose axis="qx" initial_value="0.0" />
+      <xacro:cartesian_pose axis="qy" initial_value="0.0" />
+      <xacro:cartesian_pose axis="qz" initial_value="0.0" />
+      <command_interface name="cartesian_wrench_fx" />
+      <command_interface name="cartesian_wrench_fy" />
+      <command_interface name="cartesian_wrench_fz" />
+      <command_interface name="cartesian_wrench_mx" />
+      <command_interface name="cartesian_wrench_my" />
+      <command_interface name="cartesian_wrench_mz" />
+      <command_interface name="cartesian_velocity_vx" />
+      <command_interface name="cartesian_velocity_vy" />
+      <command_interface name="cartesian_velocity_vz" />
+      <command_interface name="cartesian_velocity_wx" />
+      <command_interface name="cartesian_velocity_wy" />
+      <command_interface name="cartesian_velocity_wz" />
+    </gpio>
+  </xacro:macro>
+
+</robot>

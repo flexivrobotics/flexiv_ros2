@@ -8,11 +8,15 @@
 #ifndef FLEXIV_HARDWARE__FLEXIV_DUAL_HARDWARE_INTERFACE_HPP_
 #define FLEXIV_HARDWARE__FLEXIV_DUAL_HARDWARE_INTERFACE_HPP_
 
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
-#include <map>
 
 // ROS
 #include <rclcpp/clock.hpp>
@@ -33,8 +37,10 @@
 // Flexiv
 #include "flexiv/drdk/robot_pair.hpp"
 
+#include "flexiv_hardware/cartesian_motion_force_config_node.hpp"
 #include "flexiv_hardware/fault_recovery.hpp"
 #include "flexiv_hardware/joint_impedance_config_node.hpp"
+#include "flexiv_hardware/joint_motion_limits.hpp"
 #include "flexiv_hardware/recovery_node.hpp"
 #include "flexiv_hardware/robot_system_control.hpp"
 
@@ -107,6 +113,34 @@ public:
 
 private:
     /**
+     * @brief Check the joints in the URDF against the DoF of the connected robots.
+     * @return False if they do not match and the driver cannot run.
+     */
+    bool CheckJointCount() const;
+
+    /**
+     * @brief [Non-blocking] Split a ROS-ordered joint vector into the left/right pair DRDK takes.
+     * Joints no ROS joint maps to are 0.
+     */
+    std::pair<std::vector<double>, std::vector<double>> ToDRDKOrder(
+        const std::vector<double>& ros_values,
+        const std::pair<flexiv::rdk::RobotInfo, flexiv::rdk::RobotInfo>& info) const;
+
+    /**
+     * @brief [Non-blocking] Same as ToDRDKOrder(), into [drdk_values] already sized to the robots'
+     * DoF, so that write() does not allocate.
+     */
+    void ToDRDKOrderInPlace(const std::vector<double>& ros_values,
+        std::pair<std::vector<double>, std::vector<double>>& drdk_values) const;
+
+    /**
+     * @brief Send the motion command of the running controller, if any. Throws whatever DRDK
+     * throws, which write() handles.
+     * @return True if a real-time command was streamed.
+     */
+    bool SendMotionCommands(double dt);
+
+    /**
      * @brief [Blocking] Wait for both robots to become operational, up to [timeout].
      * @return True if both became operational, false on timeout.
      */
@@ -117,6 +151,12 @@ private:
      * resuming control cannot apply a stale command.
      */
     void SynchronizeCommandsWithState();
+
+    /**
+     * @brief Advance the velocity control targets by the commanded velocities over one cycle,
+     * keeping each within kMaxVelocityTargetLead of the measured position.
+     */
+    void AdvanceVelocityTargets(double dt);
 
     /**
      * @brief Notice a robot that was moved while the driver was not ready, and warn about it once
@@ -130,6 +170,13 @@ private:
      * that is not operational is not executing anything, so there is nothing to stop.
      */
     void StopIfOperational();
+
+    /**
+     * @brief [Blocking] Zero the force/torque sensor with the ZeroFTSensor primitive, then return
+     * the robot to IDLE. Called before entering the Cartesian motion-force mode.
+     * @return False if the robot is not ready, faulted or the primitive did not finish in time.
+     */
+    bool ZeroForceTorqueSensor();
 
     /**
      * @brief Remove the recovery node from the executor and destroy it.
@@ -146,25 +193,76 @@ private:
     std::shared_ptr<rclcpp::executors::MultiThreadedExecutor> executor_;
     std::thread executor_thread_;
 
-    // Joint impedance interface, hosted on the same executor. Only brought up when the driver runs
-    // in a joint impedance control mode.
+    // Joint impedance interface, hosted on the same executor
     std::shared_ptr<JointImpedanceConfigNode> joint_impedance_config_node_;
 
-    // RDK control mode for joint position and velocity interfaces
-    flexiv::rdk::Mode rdk_control_mode_;
+    // Cartesian motion-force interface, hosted on the same executor
+    std::shared_ptr<CartesianMotionForceConfigNode> cartesian_config_node_;
 
-    // External axis type
-    std::string external_axis_type_ = "";
+    // RDK control modes for the joint position and velocity interfaces and for the Cartesian
+    // interfaces, real-time (streamed every cycle) or non-real-time
+    flexiv::rdk::Mode rdk_control_mode_;
+    flexiv::rdk::Mode rdk_cartesian_mode_;
+    bool rdk_realtime_ = false;
+    // Withhold motion once real-time commands arrive late too often, or only warn as the RDK does
+    bool withhold_on_timeliness_failure_ = true;
+
+    // Robot info, constant per connection, so that write() does not copy it every cycle
+    std::pair<flexiv::rdk::RobotInfo, flexiv::rdk::RobotInfo> pair_info_;
+
+    // The pair's underlying robots, for the timeliness failure flag DRDK does not expose
+    std::pair<std::shared_ptr<flexiv::rdk::Robot>, std::shared_ptr<flexiv::rdk::Robot>>
+        robot_instances_;
 
     // Joint commands
     std::vector<double> hw_commands_joint_positions_;
     std::vector<double> hw_commands_joint_velocities_;
+    // Position targets for velocity control, advanced by the commanded velocity every cycle
+    std::vector<double> velocity_targets_;
     std::vector<double> hw_commands_joint_efforts_;
+
+    // Limits passed with every non-real-time joint position command, in DRDK order
+    std::pair<std::vector<double>, std::vector<double>> max_joint_vel_;
+    std::pair<std::vector<double>, std::vector<double>> max_joint_acc_;
+
+    // Per-cycle target buffers in DRDK order, sized on connection so that write() does not allocate
+    std::pair<std::vector<double>, std::vector<double>> target_pos_;
+    std::pair<std::vector<double>, std::vector<double>> target_vel_;
+    std::pair<std::vector<double>, std::vector<double>> target_acc_;
+    std::pair<std::vector<double>, std::vector<double>> target_torque_;
+
+    // Last targets streamed in a real-time mode, held while the commands are not finite, since a
+    // real-time mode must receive a command every cycle. Joint targets are in DRDK order.
+    std::pair<std::vector<double>, std::vector<double>> last_joint_target_;
+    std::array<std::array<double, flexiv::rdk::kPoseSize>, 2> last_cartesian_target_;
+
+    // Whether the timeliness failure flag has been seen clear since the last controller start. The
+    // RDK flag does not decay while nothing is streamed, so a restart begins with it still raised.
+    bool timeliness_clear_since_sync_ = false;
 
     // Joint states
     std::vector<double> hw_states_joint_positions_;
     std::vector<double> hw_states_joint_velocities_;
     std::vector<double> hw_states_joint_efforts_;
+
+    // Cartesian commands and states in RDK order, indexed like JointMap::robot_index
+    std::array<std::array<double, flexiv::rdk::kPoseSize>, 2> hw_commands_cartesian_pose_;
+    std::array<std::array<double, flexiv::rdk::kCartDoF>, 2> hw_commands_cartesian_wrench_;
+    std::array<std::array<double, flexiv::rdk::kCartDoF>, 2> hw_commands_cartesian_velocity_;
+    std::array<std::array<double, flexiv::rdk::kPoseSize>, 2> hw_states_cartesian_pose_;
+
+    // Limits passed with every Cartesian command, written by the Cartesian config node
+    std::array<std::atomic<double>, 2> cartesian_max_linear_vel_ {
+        CartesianMotionLimits {}.max_linear_vel, CartesianMotionLimits {}.max_linear_vel};
+    std::array<std::atomic<double>, 2> cartesian_max_angular_vel_ {
+        CartesianMotionLimits {}.max_angular_vel, CartesianMotionLimits {}.max_angular_vel};
+    std::array<std::atomic<double>, 2> cartesian_max_linear_acc_ {
+        CartesianMotionLimits {}.max_linear_acc, CartesianMotionLimits {}.max_linear_acc};
+    std::array<std::atomic<double>, 2> cartesian_max_angular_acc_ {
+        CartesianMotionLimits {}.max_angular_acc, CartesianMotionLimits {}.max_angular_acc};
+
+    // Full names of the Cartesian command interfaces of both robots, for matching controller claims
+    std::vector<std::string> cartesian_command_interface_names_;
 
     // Robot States
     flexiv::rdk::RobotStates hw_flexiv_robot_states_left_;
@@ -197,12 +295,17 @@ private:
     static rclcpp::Logger getLogger();
 
     // Control modes
-    bool controllers_initialized_;
     std::vector<uint> stop_modes_;
     std::vector<std::string> start_modes_;
+    // Joints whose command interfaces a running controller claims, in ROS order. The two arms'
+    // controllers start and stop separately.
+    std::vector<bool> joint_claimed_;
     bool position_controller_running_;
     bool velocity_controller_running_;
     bool torque_controller_running_;
+    bool cartesian_controller_running_ = false;
+    bool cartesian_start_requested_ = false;
+    bool cartesian_stop_requested_ = false;
 };
 
 } /* namespace flexiv_hardware */

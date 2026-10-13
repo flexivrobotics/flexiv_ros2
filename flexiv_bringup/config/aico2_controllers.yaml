@@ -23,11 +23,14 @@ controller_manager:
     flexiv_robot_states_broadcaster_right:
       type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
 
+    cartesian_motion_force_controller:
+      type: cartesian_motion_force_controller/CartesianMotionForceController
+
 left_rizon_arm_controller:
   ros__parameters:
     joints:
-      - $(var external_axis_prefix)aico2_4_v2_joint1
-      - $(var external_axis_prefix)aico2_4_v2_joint2
+      - $(var external_axis_prefix)$(var external_axis_type)_joint1
+      - $(var external_axis_prefix)$(var external_axis_type)_joint2
       - $(var prefix_left)joint1
       - $(var prefix_left)joint2
       - $(var prefix_left)joint3
@@ -40,8 +43,8 @@ left_rizon_arm_controller:
     state_interfaces:
       - position
       - velocity
-    state_publish_rate: 100.0
     action_monitor_rate: 20.0
+    # MoveIt plans for the arm group alone, without the external axis joints
     allow_partial_joints_goal: true
     constraints:
       stopped_velocity_tolerance: 0.01
@@ -62,7 +65,6 @@ right_rizon_arm_controller:
     state_interfaces:
       - position
       - velocity
-    state_publish_rate: 100.0
     action_monitor_rate: 20.0
     allow_partial_joints_goal: false
     constraints:
@@ -84,3 +86,9 @@ gpio_controller_left:
 gpio_controller_right:
   ros__parameters:
     robot_sn: right_$(var robot_sn_right)
+
+cartesian_motion_force_controller:
+  ros__parameters:
+    prefixes:
+      - $(var prefix_left)
+      - $(var prefix_right)

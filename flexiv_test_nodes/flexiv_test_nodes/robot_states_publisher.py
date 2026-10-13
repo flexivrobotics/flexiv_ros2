@@ -98,9 +98,9 @@ class RobotStatesPublisher(Node):
             self.get_logger().info("===================")
 
             if is_fault:
-                self.get_logger().warn("Robot is in FAULT state!")
+                self.get_logger().warning("Robot is in FAULT state!")
             elif not is_operational:
-                self.get_logger().warn("Robot is NOT operational!")
+                self.get_logger().warning("Robot is NOT operational!")
 
         except Exception as e:
             self.get_logger().error(f"Error checking robot status: {str(e)}")
@@ -213,7 +213,7 @@ class RobotStatesPublisher(Node):
 
             # External wrench in TCP frame: [f_x, f_y, f_z, m_x, m_y, m_z]
             msg.ext_wrench_in_tcp = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_tcp, "flange"
+                robot_states.ext_wrench_in_tcp, "tcp"
             )
 
             # External wrench in world frame: [f_x, f_y, f_z, m_x, m_y, m_z]
@@ -223,7 +223,7 @@ class RobotStatesPublisher(Node):
 
             # External wrench in TCP frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
             msg.ext_wrench_in_tcp_raw = self.create_wrench_stamped(
-                robot_states.ext_wrench_in_tcp_raw, "flange"
+                robot_states.ext_wrench_in_tcp_raw, "tcp"
             )
 
             # External wrench in world frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
@@ -238,18 +238,6 @@ class RobotStatesPublisher(Node):
             self.get_logger().error(
                 f"Error publishing robot states: {str(e)}", throttle_duration_sec=1.0
             )
-
-    def destroy_node(self):
-        """Clean shutdown of the node."""
-        self.get_logger().info("Shutting down Robot States Publisher...")
-        try:
-            # Stop the robot safely if needed
-            if hasattr(self, "robot"):
-                self.get_logger().info("Disconnecting from robot...")
-        except Exception as e:
-            self.get_logger().error(f"Error during shutdown: {str(e)}")
-        finally:
-            super().destroy_node()
 
 
 def main(args=None):
@@ -266,7 +254,8 @@ def main(args=None):
         "--network-interface",
         type=str,
         default="",
-        help="Network interface name (e.g., eth0, enp0s31f6). Leave empty to use all interfaces.",
+        help="IPv4 address of the local network interface to reach the robot through "
+        "(e.g., 192.168.2.100). Leave empty to try all interfaces.",
     )
 
     # Parse known args (ROS2 args are handled separately)
