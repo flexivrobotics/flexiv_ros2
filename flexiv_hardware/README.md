@@ -43,7 +43,7 @@ and recommended actions.
 ros2 action send_goal /Rizon4_123456/flexiv_recovery_node/error_recovery flexiv_msgs/action/ErrorRecovery "{}" --feedback
 ```
 
-The sequence is `Stop` → `ClearFault` → `Enable` → wait for operational. Each step has its own deadline, so an unrecoverable robot fails with a message instead of hanging.
+The sequence is `Stop` → `ClearFault` → `Enable` → wait for operational. Every step is bounded in time, so an unrecoverable robot fails with a message instead of hanging.
 
 On success the robot is **operational and in `IDLE`**, and the result reports `requires_controller_restart: true`.
 

@@ -6,6 +6,7 @@
 
 #include "flexiv_robot_states_broadcaster/flexiv_robot_states_broadcaster.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 

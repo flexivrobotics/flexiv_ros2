@@ -46,9 +46,6 @@ constexpr std::array<const char*, flexiv::rdk::kCartDoF> kCartesianVelocityInter
     = {"cartesian_velocity_vx", "cartesian_velocity_vy", "cartesian_velocity_vz",
         "cartesian_velocity_wx", "cartesian_velocity_wy", "cartesian_velocity_wz"};
 
-/** Command interfaces per robot: pose, wrench and velocity. */
-constexpr size_t kCartesianCommandSize = flexiv::rdk::kPoseSize + 2 * flexiv::rdk::kCartDoF;
-
 /**
  * @brief [Non-blocking] Full names of the Cartesian command interfaces of one robot, pose first,
  * then wrench, then velocity.

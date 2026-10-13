@@ -9,6 +9,7 @@
 #ifndef GPIO_CONTROLLER__GPIO_CONTROLLER_HPP_
 #define GPIO_CONTROLLER__GPIO_CONTROLLER_HPP_
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -54,9 +55,7 @@ protected:
 
     void initMsgs();
 
-    // internal commands
-    // Written by the subscription callback on the executor thread and read by update() on
-    // the real-time thread, so it is double-buffered rather than shared directly.
+    // internal commands, written by the subscription and read in update()
     realtime_tools::RealtimeBuffer<std::array<double, kIOPorts>> digital_outputs_cmd_;
 
     // publisher

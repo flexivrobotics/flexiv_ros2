@@ -20,7 +20,6 @@ find_package(controller_interface REQUIRED)
 find_package(rcutils REQUIRED)
 find_package(generate_parameter_library REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(flexiv_hardware REQUIRED)
 find_package(flexiv_msgs REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
@@ -33,12 +32,12 @@ find_package(flexiv_drdk QUIET)
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   builtin_interfaces
   controller_interface
-  flexiv_hardware
   flexiv_msgs
   generate_parameter_library
   geometry_msgs
   hardware_interface
   pluginlib
+  rclcpp
   rclcpp_lifecycle
   rcutils
   realtime_tools
@@ -65,7 +64,6 @@ target_link_libraries(flexiv_robot_states_broadcaster PUBLIC
 target_link_libraries(flexiv_robot_states_broadcaster PUBLIC
   builtin_interfaces::builtin_interfaces
   controller_interface::controller_interface
-  flexiv_hardware::flexiv_hardware
   flexiv_msgs::flexiv_msgs
   geometry_msgs::geometry_msgs
   hardware_interface::hardware_interface
