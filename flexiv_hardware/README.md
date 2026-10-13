@@ -3,11 +3,17 @@
 `ros2_control` hardware interfaces for Flexiv robots, backed by Flexiv RDK.
 
 - `FlexivHardwareInterface` — a single robot.
-- `FlexivDualHardwareInterface` — a robot pair, backed by Flexiv DRDK. Built only when
-  `flexiv_drdk` is found at configure time.
+- `FlexivDualHardwareInterface` — a robot pair, backed by Flexiv DRDK. Built only when `flexiv_drdk` is found at configure time.
 
 Both export position, velocity and effort command and state interfaces, plus the 18 digital I/O
 ports and the aggregated Flexiv robot states.
+
+## Joint motion limits
+
+The joint position and velocity interfaces drive the robot through RDK's non-real-time `SendJointPosition()`, whose motion generator chases each command within a velocity and an acceleration limit:
+
+- `max_vel` is each joint's URDF velocity limit.
+- `max_acc` is the `max_joint_acceleration` hardware parameter (xacro arg of the same name), default 5.0 rad/s², the acceleration limit `flexiv_moveit_config` plans with.
 
 ## Error recovery
 

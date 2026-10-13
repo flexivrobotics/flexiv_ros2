@@ -9,6 +9,7 @@
     prefix
     robot_sn
     rdk_control_mode:='joint_position'
+    max_joint_acceleration:=5.0
     use_fake_hardware:=false
     fake_sensor_commands:=false
     initial_positions_file
@@ -37,6 +38,7 @@
           <param name="robot_sn">${robot_sn}</param>
           <param name="prefix">${prefix}</param>
           <param name="rdk_control_mode">${rdk_control_mode}</param>
+          <param name="max_joint_acceleration">${max_joint_acceleration}</param>
           <xacro:unless value="${external_axis_type == ''}">
             <param name="external_axis_type">${external_axis_type}</param>
           </xacro:unless>
