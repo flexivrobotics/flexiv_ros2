@@ -392,12 +392,13 @@ def launch_setup(context):
     servo_node = Node(
         package="moveit_servo",
         condition=IfCondition(start_servo),
-        executable="servo_node_main",
+        executable="servo_node",
         parameters=[
             servo_params,
             robot_description,
             robot_description_semantic,
             robot_description_kinematics,
+            joint_limits_yaml,
         ],
         output="screen",
     )

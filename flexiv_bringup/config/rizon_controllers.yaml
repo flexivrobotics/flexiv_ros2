@@ -34,6 +34,8 @@ rizon_arm_controller:
       - velocity
     action_monitor_rate: 20.0
     allow_partial_joints_goal: false
+    # MoveIt Servo streams trajectories whose last point is still moving
+    allow_nonzero_velocity_at_trajectory_end: true
     constraints:
       stopped_velocity_tolerance: 0.01
       goal_time: 0.0
