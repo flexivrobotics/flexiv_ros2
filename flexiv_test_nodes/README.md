@@ -9,7 +9,7 @@ These nodes demonstrate how to publish and monitor Flexiv robot states directly 
 ### Requirements
 
 - ROS 2 Humble, Jazzy or Lyrical
-- `flexivrdk` Python package (install via `pip install flexivrdk`)
+- `flexivrdk` Python package (`pip install flexivrdk`), version must match the Flexiv robot software version
 - `flexiv_msgs` package (built with `flexiv_ros2`)
 
 ### 1. Robot States Publisher
@@ -38,7 +38,7 @@ ros2 launch flexiv_test_nodes robot_states_publisher.launch.py robot_sn:=[robot_
 **Parameters:**
 
 - `robot_sn`: Robot serial number (required)
-- `network_interface`: Network interface name (optional, auto-detect if empty)
+- `network_interface`: IPv4 address of the local network interface to reach the robot through, e.g. `192.168.2.100` (optional, all interfaces are tried if empty).
 - `publish_rate`: Publish rate in Hz (default: 100)
 
 ### 2. Robot States Monitor
@@ -58,7 +58,7 @@ ros2 run flexiv_test_nodes robot_states_monitor --ros-args -p robot_sn:=[robot_s
 
 ## Publisher Joint Trajectory Controller
 
-Example node to send joint position commands to the joint trajectory controller.
+Example node to send joint position commands to the joint trajectory controller. It is started by `flexiv_bringup`'s `test_joint_trajectory_controller.launch.py`.
 
 ## Cartesian Motion-Force Example
 

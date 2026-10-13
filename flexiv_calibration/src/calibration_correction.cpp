@@ -228,8 +228,11 @@ int main(int argc, char** argv)
         RCLCPP_ERROR(logger, "%s", e.what());
         return 1;
     } catch (const std::logic_error& e) {
+        // Missing license, incompatible RDK version or unsupported robot model
         RCLCPP_ERROR(logger,
-            "%s. Reading kinematic parameters requires an RDK professional license", e.what());
+            "%s. Check that the robot has an RDK professional license, which reading kinematic "
+            "parameters requires, and that its software is compatible with this RDK version",
+            e.what());
         return 1;
     } catch (const std::exception& e) {
         RCLCPP_ERROR(logger, "%s", e.what());
