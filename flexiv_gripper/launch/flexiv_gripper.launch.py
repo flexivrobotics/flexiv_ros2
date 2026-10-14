@@ -15,6 +15,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     gripper_node_param_name = "gripper_node_name"
     robot_sn_param_name = "robot_sn"
+    device_name_param_name = "device_name"
     gripper_name_param_name = "gripper_name"
     use_fake_hardware_param_name = "use_fake_hardware"
     use_lite_rdk_param_name = "use_lite_rdk"
@@ -43,7 +44,7 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            gripper_name_param_name,
+            device_name_param_name,
             description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
             default_value="Flexiv-GN01",
         )
@@ -51,9 +52,17 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            gripper_name_param_name,
+            description="Deprecated, use device_name. Overrides device_name when set.",
+            default_value="",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             tool_name_param_name,
             default_value="",
-            description="Robot tool to switch to, as listed in Flexiv Elements -> Settings -> Tool. Empty uses gripper_name.",
+            description="Robot tool to switch to, as listed in Flexiv Elements -> Settings -> Tool. Empty uses device_name.",
         )
     )
 
@@ -101,6 +110,7 @@ def generate_launch_description():
     # Initialize arguments
     gripper_node = LaunchConfiguration(gripper_node_param_name)
     robot_sn = LaunchConfiguration(robot_sn_param_name)
+    device_name = LaunchConfiguration(device_name_param_name)
     gripper_name = LaunchConfiguration(gripper_name_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     use_lite_rdk = LaunchConfiguration(use_lite_rdk_param_name)
@@ -130,6 +140,7 @@ def generate_launch_description():
         parameters=[
             {
                 "robot_sn": robot_sn,
+                "device_name": device_name,
                 "gripper_name": gripper_name,
                 "tool_name": tool_name,
                 "gripper_joint_names": gripper_joint_names,
