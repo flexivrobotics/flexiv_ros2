@@ -15,6 +15,7 @@ def generate_launch_description():
     gripper_name_param_name = "gripper_name"
     use_fake_hardware_param_name = "use_fake_hardware"
     use_lite_rdk_param_name = "use_lite_rdk"
+    tool_name_param_name = "tool_name"
     gripper_joint_names_param_name = "gripper_joint_names"
 
     # Declare arguments
@@ -40,6 +41,14 @@ def generate_launch_description():
             gripper_name_param_name,
             description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
             default_value="Flexiv-GN01",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            tool_name_param_name,
+            default_value="",
+            description="Robot tool to switch to, as listed in Flexiv Elements -> Settings -> Tool. Empty uses gripper_name.",
         )
     )
 
@@ -73,6 +82,7 @@ def generate_launch_description():
     gripper_name = LaunchConfiguration(gripper_name_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     use_lite_rdk = LaunchConfiguration(use_lite_rdk_param_name)
+    tool_name = LaunchConfiguration(tool_name_param_name)
     gripper_joint_names = LaunchConfiguration(gripper_joint_names_param_name)
 
     gripper_config_file = PathJoinSubstitution(
@@ -88,6 +98,7 @@ def generate_launch_description():
             {
                 "robot_sn": robot_sn,
                 "gripper_name": gripper_name,
+                "tool_name": tool_name,
                 "gripper_joint_names": gripper_joint_names,
                 "use_lite_rdk": use_lite_rdk,
             },

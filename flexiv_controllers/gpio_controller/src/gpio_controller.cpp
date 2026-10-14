@@ -9,7 +9,6 @@
 #include "gpio_controller/gpio_controller.hpp"
 
 #include <algorithm>
-#include <array>
 #include <string>
 
 namespace gpio_controller {
@@ -61,20 +60,21 @@ controller_interface::InterfaceConfiguration GPIOController::state_interface_con
 controller_interface::return_type GPIOController::update(
     const rclcpp::Time& /*time*/, const rclcpp::Duration& /*period*/)
 {
-    // get inputs
+    // get inputs, keeping the last state of an input that cannot be read right now
     for (size_t i = 0; i < kIOPorts; ++i) {
         gpio_inputs_msg_.states[i].pin = i;
-        gpio_inputs_msg_.states[i].state
-            = static_cast<bool>(state_interfaces_[i].get_optional().value());
+        if (const auto value = state_interfaces_[i].get_optional()) {
+            gpio_inputs_msg_.states[i].state = static_cast<bool>(*value);
+        }
     }
     gpio_inputs_publisher_->publish(gpio_inputs_msg_);
 
     // set outputs
-    const auto& outputs = *digital_outputs_cmd_.readFromRT();
+    const auto& digital_outputs = *digital_outputs_cmd_.readFromRT();
     for (size_t i = 0; i < command_interfaces_.size(); ++i) {
-        if (!command_interfaces_[i].set_value(outputs[i])) {
+        if (!command_interfaces_[i].set_value(digital_outputs[i])) {
             RCLCPP_ERROR(get_node()->get_logger(),
-                "Failed to set digital output for pin %zu to state %f", i, outputs[i]);
+                "Failed to set digital output for pin %zu to state %f", i, digital_outputs[i]);
             return controller_interface::return_type::ERROR;
         }
     }
@@ -105,9 +105,8 @@ controller_interface::CallbackReturn GPIOController::on_configure(
         gpio_outputs_command_
             = get_node()->create_subscription<CmdType>("/" + robot_sn + kGPIOOutputsTopic,
                 rclcpp::SystemDefaultsQoS(), [this](const CmdType::SharedPtr msg) {
-                    // A command names only the pins it changes, so the current values are carried
-                    // over rather than reset.
-                    auto outputs = *digital_outputs_cmd_.readFromNonRT();
+                    // Only this callback writes the buffer, so its non-RT copy is the latest
+                    auto digital_outputs = *digital_outputs_cmd_.readFromNonRT();
                     for (size_t i = 0; i < msg->states.size(); ++i) {
                         if (msg->states[i].pin >= kIOPorts) {
                             RCLCPP_WARN(get_node()->get_logger(),
@@ -115,10 +114,11 @@ controller_interface::CallbackReturn GPIOController::on_configure(
                                 msg->states[i].pin, kIOPorts - 1);
                             continue;
                         } else {
-                            outputs[msg->states[i].pin] = static_cast<double>(msg->states[i].state);
+                            digital_outputs[msg->states[i].pin]
+                                = static_cast<double>(msg->states[i].state);
                         }
                     }
-                    digital_outputs_cmd_.writeFromNonRT(outputs);
+                    digital_outputs_cmd_.writeFromNonRT(digital_outputs);
                 });
     } catch (...) {
         return controller_interface::CallbackReturn::ERROR;
@@ -129,10 +129,7 @@ controller_interface::CallbackReturn GPIOController::on_configure(
 void GPIOController::initMsgs()
 {
     gpio_inputs_msg_.states.resize(kIOPorts);
-    std::array<double, kIOPorts> zeros {};
-    zeros.fill(0.0);
-    digital_outputs_cmd_.initRT(zeros);
-    digital_outputs_cmd_.writeFromNonRT(zeros);
+    digital_outputs_cmd_.initRT(std::array<double, kIOPorts> {});
 }
 
 controller_interface::CallbackReturn GPIOController::on_activate(
@@ -144,12 +141,7 @@ controller_interface::CallbackReturn GPIOController::on_activate(
 controller_interface::CallbackReturn GPIOController::on_deactivate(
     const rclcpp_lifecycle::State& /*previous_state*/)
 {
-    try {
-        // reset publisher
-        gpio_inputs_publisher_.reset();
-    } catch (...) {
-        return controller_interface::CallbackReturn::ERROR;
-    }
+    // The publisher is kept, it is created in on_configure and needed again on reactivation
     return controller_interface::CallbackReturn::SUCCESS;
 }
 

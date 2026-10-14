@@ -9,7 +9,7 @@ These nodes demonstrate how to publish and monitor Flexiv robot states directly 
 ### Requirements
 
 - ROS 2 Humble, Jazzy or Lyrical
-- `flexivrdk` Python package (install via `pip install flexivrdk`)
+- `flexivrdk` Python package (`pip install flexivrdk`), version must match the Flexiv robot software version
 - `flexiv_msgs` package (built with `flexiv_ros2`)
 
 ### 1. Robot States Publisher
@@ -38,7 +38,7 @@ ros2 launch flexiv_test_nodes robot_states_publisher.launch.py robot_sn:=[robot_
 **Parameters:**
 
 - `robot_sn`: Robot serial number (required)
-- `network_interface`: Network interface name (optional, auto-detect if empty)
+- `network_interface`: IPv4 address of the local network interface to reach the robot through, e.g. `192.168.2.100` (optional, all interfaces are tried if empty).
 - `publish_rate`: Publish rate in Hz (default: 100)
 
 ### 2. Robot States Monitor
@@ -58,4 +58,19 @@ ros2 run flexiv_test_nodes robot_states_monitor --ros-args -p robot_sn:=[robot_s
 
 ## Publisher Joint Trajectory Controller
 
-Example node to send joint position commands to the joint trajectory controller.
+Example node to send joint position commands to the joint trajectory controller. It is started by `flexiv_bringup`'s `test_joint_trajectory_controller.launch.py`.
+
+## Cartesian Motion-Force Example
+
+Start the driver with the Cartesian motion-force controller first:
+
+```bash
+ros2 launch flexiv_bringup rizon.launch.py robot_sn:=[robot_sn] robot_controller:=cartesian_motion_force_controller
+```
+
+- `mode:=pure_motion` sweeps the TCP along world Y (or holds it with `hold:=true`), and changes the null-space posture, the Cartesian stiffness and the maximum contact wrench online every 20 seconds.
+- `mode:=motion_force` searches for contact along -Z at 0.02 m/s, then presses with 5 N along Z of the `force_frame` (`world` or `tcp`), optionally sweeping along world Y with `polish:=true`.
+
+```bash
+ros2 launch flexiv_bringup test_cartesian_motion_force_controller.launch.py robot_sn:=[robot_sn] mode:=motion_force polish:=true
+```

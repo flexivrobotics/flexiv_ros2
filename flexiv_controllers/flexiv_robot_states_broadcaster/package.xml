@@ -13,7 +13,6 @@
   <depend>controller_interface</depend>
   <depend>rcutils</depend>
   <depend>builtin_interfaces</depend>
-  <depend>flexiv_hardware</depend>
   <depend>flexiv_msgs</depend>
   <depend>generate_parameter_library</depend>
   <depend>geometry_msgs</depend>

@@ -1,0 +1,20 @@
+# Set the reference frame of force control in the Cartesian motion-force control mode. Motion
+# control always uses the world frame. For a robot pair, each array holds the left robot's values
+# first.
+#
+# An invalid request is rejected as a whole and nothing changes.
+
+uint8 WORLD=0
+uint8 TCP=1
+
+# Root coordinate of t_in_root, 1 per robot. WORLD is fixed, TCP moves with the end effector.
+uint8[] root_coord
+
+# Transformation from the root coordinate to the force control frame [x, y, z, qw, qx, qy, qz], 7
+# per robot. Empty means identity. [m]:[]
+float64[] t_in_root
+---
+bool success
+
+# Operator-facing explanation of the outcome
+string message

@@ -29,27 +29,14 @@ jobs:
           submodules: recursive
       - name: Install dependencies
         run: |
+          # ROS dependencies come from package.xml through rosdep in action-ros-ci
           sudo apt-get update && sudo apt-get install -y \
           wget \
-          libeigen3-dev \
-          ros-lyrical-control-toolbox \
-          ros-lyrical-generate-parameter-library \
-          ros-lyrical-hardware-interface \
-          ros-lyrical-joint-state-publisher \
-          ros-lyrical-joint-state-publisher-gui \
-          ros-lyrical-moveit \
-          ros-lyrical-realtime-tools \
-          ros-lyrical-robot-state-publisher \
-          ros-lyrical-ros2-control \
-          ros-lyrical-ros2-controllers \
-          ros-lyrical-test-msgs \
-          ros-lyrical-tinyxml2-vendor \
-          ros-lyrical-warehouse-ros-sqlite \
-          ros-lyrical-xacro
+          libeigen3-dev
       - name: Build and install flexiv_rdk
         shell: bash
         run: |
-          git clone --branch release/v1.9.4 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
+          git clone --branch v1.9.4.1 --depth 1 https://github.com/flexivrobotics/flexiv_rdk.git
           cd flexiv_rdk/thirdparty
           bash build_and_install_dependencies.sh ~/flexiv_install $(nproc)
           cd ..
@@ -59,7 +46,7 @@ jobs:
       - name: Build and install flexiv_drdk
         shell: bash
         run: |
-          git clone --branch release/v1.2.4 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
+          git clone --branch v1.2.4 --depth 1 https://github.com/flexivrobotics/flexiv_drdk.git
           cd flexiv_drdk/thirdparty
           bash build_and_install_dependencies.sh ~/flexiv_install $(nproc) --skip-rdk
           cd ..
@@ -74,6 +61,7 @@ jobs:
           coverage-result: false
           vcs-repo-file-url: ${{ github.workspace }}/flexiv.lyrical.repos
           package-name: |
+            cartesian_motion_force_controller
             flexiv_bringup
             flexiv_calibration
             flexiv_gripper

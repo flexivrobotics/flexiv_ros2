@@ -4,6 +4,7 @@ from launch.actions import (
     EmitEvent,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.events import Shutdown
@@ -66,6 +67,24 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            "rdk_realtime_mode",
+            default_value="false",
+            description="Use the real-time RDK modes for the joint position, velocity and Cartesian interfaces, streamed at the controller manager rate. Requires a low-latency host. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "withhold_on_timeliness_failure",
+            default_value="true",
+            description="With rdk_realtime_mode, withhold motion until the controller is restarted once real-time commands arrive late too often. false only warns and keeps streaming, as the RDK does. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             start_rviz_param_name,
             default_value="true",
             description="Start RViz automatically with the launch file",
@@ -117,7 +136,8 @@ def generate_launch_description():
         DeclareLaunchArgument(
             robot_controller_param_name,
             default_value="rizon_arm_controller",
-            description="Robot controller to start. Available: rizon_arm_controller",
+            description="Robot controller to start. Available: rizon_arm_controller, \
+            cartesian_motion_force_controller",
         )
     )
 
@@ -150,6 +170,10 @@ def generate_launch_description():
     arm_type = LaunchConfiguration(arm_type_param_name)
     robot_sn = LaunchConfiguration(robot_sn_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
+    rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
+    withhold_on_timeliness_failure = LaunchConfiguration(
+        "withhold_on_timeliness_failure"
+    )
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     load_gripper = LaunchConfiguration(load_gripper_param_name)
     gripper_name = LaunchConfiguration(gripper_name_param_name)
@@ -202,6 +226,12 @@ def generate_launch_description():
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
                 rdk_control_mode,
+                " ",
+                "rdk_realtime_mode:=",
+                rdk_realtime_mode,
+                " ",
+                "withhold_on_timeliness_failure:=",
+                withhold_on_timeliness_failure,
                 " ",
                 "load_gripper:=",
                 load_gripper,
@@ -352,12 +382,15 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix"),
+                "finger_width_joint]",
+            ],
             "robot_sn": robot_sn,
             "gripper_name": gripper_name,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
         }.items(),
-        condition=IfCondition(load_gripper),
     )
 
     gripper_ready_waiter = Node(
@@ -406,7 +439,7 @@ def generate_launch_description():
     delay_gripper_launch_after_joint_state_broadcaster_spawner = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=joint_state_broadcaster_spawner,
-            on_exit=[load_gripper_launch],
+            on_exit=[load_gripper_launch, gripper_ready_waiter],
         ),
         condition=IfCondition(gripper_ready_gate_condition),
     )
@@ -427,11 +460,17 @@ def generate_launch_description():
         )
     )
 
+    # Matches compute_prefix in flexiv_description: no separator for an empty serial.
+    set_prefix = SetLaunchConfiguration(
+        name="prefix",
+        value=PythonExpression(["'", robot_sn, "_' if '", robot_sn, "' else ''"]),
+    )
+
     nodes = [
+        set_prefix,
         ros2_control_node,
         joint_state_publisher_node,
         robot_state_publisher_node,
-        gripper_ready_waiter,
         joint_state_broadcaster_spawner,
         flexiv_robot_states_broadcaster_spawner,
         gpio_controller_spawner,

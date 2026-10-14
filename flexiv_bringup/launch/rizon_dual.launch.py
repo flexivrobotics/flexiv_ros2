@@ -4,6 +4,7 @@ from launch.actions import (
     EmitEvent,
     IncludeLaunchDescription,
     RegisterEventHandler,
+    SetLaunchConfiguration,
 )
 from launch.conditions import IfCondition, UnlessCondition
 from launch.events import Shutdown
@@ -27,6 +28,7 @@ def generate_launch_description():
     robot_sn_left_param_name = "robot_sn_left"
     robot_sn_right_param_name = "robot_sn_right"
     rdk_control_mode_param_name = "rdk_control_mode"
+    robot_controller_param_name = "robot_controller"
     start_rviz_param_name = "start_rviz"
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
@@ -96,6 +98,35 @@ def generate_launch_description():
             default_value="joint_position",
             description="RDK control mode for the ROS 2 control joint position and velocity interfaces.",
             choices=["joint_position", "joint_impedance"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "rdk_realtime_mode",
+            default_value="false",
+            description="Use the real-time RDK modes for the joint position, velocity and Cartesian interfaces, streamed at the controller manager rate. Requires a low-latency host. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "withhold_on_timeliness_failure",
+            default_value="true",
+            description="With rdk_realtime_mode, withhold motion until the controller is restarted once real-time commands arrive late too often. false only warns and keeps streaming, as the RDK does. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            robot_controller_param_name,
+            default_value="rizon_arm_controller",
+            description="Robot controller to start. rizon_arm_controller starts \
+            left_rizon_arm_controller and right_rizon_arm_controller, \
+            cartesian_motion_force_controller starts one controller for both arms.",
+            choices=["rizon_arm_controller", "cartesian_motion_force_controller"],
         )
     )
 
@@ -193,6 +224,11 @@ def generate_launch_description():
     robot_sn_left = LaunchConfiguration(robot_sn_left_param_name)
     robot_sn_right = LaunchConfiguration(robot_sn_right_param_name)
     rdk_control_mode = LaunchConfiguration(rdk_control_mode_param_name)
+    rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
+    withhold_on_timeliness_failure = LaunchConfiguration(
+        "withhold_on_timeliness_failure"
+    )
+    robot_controller = LaunchConfiguration(robot_controller_param_name)
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
@@ -253,7 +289,6 @@ def generate_launch_description():
     )
 
     # Construct prefixes
-    from launch.actions import SetLaunchConfiguration
 
     set_prefix_left = SetLaunchConfiguration(
         name="prefix_left",
@@ -328,6 +363,12 @@ def generate_launch_description():
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
                 rdk_control_mode,
+                " ",
+                "rdk_realtime_mode:=",
+                rdk_realtime_mode,
+                " ",
+                "withhold_on_timeliness_failure:=",
+                withhold_on_timeliness_failure,
                 " ",
                 "use_fake_hardware:=",
                 use_fake_hardware,
@@ -412,6 +453,15 @@ def generate_launch_description():
         ],
     )
 
+    # Arm controllers load inactive when another robot controller is chosen (--switch-asap is a no-op)
+    arm_controller_activation = PythonExpression(
+        [
+            "'--switch-asap' if '",
+            robot_controller,
+            "' == 'rizon_arm_controller' else '--inactive'",
+        ]
+    )
+
     # Run left arm controller
     left_rizon_arm_controller_spawner = Node(
         package="controller_manager",
@@ -423,6 +473,7 @@ def generate_launch_description():
             "/controller_manager",
             "--controller-manager-timeout",
             "60",
+            arm_controller_activation,
         ],
     )
 
@@ -437,7 +488,27 @@ def generate_launch_description():
             "/controller_manager",
             "--controller-manager-timeout",
             "60",
+            arm_controller_activation,
         ],
+    )
+
+    # Run the Cartesian motion-force controller, which commands both arms
+    cartesian_motion_force_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        parameters=[ParameterFile(robot_controllers, allow_substs=True)],
+        arguments=[
+            "cartesian_motion_force_controller",
+            "--controller-manager",
+            "/controller_manager",
+            "--controller-manager-timeout",
+            "60",
+        ],
+        condition=IfCondition(
+            PythonExpression(
+                ["'", robot_controller, "' == 'cartesian_motion_force_controller'"]
+            )
+        ),
     )
 
     # Run Flexiv robot states broadcaster left
@@ -483,12 +554,15 @@ def generate_launch_description():
         ),
         launch_arguments={
             "gripper_node_name": "left_gripper_node",
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix_left"),
+                "finger_width_joint]",
+            ],
             "robot_sn": robot_sn_left,
             "gripper_name": gripper_name_left,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
         }.items(),
-        condition=IfCondition(load_gripper_left),
     )
     load_gripper_right_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -502,12 +576,15 @@ def generate_launch_description():
         ),
         launch_arguments={
             "gripper_node_name": "right_gripper_node",
+            "gripper_joint_names": [
+                "[",
+                LaunchConfiguration("prefix_right"),
+                "finger_width_joint]",
+            ],
             "robot_sn": robot_sn_right,
             "gripper_name": gripper_name_right,
-            "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
         }.items(),
-        condition=IfCondition(load_gripper_right),
     )
 
     left_gripper_ready_waiter = Node(
@@ -634,6 +711,14 @@ def generate_launch_description():
         condition=IfCondition(right_gripper_ready_gate_condition),
     )
 
+    # Delay Cartesian controller start after right controller, so it also waits for both grippers
+    delay_cartesian_controller_after_right_controller = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=right_rizon_arm_controller_spawner,
+            on_exit=[cartesian_motion_force_controller_spawner],
+        )
+    )
+
     # Delay rviz start after right controller
     delay_rviz_after_right_controller = RegisterEventHandler(
         event_handler=OnProcessExit(
@@ -660,6 +745,7 @@ def generate_launch_description():
         delay_right_controller_after_left_controller,
         delay_right_gripper_ready_waiter_after_left_controller,
         delay_right_controller_after_gripper_ready,
+        delay_cartesian_controller_after_right_controller,
         delay_rviz_after_right_controller,
     ]
 

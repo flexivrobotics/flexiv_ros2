@@ -1,0 +1,18 @@
+# Set the weights of the three optimization objectives of the null-space posture control, used in
+# the Cartesian motion-force control mode. Each array holds one entry per robot, left first.
+#
+# An invalid request is rejected as a whole and nothing changes.
+
+# Weight of translational manipulability. Valid range [0.0, 1.0]. RDK default 0.0.
+float64[] linear_manipulability
+
+# Weight of rotational manipulability. Valid range [0.0, 1.0]. RDK default 0.0.
+float64[] angular_manipulability
+
+# Weight of tracking the null-space posture reference. Valid range [0.1, 1.0]. RDK default 0.5.
+float64[] ref_positions_tracking
+---
+bool success
+
+# Operator-facing explanation of the outcome
+string message
