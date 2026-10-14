@@ -28,7 +28,8 @@ def generate_launch_description():
     rdk_control_mode_param_name = "rdk_control_mode"
     start_rviz_param_name = "start_rviz"
     load_gripper_param_name = "load_gripper"
-    gripper_name_param_name = "gripper_name"
+    gripper_type_param_name = "gripper_type"
+    device_name_param_name = "device_name"
     load_mounted_ft_sensor_param_name = "load_mounted_ft_sensor"
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
@@ -95,13 +96,21 @@ def generate_launch_description():
         DeclareLaunchArgument(
             load_gripper_param_name,
             default_value="false",
-            description="Flag to load the Flexiv Grav gripper as the end-effector of the robot.",
+            description="Flag to load the gripper selected by gripper_type as the end-effector of the robot.",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            gripper_name_param_name,
+            gripper_type_param_name,
+            default_value="Grav",
+            description="Type of the gripper model, see flexiv_description/config/gripper_types.yaml",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            device_name_param_name,
             default_value="Flexiv-GN01",
             description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
         )
@@ -176,7 +185,8 @@ def generate_launch_description():
     )
     start_rviz = LaunchConfiguration(start_rviz_param_name)
     load_gripper = LaunchConfiguration(load_gripper_param_name)
-    gripper_name = LaunchConfiguration(gripper_name_param_name)
+    gripper_type = LaunchConfiguration(gripper_type_param_name)
+    device_name = LaunchConfiguration(device_name_param_name)
     load_mounted_ft_sensor = LaunchConfiguration(load_mounted_ft_sensor_param_name)
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
@@ -236,8 +246,8 @@ def generate_launch_description():
                 "load_gripper:=",
                 load_gripper,
                 " ",
-                "gripper_name:=",
-                gripper_name,
+                "gripper_type:=",
+                gripper_type,
                 " ",
                 "load_mounted_ft_sensor:=",
                 load_mounted_ft_sensor,
@@ -369,7 +379,7 @@ def generate_launch_description():
                 "finger_width_joint]",
             ],
             "robot_sn": robot_sn,
-            "gripper_name": gripper_name,
+            "device_name": device_name,
             "use_lite_rdk": "true",
         }.items(),
     )

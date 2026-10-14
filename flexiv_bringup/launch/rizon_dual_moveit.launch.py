@@ -69,9 +69,11 @@ def launch_setup(context):
     fake_sensor_commands = LaunchConfiguration("fake_sensor_commands")
 
     load_gripper_left = LaunchConfiguration("load_gripper_left")
-    gripper_name_left = LaunchConfiguration("gripper_name_left")
+    gripper_type_left = LaunchConfiguration("gripper_type_left")
+    device_name_left = LaunchConfiguration("device_name_left")
     load_gripper_right = LaunchConfiguration("load_gripper_right")
-    gripper_name_right = LaunchConfiguration("gripper_name_right")
+    gripper_type_right = LaunchConfiguration("gripper_type_right")
+    device_name_right = LaunchConfiguration("device_name_right")
 
     load_mounted_ft_sensor_left = LaunchConfiguration("load_mounted_ft_sensor_left")
     load_mounted_ft_sensor_right = LaunchConfiguration("load_mounted_ft_sensor_right")
@@ -149,14 +151,14 @@ def launch_setup(context):
                 "load_gripper_left:=",
                 load_gripper_left,
                 " ",
-                "gripper_name_left:=",
-                gripper_name_left,
+                "gripper_type_left:=",
+                gripper_type_left,
                 " ",
                 "load_gripper_right:=",
                 load_gripper_right,
                 " ",
-                "gripper_name_right:=",
-                gripper_name_right,
+                "gripper_type_right:=",
+                gripper_type_right,
                 " ",
                 "load_mounted_ft_sensor_left:=",
                 load_mounted_ft_sensor_left,
@@ -416,7 +418,7 @@ def launch_setup(context):
         ),
         launch_arguments={
             "robot_sn": robot_sn_left,
-            "gripper_name": gripper_name_left,
+            "device_name": device_name_left,
             "gripper_node_name": "left_gripper_node",
             "use_lite_rdk": "true",
             "gripper_joint_names": [
@@ -439,7 +441,7 @@ def launch_setup(context):
         ),
         launch_arguments={
             "robot_sn": robot_sn_right,
-            "gripper_name": gripper_name_right,
+            "device_name": device_name_right,
             "gripper_node_name": "right_gripper_node",
             "use_lite_rdk": "true",
             "gripper_joint_names": [
@@ -702,13 +704,21 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "load_gripper_left",
             default_value="false",
-            description="Flag to load the Flexiv Grav gripper as the end-effector of the left robot.",
+            description="Flag to load the gripper selected by gripper_type_left as the end-effector of the left robot.",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "gripper_name_left",
+            "gripper_type_left",
+            default_value="Grav",
+            description="Type of the left gripper model, see flexiv_description/config/gripper_types.yaml",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "device_name_left",
             default_value="Flexiv-GN01",
             description="Full name of the left gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
         )
@@ -718,13 +728,21 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "load_gripper_right",
             default_value="false",
-            description="Flag to load the Flexiv Grav gripper as the end-effector of the right robot.",
+            description="Flag to load the gripper selected by gripper_type_right as the end-effector of the right robot.",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "gripper_name_right",
+            "gripper_type_right",
+            default_value="Grav",
+            description="Type of the right gripper model, see flexiv_description/config/gripper_types.yaml",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "device_name_right",
             default_value="Flexiv-GN01",
             description="Full name of the right gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
         )
