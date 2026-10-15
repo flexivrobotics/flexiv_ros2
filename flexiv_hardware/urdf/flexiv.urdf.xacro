@@ -10,7 +10,7 @@
   robot_type must be passed on the command line: it names the robot element,
   which xacro resolves before <xacro:arg> defaults are read.
 -->
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg robot_type)">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg robot_type)" version="1.2">
 
   <xacro:arg name="robot_type" default="Rizon4" />
 
