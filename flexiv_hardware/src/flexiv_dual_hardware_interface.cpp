@@ -205,9 +205,9 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
             "and Cartesian motion limits do not apply");
     }
 
-    double max_joint_acc = 0.0;
+    std::vector<double> max_joint_acc;
     try {
-        max_joint_acc = MaxJointAcceleration(info_);
+        max_joint_acc = JointAccelerationLimits(info_);
     } catch (const std::invalid_argument& ex) {
         RCLCPP_FATAL(getLogger(), "%s", ex.what());
         return hardware_interface::CallbackReturn::ERROR;
@@ -327,8 +327,7 @@ hardware_interface::CallbackReturn FlexivDualHardwareInterface::on_init(
     pair_info_ = robot_pair_->info();
     robot_instances_ = robot_pair_->instances();
     max_joint_vel_ = ToDRDKOrder(JointVelocityLimits(info_), pair_info_);
-    max_joint_acc_ = {std::vector<double>(pair_info_.first.DoF, max_joint_acc),
-        std::vector<double>(pair_info_.second.DoF, max_joint_acc)};
+    max_joint_acc_ = ToDRDKOrder(max_joint_acc, pair_info_);
 
     const std::pair<std::vector<double>, std::vector<double>> zeros {
         std::vector<double>(pair_info_.first.DoF, 0.0),
