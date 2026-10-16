@@ -6,9 +6,12 @@
 
 #include "flexiv_hardware/joint_motion_limits.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <string>
+
+#include <urdf/model.h>
 
 namespace flexiv_hardware {
 
@@ -25,24 +28,25 @@ std::vector<double> JointVelocityLimits(const hardware_interface::HardwareInfo& 
     return limits;
 }
 
-double MaxJointAcceleration(const hardware_interface::HardwareInfo& info)
+std::vector<double> JointAccelerationLimits(const hardware_interface::HardwareInfo& info)
 {
-    const auto it = info.hardware_parameters.find("max_joint_acceleration");
-    if (it == info.hardware_parameters.end()) {
-        return kDefaultMaxJointAcceleration;
+    // ros2_control's own joint limits carry no acceleration, so read it from the URDF itself
+    urdf::Model model;
+    if (!model.initString(info.original_xml)) {
+        throw std::invalid_argument("Failed to parse the robot description for joint limits");
     }
-    double value = 0.0;
-    try {
-        value = std::stod(it->second);
-    } catch (const std::exception&) {
-        throw std::invalid_argument(
-            "Parameter 'max_joint_acceleration' is not a number: '" + it->second + "'");
+    std::vector<double> limits(info.joints.size(), kDefaultMaxJointAcceleration);
+    for (size_t i = 0; i < info.joints.size(); i++) {
+        const auto joint = model.getJoint(info.joints[i].name);
+        if (!joint || !joint->limits) {
+            continue;
+        }
+        const double acc = std::min(joint->limits->acceleration, joint->limits->deceleration);
+        if (std::isfinite(acc) && acc > 0.0) {
+            limits[i] = acc;
+        }
     }
-    if (!std::isfinite(value) || value <= 0.0) {
-        throw std::invalid_argument(
-            "Parameter 'max_joint_acceleration' must be positive, got " + it->second);
-    }
-    return value;
+    return limits;
 }
 
 } /* namespace flexiv_hardware */
