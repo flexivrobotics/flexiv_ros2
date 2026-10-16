@@ -145,6 +145,9 @@ def launch_setup(context):
                 "load_gripper:=",
                 load_gripper,
                 " ",
+                "gripper_type:=",
+                gripper_type,
+                " ",
                 "load_mounted_ft_sensor:=",
                 load_mounted_ft_sensor,
             ]
