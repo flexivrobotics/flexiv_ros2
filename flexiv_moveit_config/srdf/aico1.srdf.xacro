@@ -9,6 +9,7 @@
     <xacro:arg name="external_axis_prefix" default="" />
     <xacro:arg name="robot_sn" default="" />
     <xacro:arg name="load_gripper" default="false" />
+    <xacro:arg name="gripper_type" default="Grav" />
     <xacro:arg name="load_mounted_ft_sensor" default="false" />
 
     <xacro:include filename="$(find flexiv_moveit_config)/srdf/rizon_macro.srdf.xacro" />
@@ -68,8 +69,8 @@
 
     <!-- Load gripper -->
     <xacro:if value="$(arg load_gripper)">
-        <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf prefix="${prefix}"
+        <xacro:include filename="$(find flexiv_moveit_config)/srdf/gripper.srdf.xacro" />
+        <xacro:gripper_srdf prefix="${prefix}" gripper_type="$(arg gripper_type)"
             load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
     </xacro:if>
 

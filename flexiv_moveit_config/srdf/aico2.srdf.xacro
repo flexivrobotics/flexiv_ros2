@@ -10,7 +10,9 @@
     <xacro:arg name="robot_sn_left" default="" />
     <xacro:arg name="robot_sn_right" default="" />
     <xacro:arg name="load_gripper_left" default="false" />
+    <xacro:arg name="gripper_type_left" default="Grav" />
     <xacro:arg name="load_gripper_right" default="false" />
+    <xacro:arg name="gripper_type_right" default="Grav" />
     <xacro:arg name="load_mounted_ft_sensor_left" default="false" />
     <xacro:arg name="load_mounted_ft_sensor_right" default="false" />
 
@@ -67,14 +69,14 @@
 
     <!-- Load grippers -->
     <xacro:if value="$(arg load_gripper_left)">
-        <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf prefix="${prefix_left}"
+        <xacro:include filename="$(find flexiv_moveit_config)/srdf/gripper.srdf.xacro" />
+        <xacro:gripper_srdf prefix="${prefix_left}" gripper_type="$(arg gripper_type_left)"
             load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_left)" />
     </xacro:if>
 
     <xacro:if value="$(arg load_gripper_right)">
-        <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
-        <xacro:grav_srdf prefix="${prefix_right}"
+        <xacro:include filename="$(find flexiv_moveit_config)/srdf/gripper.srdf.xacro" />
+        <xacro:gripper_srdf prefix="${prefix_right}" gripper_type="$(arg gripper_type_right)"
             load_mounted_ft_sensor="$(arg load_mounted_ft_sensor_right)" />
     </xacro:if>
 
