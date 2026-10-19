@@ -10,7 +10,7 @@
   robot_type must be passed on the command line: it names the robot element,
   which xacro resolves before <xacro:arg> defaults are read.
 -->
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg robot_type)">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg robot_type)" version="1.2">
 
   <xacro:arg name="robot_type" default="Rizon4" />
 
@@ -21,8 +21,6 @@
   <xacro:arg name="rdk_realtime_mode" default="false" />
   <!-- Withhold motion when real-time commands arrive late too often, or only warn as the RDK does -->
   <xacro:arg name="withhold_on_timeliness_failure" default="true" />
-  <!-- Acceleration limit of the robot's joint motion generator [rad/s^2] -->
-  <xacro:arg name="max_joint_acceleration" default="5.0" />
   <xacro:arg name="use_fake_hardware" default="false" />
   <xacro:arg name="fake_sensor_commands" default="false" />
   <xacro:arg name="initial_positions_file" default="" />
@@ -90,7 +88,6 @@
         rdk_control_mode="$(arg rdk_control_mode)"
         rdk_realtime_mode="$(arg rdk_realtime_mode)"
         withhold_on_timeliness_failure="$(arg withhold_on_timeliness_failure)"
-        max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"
         initial_positions_file="${init_file}"
@@ -108,7 +105,6 @@
         rdk_control_mode="$(arg rdk_control_mode)"
         rdk_realtime_mode="$(arg rdk_realtime_mode)"
         withhold_on_timeliness_failure="$(arg withhold_on_timeliness_failure)"
-        max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"
         initial_positions_file="${cfg}/${aico1_arm}/initial_positions.yaml"
@@ -132,7 +128,6 @@
         rdk_control_mode="$(arg rdk_control_mode)"
         rdk_realtime_mode="$(arg rdk_realtime_mode)"
         withhold_on_timeliness_failure="$(arg withhold_on_timeliness_failure)"
-        max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"
         initial_positions_file_left="${cfg}/${arm_left}/initial_positions.yaml"

@@ -249,21 +249,21 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     }
 
     // Limits for the robot's joint motion generator, in RDK order
-    const auto max_velocities = JointVelocityLimits(info_);
     try {
-        max_joint_acc_ = std::vector<double>(info_.joints.size(), MaxJointAcceleration(info_));
+        max_joint_acc_ = ConvertROSToRDKOrder(JointAccelerationLimits(info_), rdk_to_ros_map_);
     } catch (const std::invalid_argument& ex) {
         RCLCPP_FATAL(getLogger(), "%s", ex.what());
         return hardware_interface::CallbackReturn::ERROR;
     }
-    max_joint_vel_ = ConvertROSToRDKOrder(max_velocities, rdk_to_ros_map_);
-    std::string max_vel_str;
-    for (double v : max_joint_vel_) {
-        max_vel_str += std::to_string(v) + " ";
+    max_joint_vel_ = ConvertROSToRDKOrder(JointVelocityLimits(info_), rdk_to_ros_map_);
+    std::string max_vel_str, max_acc_str;
+    for (size_t i = 0; i < max_joint_vel_.size(); i++) {
+        max_vel_str += std::to_string(max_joint_vel_[i]) + " ";
+        max_acc_str += std::to_string(max_joint_acc_[i]) + " ";
     }
     RCLCPP_INFO(getLogger(),
-        "Joint motion limits (RDK order): max_vel [ %s] rad/s, max_acc %f rad/s^2",
-        max_vel_str.c_str(), max_joint_acc_.front());
+        "Joint motion limits (RDK order): max_vel [ %s] rad/s, max_acc [ %s] rad/s^2",
+        max_vel_str.c_str(), max_acc_str.c_str());
 
     // The connection is established in on_configure, which is the lifecycle stage that owns
     // communication with the hardware. This is what lets a lost connection be recovered by

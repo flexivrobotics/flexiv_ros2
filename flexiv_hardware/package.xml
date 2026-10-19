@@ -15,6 +15,7 @@
   <depend>rclcpp_lifecycle</depend>
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>
+  <depend>urdf</depend>
   <depend>flexiv_msgs</depend>
 
   <exec_depend>flexiv_description</exec_depend>
