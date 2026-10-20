@@ -445,8 +445,8 @@ hardware_interface::CallbackReturn FlexivHardwareInterface::on_init(
     }
     const auto withhold_it = info_.hardware_parameters.find("withhold_on_timeliness_failure");
     try {
-        withhold_on_timeliness_failure_ = withhold_it == info_.hardware_parameters.end()
-                                          || hardware_interface::parse_bool(withhold_it->second);
+        withhold_on_timeliness_failure_ = withhold_it != info_.hardware_parameters.end()
+                                          && hardware_interface::parse_bool(withhold_it->second);
     } catch (const std::invalid_argument& ex) {
         RCLCPP_FATAL(getLogger(), "Parameter 'withhold_on_timeliness_failure': %s", ex.what());
         return hardware_interface::CallbackReturn::ERROR;
@@ -1416,6 +1416,16 @@ hardware_interface::return_type FlexivHardwareInterface::write(
         } catch (const std::exception& e) {
             withhold_motion(e.what());
         }
+    } else if (cartesian_claimed_
+               || std::any_of(claimed_interfaces_.begin(), claimed_interfaces_.end(),
+                   [](uint8_t claim) { return claim != kInterfaceNone; })) {
+        // Controllers still send commands, and report their goals as reached, while nothing is
+        // streamed, so keep saying why the robot does not follow
+        RCLCPP_WARN_THROTTLE(getLogger(), log_clock_, 5000,
+            "Motion is withheld and controller commands are ignored. Restart the running "
+            "controllers to resume, e.g. ros2 control switch_controllers --deactivate "
+            "<controllers> "
+            "--activate <controllers>");
     }
 
     // Write digital output

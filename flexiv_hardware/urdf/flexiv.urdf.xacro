@@ -24,7 +24,7 @@
        false selects the non-real-time modes, smoothed by the robot's motion generator. -->
   <xacro:arg name="rdk_realtime_mode" default="true" />
   <!-- Withhold motion when real-time commands arrive late too often, or only warn as the RDK does -->
-  <xacro:arg name="withhold_on_timeliness_failure" default="true" />
+  <xacro:arg name="withhold_on_timeliness_failure" default="false" />
   <!-- Acceleration limit of the robot's joint motion generator in the non-real-time modes [rad/s^2] -->
   <xacro:arg name="max_joint_acceleration" default="5.0" />
 
