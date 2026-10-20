@@ -654,8 +654,8 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "withhold_on_timeliness_failure",
-            default_value="true",
-            description="With rdk_realtime_mode, withhold motion until the controller is restarted once real-time commands arrive late too often. false only warns and keeps streaming, as the RDK does. Options: true, false",
+            default_value="false",
+            description="With rdk_realtime_mode, withhold motion until the controllers are restarted once real-time commands arrive late too often. Enable on a real-time capable host (PREEMPT_RT kernel, real-time priority). false only warns and keeps streaming, as the RDK does. Options: true, false",
             choices=["true", "false"],
         )
     )
