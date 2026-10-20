@@ -10,6 +10,8 @@
 #include <memory>
 #include <string>
 
+#include "tf2/LinearMath/Transform.h"
+
 namespace flexiv_robot_states_broadcaster {
 
 FlexivRobotStatesBroadcaster::FlexivRobotStatesBroadcaster()
@@ -82,6 +84,20 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
     tcp_wrench_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
         "/" + robot_sn + kTcpWrenchTopic, rclcpp::SystemDefaultsQoS());
 
+    if (params_.publish_tcp_tf) {
+        // The flange link is "<robot_sn>_flange" in the URDF, and the TCP frame is named alike
+        tf_publisher_ = get_node()->create_publisher<tf2_msgs::msg::TFMessage>(
+            kTfTopic, rclcpp::SystemDefaultsQoS());
+        realtime_tf_publisher_ = std::make_shared<TfPublisher>(tf_publisher_);
+        auto& tf_msg = realtime_tf_publisher_->msg_;
+        tf_msg.transforms.resize(1);
+        tf_msg.transforms[0].header.frame_id = params_.robot_sn + "_flange";
+        tf_msg.transforms[0].child_frame_id = params_.robot_sn + "_tcp";
+    } else {
+        tf_publisher_.reset();
+        realtime_tf_publisher_.reset();
+    }
+
     try {
         flexiv_robot_states_publisher_
             = get_node()->create_publisher<flexiv_msgs::msg::RobotStates>(
@@ -124,6 +140,30 @@ controller_interface::return_type FlexivRobotStatesBroadcaster::update(
         raw_ft_sensor_publisher_->publish(flexiv_robot_states_msg.raw_ft_sensor);
         tcp_wrench_local_publisher_->publish(flexiv_robot_states_msg.tcp_wrench_local);
         tcp_wrench_publisher_->publish(flexiv_robot_states_msg.tcp_wrench);
+
+        // TCP in flange frame, from both poses in world frame. The robot's world frame need not
+        // match the URDF's, since only the relative transform is published.
+        if (realtime_tf_publisher_ && realtime_tf_publisher_->trylock()) {
+            const auto to_transform = [](const geometry_msgs::msg::Pose& pose) {
+                return tf2::Transform(tf2::Quaternion(pose.orientation.x, pose.orientation.y,
+                                          pose.orientation.z, pose.orientation.w),
+                    tf2::Vector3(pose.position.x, pose.position.y, pose.position.z));
+            };
+            const tf2::Transform flange_to_tcp
+                = to_transform(flexiv_robot_states_msg.flange_pose.pose)
+                      .inverseTimes(to_transform(flexiv_robot_states_msg.tcp_pose.pose));
+            auto& transform = realtime_tf_publisher_->msg_.transforms[0];
+            transform.header.stamp = time;
+            transform.transform.translation.x = flange_to_tcp.getOrigin().x();
+            transform.transform.translation.y = flange_to_tcp.getOrigin().y();
+            transform.transform.translation.z = flange_to_tcp.getOrigin().z();
+            const auto rotation = flange_to_tcp.getRotation().normalized();
+            transform.transform.rotation.x = rotation.x();
+            transform.transform.rotation.y = rotation.y();
+            transform.transform.rotation.z = rotation.z();
+            transform.transform.rotation.w = rotation.w();
+            realtime_tf_publisher_->unlockAndPublish();
+        }
     }
 
     return controller_interface::return_type::OK;
