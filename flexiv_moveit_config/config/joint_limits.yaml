@@ -5,131 +5,90 @@
 default_velocity_scaling_factor: 0.1
 default_acceleration_scaling_factor: 0.1
 
-# Specific joint properties can be changed with the keys [max_position, min_position, max_velocity, max_acceleration]
-# Joint limits can be turned off with [has_velocity_limits, has_acceleration_limits]
+# Position and velocity limits come from the URDF, which flexiv_description sets per robot type.
+# The URDF has no acceleration limits, so they are added here for time parameterization.
+# Joints that are not in the robot's URDF are ignored, so one file serves every robot type.
 joint_limits:
+  # Single-arm (Enlight-L)
   $(var robot_sn)_joint1:
-    has_velocity_limits: true
-    max_velocity: 2.0944 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   $(var robot_sn)_joint2:
-    has_velocity_limits: true
-    max_velocity: 2.0944 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   $(var robot_sn)_joint3:
-    has_velocity_limits: true
-    max_velocity: 2.4435 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   $(var robot_sn)_joint4:
-    has_velocity_limits: true
-    max_velocity: 2.4435 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   $(var robot_sn)_joint5:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   $(var robot_sn)_joint6:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   $(var robot_sn)_joint7:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   $(var robot_sn)_finger_width_joint:
-    has_velocity_limits: true
-    max_velocity: 0.5
     has_acceleration_limits: true
     max_acceleration: 1.0
 
-  # Dual-arm joint limits (Enlight-LL, MICO-Core, MICO-Plus, MICO-Ultra)
+  # Dual-arm (Enlight-LL, MICO-Core, MICO-Plus, MICO-Ultra)
   left_$(var robot_sn)_joint1:
-    has_velocity_limits: true
-    max_velocity: 2.0944 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   left_$(var robot_sn)_joint2:
-    has_velocity_limits: true
-    max_velocity: 2.0944 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   left_$(var robot_sn)_joint3:
-    has_velocity_limits: true
-    max_velocity: 2.4435 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   left_$(var robot_sn)_joint4:
-    has_velocity_limits: true
-    max_velocity: 2.4435 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   left_$(var robot_sn)_joint5:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   left_$(var robot_sn)_joint6:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   left_$(var robot_sn)_joint7:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
+  left_$(var robot_sn)_finger_width_joint:
+    has_acceleration_limits: true
+    max_acceleration: 1.0
   right_$(var robot_sn)_joint1:
-    has_velocity_limits: true
-    max_velocity: 2.0944 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   right_$(var robot_sn)_joint2:
-    has_velocity_limits: true
-    max_velocity: 2.0944 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   right_$(var robot_sn)_joint3:
-    has_velocity_limits: true
-    max_velocity: 2.4435 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   right_$(var robot_sn)_joint4:
-    has_velocity_limits: true
-    max_velocity: 2.4435 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   right_$(var robot_sn)_joint5:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   right_$(var robot_sn)_joint6:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
   right_$(var robot_sn)_joint7:
-    has_velocity_limits: true
-    max_velocity: 4.8869 # Enlight-L
     has_acceleration_limits: true
-    max_acceleration: 2.0
+    max_acceleration: 5.0
+  right_$(var robot_sn)_finger_width_joint:
+    has_acceleration_limits: true
+    max_acceleration: 1.0
 
-  # 2-DoF torso joint limits (MICO-Plus, MICO-Ultra). Required by MoveIt's
-  # time-optimal trajectory generation, which has no acceleration limit otherwise.
+  # 2-DoF torso (MICO-Plus, MICO-Ultra)
   $(var robot_sn)_torso_joint1:
-    has_velocity_limits: true
-    max_velocity: 1.0 # MICO torso
     has_acceleration_limits: true
     max_acceleration: 1.0
   $(var robot_sn)_torso_joint2:
-    has_velocity_limits: true
-    max_velocity: 1.0 # MICO torso
     has_acceleration_limits: true
     max_acceleration: 1.0

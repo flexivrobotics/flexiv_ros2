@@ -30,13 +30,11 @@
              URDF link/joint naming: left_<sn>_* and right_<sn>_*
              The macro computes prefix = arm_prefix + robot_sn + '_', so
              arm_prefix="left_" yields prefix "left_<sn>_" as required.
-             Virtual joints are disabled because both arms parent to 'world' via the URDF. -->
+             No virtual joint is declared: the URDF already roots every arm at 'world'. -->
         <xacro:flexiv_srdf arm_prefix="left_" robot_sn="$(arg robot_sn)"
-            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)"
-            use_virtual_joint="false" />
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
         <xacro:flexiv_srdf arm_prefix="right_" robot_sn="$(arg robot_sn)"
-            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)"
-            use_virtual_joint="false" />
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
 
         <!-- Combined group that references both arm sub-groups -->
         <xacro:property name="left_prefix" value="${'left_' + '$(arg robot_sn)' + '_'}" />
