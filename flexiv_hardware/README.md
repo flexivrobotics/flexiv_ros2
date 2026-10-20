@@ -5,7 +5,62 @@
 `FlexivHardwareInterface` drives the whole robot through a single RDK connection, whether that
 robot has one arm (Enlight-L), two arms (Enlight-LL, MICO-Core) or two arms plus a pan-tilt torso
 (MICO-Plus, MICO-Ultra). It exports position, velocity and effort command and state interfaces for
-every joint, plus the 24 digital I/O ports and the per-joint-group Flexiv robot states.
+every joint, plus the 24 digital I/O ports and the per-joint-group Flexiv robot states, and the
+Cartesian motion-force interfaces of each arm.
+
+## Joint groups and controllers
+
+The robot is commanded per RDK joint group: `ARM_1` (left, or the only arm), `ARM_2` (right) and
+`EXT_AXIS` (the MICO-Plus/Ultra torso). A joint group is the unit the driver arbitrates on:
+
+- A controller must claim every joint of a group, with one command interface type.
+- Each group can be claimed by its own controller, so on a dual-arm robot
+  `left_flexiv_arm_controller` and `right_flexiv_arm_controller` (and `flexiv_torso_controller`)
+  accept and preempt goals independently. A group no controller claims holds its last position
+  while the others move.
+- One RDK control mode applies to the whole robot. Position on one group and velocity on another is
+  fine, but the effort interface cannot be mixed with them, and it needs every group claimed, since
+  an unclaimed group could only be sent zero torque and would float.
+- The Cartesian interfaces of all arms are claimed together by one
+  `cartesian_motion_force_controller`, and no joint controller may run alongside it.
+
+## Real-time control modes
+
+The `rdk_realtime_mode` hardware parameter (xacro and launch arg of the same name, default `true`)
+selects between the real-time RDK modes, which v2.x has always used, and the non-real-time ones:
+
+| Interface | `true` (default) | `false` |
+| --------- | ---------------- | ------- |
+| Position  | `RT_JOINT_POSITION` / `RT_JOINT_IMPEDANCE`, `StreamJointPosition()` | `NRT_JOINT_POSITION` / `NRT_JOINT_IMPEDANCE`, `SendJointPosition()` |
+| Velocity  | same as position, commanded velocity as feed-forward | same as position |
+| Cartesian | `RT_CARTESIAN_MOTION_FORCE`, `StreamCartesianMotionForce()` | `NRT_CARTESIAN_MOTION_FORCE`, `SendCartesianMotionForce()` |
+| Effort    | `RT_JOINT_TORQUE` | `RT_JOINT_TORQUE` |
+
+In a real-time mode the robot tracks each command directly, without its motion generator:
+
+- The [joint motion limits](#joint-motion-limits) and the Cartesian motion limits do not apply, and
+  `~/set_cartesian_motion_limits` is refused. The commands must already be smooth, as
+  `joint_trajectory_controller` output at 1 kHz is.
+- A command is streamed every cycle for every joint group. While a group's command is not finite,
+  or no controller claims it, its last target is held rather than skipped.
+- A command arriving late counts as a timeliness failure. Past the RDK limit the RDK only logs a
+  warning per command and keeps tracking, so the driver stops streaming itself: motion is withheld
+  until the controllers are restarted, the same as after an [interruption](#step-3-restoring-a-control-mode).
+  Run on a PREEMPT_RT kernel with the controller manager at real-time priority.
+- `withhold_on_timeliness_failure:=false` (default `true`) makes the driver only log a warning each
+  time the limit is reached and keep streaming, but the robot tracking performance may degrade.
+
+Velocity commands are integrated into a position target that leads the measured position by at
+most 0.1 rad, in both modes.
+
+## Joint motion limits
+
+In the non-real-time modes the robot's motion generator chases each joint command within a velocity
+and an acceleration limit:
+
+- `max_vel` is each joint's URDF velocity limit.
+- `max_acc` is the `max_joint_acceleration` hardware parameter (xacro arg of the same name),
+  default 5.0 rad/s², the acceleration limit `flexiv_moveit_config` plans with.
 
 ## Error recovery
 
@@ -53,11 +108,17 @@ Recovery does not restore the control mode. Restart the controller:
 ros2 control switch_controllers --deactivate flexiv_arm_controller --activate flexiv_arm_controller
 ```
 
-The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `RT_JOINT_POSITION` for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step. In a joint impedance control mode it also re-applies whatever joint impedance properties were set, see [Joint impedance configuration](#joint-impedance-configuration).
+The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `RT_JOINT_POSITION`, or `NRT_JOINT_POSITION` with `rdk_realtime_mode:=false`, for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step. In a joint impedance control mode it also re-applies whatever joint impedance properties were set, see [Joint impedance configuration](#joint-impedance-configuration).
 
 **The restart is required after every interruption, not only after a recovery action.** Once the driver has left `READY` for any reason, motion stays withheld until a controller restart, even if the robot became operational again on its own or the operator resolved the condition in Flexiv Elements.
 
-On a dual-arm robot each arm runs its own joint trajectory controller (`left_`/`right_flexiv_arm_controller`, plus `flexiv_torso_controller` on MICO-Plus/Ultra), so restart every controller that was running — the command mode switch covers all joints of the component at once.
+On a dual-arm robot each arm runs its own joint trajectory controller (`left_`/`right_flexiv_arm_controller`, plus `flexiv_torso_controller` on MICO-Plus/Ultra), so restart every controller that was running, in one switch. A switch that restarts only some of them is refused while motion is withheld: the controller left running would resume from its stale setpoint.
+
+```bash
+ros2 control switch_controllers \
+  --deactivate left_flexiv_arm_controller right_flexiv_arm_controller \
+  --activate left_flexiv_arm_controller right_flexiv_arm_controller
+```
 
 ### Recovery policies
 
@@ -171,3 +232,54 @@ Notes:
   was set on every controller start.
 - The MICO-Plus and MICO-Ultra pan-tilt torso joints are not covered and cannot be named: the
   robot reports no nominal joint stiffness for them.
+
+## Cartesian motion-force configuration
+
+Interfaces and settings used by [`cartesian_motion_force_controller`](../flexiv_controllers/cartesian_motion_force_controller).
+
+Each arm exports these interfaces under `<prefix>tcp`, with the same prefix as its joints, e.g.
+`Enlight-L-123456_tcp`, or `left_Enlight-LL-123456_tcp` and `right_Enlight-LL-123456_tcp`:
+
+| Interface | Type | Meaning |
+| --------- | ---- | ------- |
+| `cartesian_pose_{x,y,z,qw,qx,qy,qz}`     | command, state | TCP pose in world frame |
+| `cartesian_wrench_{fx,fy,fz,mx,my,mz}`   | command | Target wrench in the force control frame, tracked on force-controlled axes only |
+| `cartesian_velocity_{vx,vy,vz,wx,wy,wz}` | command | Target TCP velocity in world frame, 0 is the most robust |
+
+The target wrench is the wrench sensed at the TCP, not the one it exerts: `f_z = +5 N` in world
+frame moves the TCP down until the sensed force is +5 N.
+
+The settings are services, one per RDK call, namespaced like the recovery interface. For
+`Enlight-L-123456`, the first service is
+`/Enlight_L_123456/flexiv_cartesian_motion_force_config_node/set_cartesian_impedance`.
+
+| RDK call | Service | Valid range |
+| -------- | ------- | ----------- |
+| `SetCartesianImpedance()`  | `~/set_cartesian_impedance`     | `k_x` in `[0, RobotInfo::K_x_nom]`, empty means nominal; `z_x` in `[0.3, 0.8]`, nominal 0.7 |
+| `SetMaxContactWrench()`    | `~/set_max_contact_wrench`      | `≥ 0`, infinity disables it |
+| `SetNullSpacePosture()`    | `~/set_null_space_posture`      | `[RobotInfo::q_min, RobotInfo::q_max]`, one per arm joint in URDF order |
+| `SetNullSpaceObjectives()` | `~/set_null_space_objectives`   | `[0, 1]`, `[0, 1]`, `[0.1, 1]` |
+| `SetForceControlAxis()`    | `~/set_force_control_axis`      | `max_linear_vel` in `[0.005, 2.0]` m/s |
+| `SetForceControlFrame()`   | `~/set_force_control_frame`     | `WORLD` or `TCP` |
+| `SetPassiveForceControl()` | `~/set_passive_force_control`   | – |
+| Motion limits              | `~/set_cartesian_motion_limits` | `> 0`, defaults 0.5 m/s, 1.0 rad/s, 2.0 m/s², 5.0 rad/s²; non-real-time mode only |
+
+For example, to force-control the Z axis:
+
+```bash
+ros2 service call /Enlight_L_123456/flexiv_cartesian_motion_force_config_node/set_force_control_axis flexiv_msgs/srv/SetForceControlAxis "{enabled_axes: [false, false, true, false, false, false]}"
+```
+
+Notes:
+- The force/torque sensors are zeroed every time the controller starts, so nothing may be in contact with the robot then.
+- A joint controller and the Cartesian controller cannot run at the same time.
+- Except for passive force control, the settings are only accepted while the controller runs, and every start begins from the robot's defaults.
+- Passive force control is only accepted before the controller starts, and is disabled again when it stops.
+- The maximum contact wrench only limits motion-controlled axes, and cannot be enabled while a rotational axis is force-controlled.
+
+### Dual-arm robots
+
+Every per-arm array holds the left arm's (`ARM_1`) values first, e.g. 12 values for `max_wrench`,
+and the null-space posture covers every arm joint in URDF order (14 values; the MICO torso joints
+are not included). The torso of MICO-Plus/Ultra is not commanded while the Cartesian controller
+runs.
