@@ -64,6 +64,22 @@
         value="${'$(arg robot_type)' in ['MICO-Plus', 'MICO-Ultra']}" />
     <xacro:property name="torso_prefix" value="${'$(arg robot_sn)' + '_torso_'}" />
 
+    <!-- The neck and head (flexiv_description jazzy-v3.1) are fixed to the torso link the arms
+         mount on, so their poses relative to that link and to both arm bases never change. Their
+         collision checks are disabled against all of these; the arm links keep theirs. -->
+    <xacro:macro name="mico_neck_head_collisions" params="mount">
+        <disable_collisions link1="${mount}" link2="${torso_prefix}neck_link" reason="Adjacent" />
+        <disable_collisions link1="${torso_prefix}neck_link" link2="${torso_prefix}head_link"
+            reason="Adjacent" />
+        <disable_collisions link1="${mount}" link2="${torso_prefix}head_link" reason="Never" />
+        <xacro:macro name="mico_rigid_to_arm_bases" params="link">
+            <disable_collisions link1="${link}" link2="${left_prefix}base_link" reason="Never" />
+            <disable_collisions link1="${link}" link2="${right_prefix}base_link" reason="Never" />
+        </xacro:macro>
+        <xacro:mico_rigid_to_arm_bases link="${torso_prefix}neck_link" />
+        <xacro:mico_rigid_to_arm_bases link="${torso_prefix}head_link" />
+    </xacro:macro>
+
     <!-- MICO-Core: fixed torso; both arm bases mount directly on the torso base_link. -->
     <xacro:if value="${is_mico_core}">
         <disable_collisions link1="${torso_prefix}base_link" link2="${left_prefix}base_link"
@@ -72,6 +88,7 @@
             reason="Adjacent" />
         <disable_collisions link1="${left_prefix}base_link" link2="${right_prefix}base_link"
             reason="Never" />
+        <xacro:mico_neck_head_collisions mount="${torso_prefix}base_link" />
     </xacro:if>
 
     <!-- MICO-Plus / MICO-Ultra: 2-DoF torso (base_link -> link1 -> link2); arms mount on link2. -->
@@ -103,6 +120,7 @@
             reason="Never" />
         <disable_collisions link1="${left_prefix}base_link" link2="${right_prefix}base_link"
             reason="Never" />
+        <xacro:mico_neck_head_collisions mount="${torso_prefix}link2" />
     </xacro:if>
 
 </robot>
