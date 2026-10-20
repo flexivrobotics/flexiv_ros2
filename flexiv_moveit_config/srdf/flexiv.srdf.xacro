@@ -33,8 +33,11 @@
              No virtual joint is declared: the URDF already roots every arm at 'world'. -->
         <xacro:flexiv_srdf arm_prefix="left_" robot_sn="$(arg robot_sn)"
             load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
+        <!-- The MICO arms face each other, so the right arm starts mirrored, as in the URDF -->
+        <xacro:property name="init_dir" value="$(find flexiv_description)/config/Enlight-L" />
         <xacro:flexiv_srdf arm_prefix="right_" robot_sn="$(arg robot_sn)"
-            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
+            load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)"
+            initial_positions_file="${init_dir + ('/initial_positions.yaml' if '$(arg robot_type)' == 'Enlight-LL' else '/initial_positions_mirrored.yaml')}" />
 
         <!-- Combined group that references both arm sub-groups -->
         <xacro:property name="left_prefix" value="${'left_' + '$(arg robot_sn)' + '_'}" />
