@@ -1098,14 +1098,17 @@ FlexivHardwareInterface::on_export_state_interfaces()
             "Robot reported no joint groups during state interface export; defaulting to ARMS");
     }
 
+    // The RDK populates the Cartesian states (TCP and flange poses, wrenches) of the single-arm
+    // groups only, so robot_sn names the arm on a single-arm robot, not the ARMS aggregate.
+    const bool single_arm = arm_prefixes_.size() == 1;
     for (const auto& group : groups) {
-        std::string robot_state_name = robot_sn;
+        std::string robot_state_name = robot_sn + "_" + joint_group_name_string(group);
         if (group == flexiv::rdk::JointGroup::ARM_1) {
-            robot_state_name = "left_" + robot_sn;
+            robot_state_name = single_arm ? robot_sn : "left_" + robot_sn;
         } else if (group == flexiv::rdk::JointGroup::ARM_2) {
             robot_state_name = "right_" + robot_sn;
-        } else if (group != flexiv::rdk::JointGroup::ARMS) {
-            robot_state_name = robot_sn + "_" + joint_group_name_string(group);
+        } else if (group == flexiv::rdk::JointGroup::ARMS && !single_arm) {
+            robot_state_name = robot_sn;
         }
 
         auto state_storage
@@ -1346,8 +1349,8 @@ hardware_interface::return_type FlexivHardwareInterface::read(
 
         // Refresh every exported per-group robot-states handle the robot reports, so the
         // robot-states broadcaster(s) publish fresh data regardless of which group name they read:
-        // a single-arm broadcaster reads the ARMS-named (robot_sn) handle while commands use ARM_1,
-        // and dual-arm broadcasters read the ARM_1/ARM_2 (left_/right_) handles.
+        // a single-arm broadcaster reads the ARM_1 (robot_sn) handle, and dual-arm broadcasters
+        // read the ARM_1/ARM_2 (left_/right_) handles.
         for (auto& [group, group_states] : hw_flexiv_robot_states_by_group_) {
             const auto it = states_by_group.find(group);
             if (it != states_by_group.end()) {
