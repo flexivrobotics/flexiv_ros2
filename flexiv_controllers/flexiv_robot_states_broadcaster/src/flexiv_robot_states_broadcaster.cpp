@@ -7,6 +7,7 @@
 #include "flexiv_robot_states_broadcaster/flexiv_robot_states_broadcaster.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <string>
 
@@ -143,7 +144,16 @@ controller_interface::return_type FlexivRobotStatesBroadcaster::update(
 
         // TCP in flange frame, from both poses in world frame. The robot's world frame need not
         // match the URDF's, since only the relative transform is published.
-        if (realtime_tf_publisher_ && realtime_tf_publisher_->trylock()) {
+        // A zero or non-finite quaternion, as before the first robot states arrive, has no
+        // rotation to publish
+        const auto valid_quaternion = [](const geometry_msgs::msg::Quaternion& q) {
+            const double norm_sq = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+            return std::isfinite(norm_sq) && norm_sq > 1e-12;
+        };
+        if (realtime_tf_publisher_
+            && valid_quaternion(flexiv_robot_states_msg.flange_pose.pose.orientation)
+            && valid_quaternion(flexiv_robot_states_msg.tcp_pose.pose.orientation)
+            && realtime_tf_publisher_->trylock()) {
             const auto to_transform = [](const geometry_msgs::msg::Pose& pose) {
                 return tf2::Transform(tf2::Quaternion(pose.orientation.x, pose.orientation.y,
                                           pose.orientation.z, pose.orientation.w),
