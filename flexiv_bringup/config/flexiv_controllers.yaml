@@ -38,7 +38,23 @@ flexiv_arm_controller:
     allow_nonzero_velocity_at_trajectory_end: true
     constraints:
       stopped_velocity_tolerance: 0.01
-      goal_time: 0.0
+      # A goal fails unless every joint ends within its tolerance, so a robot that does not
+      # follow, e.g. while the driver withholds motion, is reported instead of succeeding
+      goal_time: 0.5
+      $(var robot_sn)_joint1:
+        goal: 0.05
+      $(var robot_sn)_joint2:
+        goal: 0.05
+      $(var robot_sn)_joint3:
+        goal: 0.05
+      $(var robot_sn)_joint4:
+        goal: 0.05
+      $(var robot_sn)_joint5:
+        goal: 0.05
+      $(var robot_sn)_joint6:
+        goal: 0.05
+      $(var robot_sn)_joint7:
+        goal: 0.05
 
 flexiv_robot_states_broadcaster:
   ros__parameters:

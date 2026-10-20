@@ -43,12 +43,17 @@ In a real-time mode the robot tracks each command directly, without its motion g
   `joint_trajectory_controller` output at 1 kHz is.
 - A command is streamed every cycle for every joint group. While a group's command is not finite,
   or no controller claims it, its last target is held rather than skipped.
-- A command arriving late counts as a timeliness failure. Past the RDK limit the RDK only logs a
-  warning per command and keeps tracking, so the driver stops streaming itself: motion is withheld
+- A command arriving late counts as a timeliness failure. Past the RDK limit the RDK logs a warning
+  per command and keeps tracking, and by default (`withhold_on_timeliness_failure:=false`) the
+  driver keeps streaming too, logging a warning each time the limit is reached. Tracking may
+  degrade and the RDK warnings can flood the log; run on a PREEMPT_RT kernel with the controller
+  manager at real-time priority to avoid both.
+- `withhold_on_timeliness_failure:=true` makes the driver stop streaming instead: motion is withheld
   until the controllers are restarted, the same as after an [interruption](#step-3-restoring-a-control-mode).
-  Run on a PREEMPT_RT kernel with the controller manager at real-time priority.
-- `withhold_on_timeliness_failure:=false` (default `true`) makes the driver only log a warning each
-  time the limit is reached and keep streaming, but the robot tracking performance may degrade.
+  Use it only on a real-time capable host; elsewhere it trips within seconds of startup.
+- While motion is withheld, the driver warns every 5 s that controller commands are ignored, and
+  the trajectory controllers fail their goals (0.05 rad goal tolerance per joint) rather than
+  reporting them as reached.
 
 Velocity commands are integrated into a position target that leads the measured position by at
 most 0.1 rad, in both modes.

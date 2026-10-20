@@ -14,7 +14,7 @@
     robot_sn
     rdk_control_mode:='joint_position'
     rdk_realtime_mode:=true
-    withhold_on_timeliness_failure:=true
+    withhold_on_timeliness_failure:=false
     max_joint_acceleration:=5.0
     use_fake_hardware:=false
     fake_sensor_commands:=false
