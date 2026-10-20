@@ -1,21 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-    <xacro:macro name="flexiv_srdf" params="arm_prefix robot_sn load_mounted_ft_sensor">
+    <xacro:macro name="flexiv_srdf"
+        params="arm_prefix robot_sn load_mounted_ft_sensor
+                initial_positions_file:='$(find flexiv_description)/config/Enlight-L/initial_positions.yaml'">
         <!-- Prefix defaults to 'arm_prefix_robot_sn' -->
         <xacro:property name="prefix" value="${arm_prefix + robot_sn + '_'}" />
+        <!-- Home is the arm's initial pose in flexiv_description, the same one the URDF starts from -->
+        <xacro:property name="home" value="${xacro.load_yaml(initial_positions_file)['initial_positions']}" />
 
         <group name="${prefix}arm">
             <chain base_link="${prefix}base_link" tip_link="${prefix}flange" />
         </group>
 
         <group_state name="${prefix}home" group="${prefix}arm">
-            <joint name="${prefix}joint1" value="0" />
-            <joint name="${prefix}joint2" value="${-2*pi/9}" />
-            <joint name="${prefix}joint3" value="0" />
-            <joint name="${prefix}joint4" value="${pi/2}" />
-            <joint name="${prefix}joint5" value="0" />
-            <joint name="${prefix}joint6" value="${2*pi/9}" />
-            <joint name="${prefix}joint7" value="0" />
+            <joint name="${prefix}joint1" value="${home['joint1']}" />
+            <joint name="${prefix}joint2" value="${home['joint2']}" />
+            <joint name="${prefix}joint3" value="${home['joint3']}" />
+            <joint name="${prefix}joint4" value="${home['joint4']}" />
+            <joint name="${prefix}joint5" value="${home['joint5']}" />
+            <joint name="${prefix}joint6" value="${home['joint6']}" />
+            <joint name="${prefix}joint7" value="${home['joint7']}" />
         </group_state>
 
         <disable_collisions link1="${prefix}base_link" link2="${prefix}link1" reason="Adjacent" />
