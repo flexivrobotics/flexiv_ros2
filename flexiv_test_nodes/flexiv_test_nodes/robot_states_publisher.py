@@ -100,9 +100,9 @@ class RobotStatesPublisher(Node):
             self.get_logger().info("===================")
 
             if is_fault:
-                self.get_logger().warn("Robot is in FAULT state!")
+                self.get_logger().warning("Robot is in FAULT state!")
             elif not is_operational:
-                self.get_logger().warn("Robot is NOT operational!")
+                self.get_logger().warning("Robot is NOT operational!")
 
         except Exception as e:
             self.get_logger().error(f"Error checking robot status: {str(e)}")
@@ -222,7 +222,7 @@ class RobotStatesPublisher(Node):
 
             # External wrench in TCP frame: [f_x, f_y, f_z, m_x, m_y, m_z]
             msg.tcp_wrench_local = self.create_wrench_stamped(
-                robot_states.tcp_wrench_local, "flange"
+                robot_states.tcp_wrench_local, "tcp"
             )
 
             # External wrench in world frame: [f_x, f_y, f_z, m_x, m_y, m_z]
@@ -232,7 +232,7 @@ class RobotStatesPublisher(Node):
 
             # External wrench in TCP frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
             msg.raw_tcp_wrench_local = self.create_wrench_stamped(
-                robot_states.raw_tcp_wrench_local, "flange"
+                robot_states.raw_tcp_wrench_local, "tcp"
             )
 
             # External wrench in world frame (raw): [f_x, f_y, f_z, m_x, m_y, m_z]
@@ -247,18 +247,6 @@ class RobotStatesPublisher(Node):
             self.get_logger().error(
                 f"Error publishing robot states: {str(e)}", throttle_duration_sec=1.0
             )
-
-    def destroy_node(self):
-        """Clean shutdown of the node."""
-        self.get_logger().info("Shutting down Robot States Publisher...")
-        try:
-            # Stop the robot safely if needed
-            if hasattr(self, "robot"):
-                self.get_logger().info("Disconnecting from robot...")
-        except Exception as e:
-            self.get_logger().error(f"Error during shutdown: {str(e)}")
-        finally:
-            super().destroy_node()
 
 
 def main(args=None):
