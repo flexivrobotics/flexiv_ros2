@@ -34,29 +34,18 @@ For ROS 2 users to easily work with [RDK](https://github.com/flexivrobotics/flex
 
 ## Getting Started
 
-This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.04). Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
+This branch targets ROS 2 Jazzy (Ubuntu 24.04); for ROS 2 Humble use the [humble](https://github.com/flexivrobotics/flexiv_ros2/tree/humble) branch. Other versions of Ubuntu and ROS 2 may work, but are not officially supported.
 
 1. Install [ROS 2 Jazzy via Debian Packages](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debians.html)
 
-2. Install `colcon` and additional ROS packages:
+2. Install the build tools. The ROS package dependencies are installed by `rosdep` in step 4:
 
    ```bash
    sudo apt install -y \
    python3-colcon-common-extensions \
-   libeigen3-dev \
-   wget \
-   ros-jazzy-xacro \
-   ros-jazzy-tinyxml2-vendor \
-   ros-jazzy-ros2-control \
-   ros-jazzy-realtime-tools \
-   ros-jazzy-control-toolbox \
-   ros-jazzy-moveit \
-   ros-jazzy-ros2-controllers \
-   ros-jazzy-test-msgs \
-   ros-jazzy-joint-state-publisher \
-   ros-jazzy-joint-state-publisher-gui \
-   ros-jazzy-robot-state-publisher \
-   ros-jazzy-rviz2
+   python3-rosdep \
+   python3-vcstool \
+   wget
    ```
 
 3. Setup workspace:
@@ -74,7 +63,7 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
    vcs import src < src/flexiv_ros2/flexiv.jazzy.repos --recursive --skip-existing
    touch src/flexiv_rdk/COLCON_IGNORE
    rosdep update
-   rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
+   rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y --skip-keys flexiv_rdk
    ```
 
 5. Choose a directory for installing `flexiv_rdk` library and all its dependencies. For example, a new folder named `rdk_install` under the home directory: `~/rdk_install`. Compile and install to the installation directory:
@@ -117,6 +106,13 @@ This project was developed for ROS 2 Humble (Ubuntu 22.04) and Jazzy (Ubuntu 24.
 
 The prerequisites of using ROS 2 with Flexiv robots are [enable RDK on the robot server](https://www.flexiv.com/software/rdk/manual/activate_rdk_server.html) and [establish connection](https://www.flexiv.com/software/rdk/manual/establish_connection.html) between the workstation PC and the robot.
 
+> [!TIP]
+> If ROS 2 discovery is slow, or topics and services of the driver are missing, while connected to the robot, restrict ROS 2 discovery to the workstation PC in every terminal, including the one running the driver. This also stops ROS 2 nodes on other machines from communicating with it.
+>
+> ```bash
+> export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+> ```
+
 All provided launch files prepend `${rdk_install_prefix}/lib` to `LD_LIBRARY_PATH` before starting Flexiv-backed nodes. The default launch argument assumes `flexiv_rdk` was installed to `~/rdk_install`, matching the build steps above. If you installed `flexiv_rdk` to a different prefix, pass `rdk_install_prefix:=/path/to/prefix` to the launch command.
 
 The launch file to start the single-arm robot driver is `flexiv.launch.py` - it loads and starts the robot hardware, joint states broadcaster, Flexiv robot states broadcasters, and robot controller and opens RViZ. The arguments for the launch file are as follows:
@@ -124,11 +120,13 @@ The launch file to start the single-arm robot driver is `flexiv.launch.py` - it 
 - `robot_sn` (*required*) - Serial number of the robot to connect to. Remove any space, for example: Enlight-L-123456
 - `robot_type` (default: *Enlight-L*) - type of the Flexiv robot. Supported values: *Enlight-L* (single-arm), *Enlight-LL*, *MICO-Core*, *MICO-Plus*, *MICO-Ultra* (dual-arm). Dual-arm models share one RDK connection (one `robot_sn`) and expose `left_`/`right_` prefixed joints. **Note:** *MICO-Ultra*'s mobile base is not yet supported in `ros2_control` — its arms (and pan-tilt torso) are controllable, but the mobile base is not driven by this stack.
 - `rdk_control_mode` (default: *joint_position*) - Flexiv RDK control mode for ROS 2 joint position and velocity interfaces. Options: *joint_position* or *joint_impedance*. In joint impedance mode the controller's impedance properties can be set at runtime, see [Joint Impedance Configuration](#joint-impedance-configuration)
+- `rdk_realtime_mode` (default: *true*) - use the real-time RDK modes (`RT_JOINT_POSITION`, `RT_JOINT_IMPEDANCE`, `RT_CARTESIAN_MOTION_FORCE`), streamed at the controller manager rate. *false* selects the non-real-time ones, smoothed by the robot's motion generator within the joint and Cartesian motion limits. See [Real-time control modes](flexiv_hardware/README.md#real-time-control-modes)
+- `withhold_on_timeliness_failure` (default: *true*) - with `rdk_realtime_mode:=true`, withhold motion until the controllers are restarted once real-time commands arrive late too often. *false* only logs a warning and keeps streaming.
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
-- `use_fake_hardware` (default: *false*) - starts `FakeSystem` instead of real hardware. This is a simple simulation that mimics joint command to their states.
+- `use_fake_hardware` (default: *false*) - starts `mock_components/GenericSystem` instead of real hardware. This is a simple simulation that mirrors joint commands to their states. The gripper, GPIO and Flexiv robot states are not available with it.
 - `start_rviz` (default: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
-- `robot_controller` (default: *flexiv_arm_controller*) - robot controller to start. Available controllers: *flexiv_arm_controller*
+- `robot_controller` (default: *empty*) - robot controller(s) to start, comma-separated, overriding the default set for the robot type. Leave unset to get the default: *flexiv_arm_controller* on a single-arm robot, *left_flexiv_arm_controller, right_flexiv_arm_controller* on a dual-arm robot, plus *flexiv_torso_controller* on *MICO-Plus* / *MICO-Ultra*. *cartesian_motion_force_controller* starts the Cartesian motion-force controller for all arms instead, see [Cartesian Motion-Force Control](#cartesian-motion-force-control)
 - `kinematics_params_file` (default: *empty*) - kinematics YAML file holding this robot's measured parameters, as generated by [`flexiv_calibration`](#robot-calibration). When empty, `flexiv_description/config/[robot_type]/default_kinematics.yaml` is used. One file describes the whole robot: a dual-arm model's file carries an `ARM_1` and an `ARM_2` section (plus `EXT_AXIS` on *MICO-Plus*/*MICO-Ultra*).
 
 ### Example Commands
@@ -159,6 +157,8 @@ The launch file to start the single-arm robot driver is `flexiv.launch.py` - it 
      ```
 
      The joint position goals can be changed in `flexiv_bringup/config/joint_trajectory_position_publisher.yaml`
+
+     On a dual-arm robot, pass `arm:=left`, `arm:=right` or `arm:=both` to drive the per-arm controllers instead. Each arm has its own controller, so one arm can move while the other holds or runs a different goal.
 
 ### Using MoveIt
 
@@ -209,6 +209,8 @@ ros2 control switch_controllers \
   --deactivate flexiv_arm_controller --activate flexiv_arm_controller
 ```
 
+On a dual-arm robot, restart every controller that was running in one switch, e.g. `--deactivate left_flexiv_arm_controller right_flexiv_arm_controller --activate left_flexiv_arm_controller right_flexiv_arm_controller`.
+
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#error-recovery) for the recovery policies, the `ClearFault()` guidance and the dual-arm notes.
 
 ### Joint Impedance Configuration
@@ -243,6 +245,24 @@ ros2 service call /Enlight_LL_123456/flexiv_joint_impedance_config_node/set_join
 The robot resets these properties whenever it enters a control mode, so the driver re-applies what was set on every controller start. The pan-tilt torso of *MICO-Plus*/*MICO-Ultra* is not covered.
 
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#joint-impedance-configuration) for the valid ranges, the hold-and-reapply behaviour and the dual-arm notes.
+
+### Cartesian Motion-Force Control
+
+`cartesian_motion_force_controller` sends TCP pose, wrench and velocity targets to the robot's unified motion-force controller (RDK `StreamCartesianMotionForce()` in `RT_CARTESIAN_MOTION_FORCE` mode, or `SendCartesianMotionForce()` in `NRT_CARTESIAN_MOTION_FORCE` mode with `rdk_realtime_mode:=false`). Any Cartesian axes can be force-controlled while the rest stay motion-controlled.
+
+```bash
+# Start the robot driver with the Cartesian motion-force controller
+ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] robot_controller:=cartesian_motion_force_controller
+
+# Send a target: pose in world frame, wrench in the force control frame, velocity in world frame
+ros2 topic pub /cartesian_motion_force_controller/cartesian_motion_force flexiv_msgs/msg/CartesianMotionForce "{pose: {position: {x: 0.68, y: -0.11, z: 0.34}, orientation: {w: 0.0, x: 0.0, y: 1.0, z: 0.0}}}" --once
+```
+
+The force/torque sensors are zeroed when the controller starts, so nothing may be in contact with the robot then. On a dual-arm robot one controller drives both arms, with one topic per arm: `/cartesian_motion_force_controller/left_[robot_sn]/cartesian_motion_force` and `.../right_[robot_sn]/...` (dashes in the serial number become underscores).
+
+The force control settings, such as the force-controlled axes and the Cartesian impedance, are set at runtime with services on `/[robot_sn]/flexiv_cartesian_motion_force_config_node/`, while the controller is running. Every controller start, including the one after a fault recovery, begins from the robot's defaults, so set them again after each start.
+
+See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#cartesian-motion-force-configuration) for the interfaces, the services with their valid ranges, and the dual-arm notes.
 
 ### GPIO
 
@@ -301,6 +321,8 @@ ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] load_gripper:=t
 ```
 
 #### Gripper Actions
+
+The gripper actions finish when the fingers stop moving, not when the command is sent. `move` succeeds when the gripper reaches the target width and aborts if it stops short, for example on an object, so use `grasp` to hold objects. MoveIt uses the `gripper_action` (`control_msgs/action/GripperCommand`) interface. See [`flexiv_gripper`](flexiv_gripper/README.md) for the parameters and the completion rules.
 
 In a new terminal, send the gripper action `move` goal to open or close the gripper:
 
