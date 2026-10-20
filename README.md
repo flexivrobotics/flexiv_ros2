@@ -187,6 +187,7 @@ The robot driver (`flexiv.launch.py`) publishes the following feedback states to
 - `/${robot_sn}/raw_ft_sensor`: Raw force-torque sensor reading expressed in flange frame $^{flange}F_{raw}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 - `/${robot_sn}/tcp_wrench_local`: Estimated external wrench applied on TCP and expressed in the local TCP frame $^{TCP}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
 - `/${robot_sn}/tcp_wrench`: Estimated external wrench applied on TCP and expressed in world frame $^{0}F_{ext}$ in force $[N]$ and torque $[Nm]$. [[`geometry_msgs/WrenchStamped.msg`](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/WrenchStamped.html)]
+- `/tf`: the measured TCP as frame `${robot_sn}_tcp`, child of `${robot_sn}_flange`, computed from the flange and TCP poses so it follows the active tool. The `tcp_wrench_local` topics are expressed in this frame. Disable it with the broadcaster parameter `publish_tcp_tf: false`.
 
 The aggregated `/${robot_sn}/flexiv_robot_states` message also includes the unfiltered wrench fields `raw_tcp_wrench_local` and `raw_tcp_wrench`, which are not published as separate topics.
 

@@ -22,6 +22,8 @@ find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_msgs REQUIRED)
 find_package(flexiv_rdk REQUIRED)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
@@ -36,6 +38,8 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   rclcpp_lifecycle
   rcutils
   realtime_tools
+  tf2
+  tf2_msgs
 )
 
 generate_parameter_library(flexiv_robot_states_broadcaster_parameters

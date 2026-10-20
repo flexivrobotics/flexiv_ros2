@@ -18,6 +18,7 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 #include "realtime_tools/realtime_publisher.hpp"
+#include "tf2_msgs/msg/tf_message.hpp"
 
 namespace flexiv_robot_states_broadcaster {
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
@@ -29,6 +30,7 @@ const std::string kFlangePoseTopic = "/flange_pose";
 const std::string kRawFTSensorTopic = "/raw_ft_sensor_wrench";
 const std::string kTcpWrenchLocalTopic = "/tcp_wrench_local";
 const std::string kTcpWrenchTopic = "/tcp_wrench";
+const std::string kTfTopic = "/tf";
 
 class FlexivRobotStatesBroadcaster : public controller_interface::ControllerInterface
 {
@@ -72,6 +74,11 @@ protected:
     std::shared_ptr<WrenchStampedPublisher> raw_ft_sensor_publisher_;
     std::shared_ptr<WrenchStampedPublisher> tcp_wrench_local_publisher_;
     std::shared_ptr<WrenchStampedPublisher> tcp_wrench_publisher_;
+
+    // The TCP as a TF frame below the flange, from the measured flange and TCP poses
+    using TfPublisher = realtime_tools::RealtimePublisher<tf2_msgs::msg::TFMessage>;
+    std::shared_ptr<rclcpp::Publisher<tf2_msgs::msg::TFMessage>> tf_publisher_;
+    std::shared_ptr<TfPublisher> realtime_tf_publisher_;
 };
 
 } /* namespace flexiv_robot_states_broadcaster */
