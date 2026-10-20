@@ -8,6 +8,7 @@
 #include <cmath>
 
 #include "flexiv_hardware/fault_recovery.hpp"
+#include "flexiv_hardware/rdk_compat.hpp"
 
 namespace {
 
@@ -116,7 +117,7 @@ std::string DescribeRobotCondition(const RobotCondition& condition)
 
 std::string OperationalStatusName(flexiv::rdk::OperationalStatus status)
 {
-    const auto& names = flexiv::rdk::OperationalStatusNames();
+    const auto& names = rdk_compat::OperationalStatusNames();
     const auto it = names.find(status);
     if (it == names.end()) {
         return "Unknown status";
@@ -126,7 +127,7 @@ std::string OperationalStatusName(flexiv::rdk::OperationalStatus status)
 
 std::string ControlModeName(flexiv::rdk::Mode mode)
 {
-    const auto& names = flexiv::rdk::ModeNames();
+    const auto& names = rdk_compat::ModeNames();
     const auto it = names.find(mode);
     if (it == names.end()) {
         return "UNKNOWN";

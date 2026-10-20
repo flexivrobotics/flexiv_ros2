@@ -5,6 +5,7 @@
 #include "rclcpp_components/register_node_macro.hpp"
 
 #include "flexiv_gripper/gripper_action_server.hpp"
+#include "flexiv_hardware/rdk_compat.hpp"
 
 namespace {
 
@@ -48,7 +49,7 @@ flexiv::rdk::JointGroup ResolveJointGroup(const std::string& group_name,
             "Parameter 'joint_group' must be specified (e.g. ARM_1 or ARM_2) because the connected "
             "robot reports multiple single-arm groups");
     }
-    for (const auto& [group, name] : flexiv::rdk::JointGroupNames()) {
+    for (const auto& [group, name] : flexiv_hardware::rdk_compat::JointGroupNames()) {
         if (name == group_name) {
             if (single_arm_groups.count(group) == 0) {
                 throw std::invalid_argument("Joint group '" + group_name
@@ -181,7 +182,7 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         const std::string joint_group_name = this->get_parameter("joint_group").as_string();
         this->joint_group_ = ResolveJointGroup(joint_group_name, robot_->info().single_arm_groups);
         RCLCPP_INFO(this->get_logger(), "Controlling gripper for joint group [%s]",
-            flexiv::rdk::JointGroupNames().at(joint_group_).c_str());
+            flexiv_hardware::rdk_compat::JointGroupNames().at(joint_group_).c_str());
 
         RCLCPP_INFO(this->get_logger(), "Initializing Flexiv gripper control interface");
         this->gripper_ = std::make_unique<flexiv::rdk::Gripper>(*robot_);

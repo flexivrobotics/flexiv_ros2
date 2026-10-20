@@ -98,7 +98,12 @@ bool TemplateIsUsable(const fs::path& tmpl, const rclcpp::Logger& logger)
 /** @brief Name of the robot's product model, e.g. "Enlight-L". */
 std::string ProductModelName(flexiv::rdk::ProductModel model)
 {
+    // RDK v2.2 (the first to ship global_vars.hpp) turned the v2.1 inline map into a function
+#if __has_include(<flexiv/rdk/global_vars.hpp>)
     const auto& names = flexiv::rdk::ProductModelNames();
+#else
+    const auto& names = flexiv::rdk::kProductModelNames;
+#endif
     const auto it = names.find(model);
     return it != names.end() ? it->second : "UNKNOWN";
 }
