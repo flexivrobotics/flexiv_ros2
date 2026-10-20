@@ -1,0 +1,8 @@
+<library path="cartesian_motion_force_controller">
+    <class name="cartesian_motion_force_controller/CartesianMotionForceController"
+           type="cartesian_motion_force_controller::CartesianMotionForceController" base_class_type="controller_interface::ControllerInterface">
+    <description>
+      Forwards Cartesian motion-force commands (TCP pose, wrench and velocity) to the Flexiv hardware interface, which sends them with SendCartesianMotionForce().
+    </description>
+    </class>
+</library>
