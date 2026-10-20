@@ -6,6 +6,7 @@
 
 #include "flexiv_robot_states_broadcaster/flexiv_robot_states_broadcaster.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -124,11 +125,6 @@ controller_interface::return_type FlexivRobotStatesBroadcaster::update(
         tcp_wrench_local_publisher_->publish(flexiv_robot_states_msg.tcp_wrench_local);
         tcp_wrench_publisher_->publish(flexiv_robot_states_msg.tcp_wrench);
     }
-    // TODO: Enable the error message when the realtime_publisher is updated in ROS 2
-    // else {
-    //     RCLCPP_ERROR(get_node()->get_logger(), "Failed to lock the realtime publisher.");
-    //     return controller_interface::return_type::ERROR;
-    // }
 
     return controller_interface::return_type::OK;
 }

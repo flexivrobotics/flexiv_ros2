@@ -24,14 +24,13 @@ find_package(realtime_tools REQUIRED)
 find_package(flexiv_rdk REQUIRED)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
-  builtin_interfaces
   controller_interface
   flexiv_msgs
   generate_parameter_library
   hardware_interface
   pluginlib
+  rclcpp
   rclcpp_lifecycle
-  rcutils
   realtime_tools
 )
 
