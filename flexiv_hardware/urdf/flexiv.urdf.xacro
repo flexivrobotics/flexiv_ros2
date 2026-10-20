@@ -52,10 +52,10 @@
         + 'Enlight-L, Enlight-LL, MICO-Core, MICO-Plus, MICO-Ultra')}
     </xacro:unless>
 
-    <!-- Digital IO ports, matching flexiv::rdk::kIOPorts: 16 on the control box, then the M8
-         connector of each wrist (2 ports per wrist), then the pogo pin connector of each wrist
-         (2 ports per wrist). -->
-    <xacro:property name="num_gpio_ports" value="24" />
+    <!-- Digital IO ports, matching flexiv::rdk::kIOPorts of RDK v2.1: 16 on the control box, then
+         the M8 connector of each wrist (2 ports per wrist). RDK v2.2 adds the pogo pin connector of
+         each wrist, for 24. -->
+    <xacro:property name="num_gpio_ports" value="20" />
     <xacro:property name="arm_init" value="${cfg}/Enlight-L/initial_positions.yaml" />
     <xacro:property name="arm_init_mirrored"
       value="${cfg}/Enlight-L/initial_positions_mirrored.yaml" />
