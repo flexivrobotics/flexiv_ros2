@@ -79,6 +79,10 @@ class CartesianMotionForceExample(Node):
         self.config_ns = f"/{robot_sn}/flexiv_cartesian_motion_force_config_node"
         self.clients_by_name = {}
 
+        # Set once the driver rejects the motion limits, which only apply with
+        # rdk_realtime_mode:=false
+        self.realtime = False
+
         self.loop_counter = 0
         self.init_pose = None
         self.init_q = None
@@ -89,8 +93,9 @@ class CartesianMotionForceExample(Node):
         self.states = msg
 
     # ---------------------------------------------------------------- services
-    def request(self, srv_type, name, **fields):
-        """Send a request and return its future, logging the outcome."""
+    def request(self, srv_type, name, log=True, **fields):
+        """Send a request and return its future, logging the outcome unless log
+        is False."""
         client = self.clients_by_name.get(name)
         if client is None:
             client = self.create_client(srv_type, f"{self.config_ns}/{name}")
@@ -98,7 +103,8 @@ class CartesianMotionForceExample(Node):
         if not client.wait_for_service(timeout_sec=SERVICE_TIMEOUT):
             raise RuntimeError(f"Service {self.config_ns}/{name} is not available")
         future = client.call_async(srv_type.Request(**fields))
-        future.add_done_callback(lambda f: self.log_response(name, f))
+        if log:
+            future.add_done_callback(lambda f: self.log_response(name, f))
         return future
 
     def request_and_wait(self, srv_type, name, **fields):
@@ -229,9 +235,16 @@ class CartesianMotionForceExample(Node):
         limits[0] = SEARCH_VELOCITY
         self.set_motion_limits(limits)
 
+        # Ramp the target down at the search velocity rather than sending it SEARCH_DISTANCE
+        # below at once, as the motion limits do not slow it down in real-time mode.
         target = self.tcp_pose()
-        target[2] -= SEARCH_DISTANCE
+        start_z = target[2]
+        travelled = 0.0
         while rclpy.ok() and self.external_force_norm() <= PRESSING_FORCE:
+            if travelled >= SEARCH_DISTANCE:
+                raise RuntimeError(f"No contact within {SEARCH_DISTANCE} m")
+            travelled += SEARCH_VELOCITY / self.rate
+            target[2] = start_z - travelled
             self.publish(target, [0.0] * 6)
             rclpy.spin_once(self, timeout_sec=1.0 / self.rate)
         self.get_logger().info("Contact detected at robot TCP")
@@ -271,14 +284,32 @@ class CartesianMotionForceExample(Node):
         self.loop_counter += 1
 
     def set_motion_limits(self, limits):
-        self.request_and_wait(
+        """Set the motion limits, skipped in real-time mode where the driver
+        rejects them."""
+        if self.realtime:
+            return
+        name = "set_cartesian_motion_limits"
+        future = self.request(
             SetCartesianMotionLimits,
-            "set_cartesian_motion_limits",
+            name,
+            log=False,
             max_linear_vel=[limits[0]],
             max_angular_vel=[limits[1]],
             max_linear_acc=[limits[2]],
             max_angular_acc=[limits[3]],
         )
+        rclpy.spin_until_future_complete(self, future, timeout_sec=SERVICE_TIMEOUT)
+        response = future.result()
+        if response is not None and not response.success:
+            if "rdk_realtime_mode" in response.message:
+                self.realtime = True
+                self.get_logger().info(
+                    "Real-time mode: skipping the Cartesian motion limits"
+                )
+                return
+        self.log_response(name, future)
+        if response is None or not response.success:
+            raise RuntimeError(f"{name} failed")
 
     def stop(self):
         """Hold the current pose under motion force control."""
