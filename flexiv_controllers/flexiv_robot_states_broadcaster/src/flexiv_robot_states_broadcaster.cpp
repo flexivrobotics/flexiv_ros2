@@ -6,6 +6,7 @@
 
 #include "flexiv_robot_states_broadcaster/flexiv_robot_states_broadcaster.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -58,8 +59,7 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
     }
 
     if (!flexiv_robot_states_) {
-        flexiv_robot_states_ = std::make_unique<semantic_components::FlexivRobotStates>(
-            semantic_components::FlexivRobotStates(robot_sn));
+        flexiv_robot_states_ = std::make_unique<semantic_components::FlexivRobotStates>(robot_sn);
     }
 
     // Replace "-" with "_" in robot_sn to match the topic name
@@ -88,8 +88,7 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
         realtime_flexiv_robot_states_publisher_
             = std::make_unique<StatePublisher>(flexiv_robot_states_publisher_);
         // Initialize the robot states message
-        flexiv_robot_states_->init_robot_states_message(
-            realtime_flexiv_robot_states_publisher_->msg_);
+        flexiv_robot_states_->init_robot_states_message(robot_states_msg_);
     } catch (const std::exception& e) {
         fprintf(stderr, "Exception thrown during publisher creation with message: %s \n", e.what());
         return CallbackReturn::ERROR;
@@ -102,33 +101,27 @@ CallbackReturn FlexivRobotStatesBroadcaster::on_configure(
 controller_interface::return_type FlexivRobotStatesBroadcaster::update(
     const rclcpp::Time& time, const rclcpp::Duration& /*period*/)
 {
-    if (realtime_flexiv_robot_states_publisher_
-        && realtime_flexiv_robot_states_publisher_->trylock()) {
-        realtime_flexiv_robot_states_publisher_->msg_.header.stamp = time;
-
-        if (!flexiv_robot_states_->get_values_as_message(
-                realtime_flexiv_robot_states_publisher_->msg_)) {
-            RCLCPP_ERROR(get_node()->get_logger(),
-                "Failed to get fleixv robot states via flexiv robot states interface.");
-            realtime_flexiv_robot_states_publisher_->unlock();
-            return controller_interface::return_type::ERROR;
-        }
-
-        realtime_flexiv_robot_states_publisher_->unlockAndPublish();
-
-        const auto& flexiv_robot_states_msg = realtime_flexiv_robot_states_publisher_->msg_;
-        tcp_pose_publisher_->publish(flexiv_robot_states_msg.tcp_pose);
-        tcp_velocity_publisher_->publish(flexiv_robot_states_msg.tcp_vel);
-        flange_pose_publisher_->publish(flexiv_robot_states_msg.flange_pose);
-        ft_sensor_publisher_->publish(flexiv_robot_states_msg.ft_sensor_raw);
-        external_wrench_in_tcp_publisher_->publish(flexiv_robot_states_msg.ext_wrench_in_tcp);
-        external_wrench_in_world_publisher_->publish(flexiv_robot_states_msg.ext_wrench_in_world);
+    if (!realtime_flexiv_robot_states_publisher_) {
+        return controller_interface::return_type::OK;
     }
-    // TODO: Enable the error message when the realtime_publisher is updated in ROS 2
-    // else {
-    //     RCLCPP_ERROR(get_node()->get_logger(), "Failed to lock the realtime publisher.");
-    //     return controller_interface::return_type::ERROR;
-    // }
+
+    robot_states_msg_.header.stamp = time;
+    if (!flexiv_robot_states_->get_values_as_message(robot_states_msg_)) {
+        RCLCPP_ERROR(get_node()->get_logger(),
+            "Failed to get flexiv robot states via flexiv robot states interface.");
+        return controller_interface::return_type::ERROR;
+    }
+
+    if (!realtime_flexiv_robot_states_publisher_->try_publish(robot_states_msg_)) {
+        return controller_interface::return_type::OK;
+    }
+
+    tcp_pose_publisher_->publish(robot_states_msg_.tcp_pose);
+    tcp_velocity_publisher_->publish(robot_states_msg_.tcp_vel);
+    flange_pose_publisher_->publish(robot_states_msg_.flange_pose);
+    ft_sensor_publisher_->publish(robot_states_msg_.ft_sensor_raw);
+    external_wrench_in_tcp_publisher_->publish(robot_states_msg_.ext_wrench_in_tcp);
+    external_wrench_in_world_publisher_->publish(robot_states_msg_.ext_wrench_in_world);
 
     return controller_interface::return_type::OK;
 }

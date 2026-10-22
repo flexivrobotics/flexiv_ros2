@@ -1,28 +1,28 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(flexiv_hardware)
 
-# Default to C++17
+# ROS 2 Lyrical requires C++20
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_STANDARD 20)
 endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-find_package(fastcdr REQUIRED NO_CMAKE_PATH)
-find_package(spdlog REQUIRED NO_CMAKE_PATH)
-
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(flexiv_rdk REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(urdf REQUIRED)
 find_package(flexiv_msgs REQUIRED)
-find_package(flexiv_rdk REQUIRED)
 find_package(flexiv_drdk QUIET)
 
 add_library(
@@ -32,6 +32,8 @@ add_library(
   src/fault_recovery.cpp
   src/recovery_node.cpp
   src/joint_impedance_config_node.cpp
+  src/cartesian_motion_force_config_node.cpp
+  src/joint_motion_limits.cpp
 )
 
 if(flexiv_drdk_FOUND)
@@ -45,36 +47,45 @@ target_include_directories(
   $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME} PUBLIC
   flexiv::flexiv_rdk
 )
 
 if(flexiv_drdk_FOUND)
-  target_link_libraries(${PROJECT_NAME}
+  target_link_libraries(${PROJECT_NAME} PUBLIC
     flexiv::flexiv_drdk
   )
   target_compile_definitions(${PROJECT_NAME} PRIVATE FLEXIV_DRDK_AVAILABLE)
   message(STATUS "Flexiv DRDK library found and linked.")
 endif()
 
-# Link ROS packages
-ament_target_dependencies(
-  ${PROJECT_NAME}
-  flexiv_msgs
-  hardware_interface
-  pluginlib
-  rclcpp
-  rclcpp_action
-  rclcpp_lifecycle
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  flexiv_msgs::flexiv_msgs
+  hardware_interface::hardware_interface
+  pluginlib::pluginlib
+  rclcpp::rclcpp
+  rclcpp_action::rclcpp_action
+  rclcpp_lifecycle::rclcpp_lifecycle
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+  urdf::urdf
 )
 
 pluginlib_export_plugin_description_file(hardware_interface flexiv_hardware_interface_plugin.xml)
 
+if(flexiv_drdk_FOUND)
+  pluginlib_export_plugin_description_file(hardware_interface
+    flexiv_dual_hardware_interface_plugin.xml)
+endif()
+
 # INSTALL
 install(
-  TARGETS
-    ${PROJECT_NAME}
-  DESTINATION lib
+  TARGETS ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
 install(
@@ -96,6 +107,14 @@ if(BUILD_TESTING)
   ament_add_gtest(test_joint_impedance_config_node test/test_joint_impedance_config_node.cpp)
   target_include_directories(test_joint_impedance_config_node PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_link_libraries(test_joint_impedance_config_node ${PROJECT_NAME} flexiv::flexiv_rdk)
+
+  ament_add_gtest(test_cartesian_motion_force_config_node test/test_cartesian_motion_force_config_node.cpp)
+  target_include_directories(test_cartesian_motion_force_config_node PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_link_libraries(test_cartesian_motion_force_config_node ${PROJECT_NAME} flexiv::flexiv_rdk)
+
+  ament_add_gtest(test_joint_motion_limits test/test_joint_motion_limits.cpp)
+  target_include_directories(test_joint_motion_limits PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_link_libraries(test_joint_motion_limits ${PROJECT_NAME} flexiv::flexiv_rdk)
 endif()
 
 # EXPORTS
@@ -103,9 +122,7 @@ ament_export_include_directories(
   include
 )
 
-ament_export_libraries(
-  ${PROJECT_NAME}
-)
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 
 ament_export_dependencies(
   flexiv_msgs

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<robot xmlns:xacro="http://wiki.ros.org/xacro" name="aico1">
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg robot_type)">
     <!-- parameters -->
     <xacro:arg name="robot_type" default="AICO1-4-V1" />
     <!-- Axis macro/link names are the robot type lowercased with dashes as
@@ -19,20 +19,16 @@
 
     <!-- Arm -->
     <xacro:rizon_srdf prefix="${prefix}"
-        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" use_virtual_joint="false" />
+        load_mounted_ft_sensor="$(arg load_mounted_ft_sensor)" />
     <xacro:property name="external_axis_prefix" value="$(arg external_axis_prefix)" />
 
-    <!-- Virtual Joint and Platform Group -->
+    <!-- Platform Group -->
     <xacro:if value="${axis_name == 'aico1_4_v1'}">
-        <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
-            child_link="${external_axis_prefix}aico1_4_v1_base_link" />
         <group name="${external_axis_prefix}aico1_4_v1_platform_${prefix}arm">
             <chain base_link="${external_axis_prefix}aico1_4_v1_base_link" tip_link="${prefix}flange" />
         </group>
     </xacro:if>
     <xacro:if value="${axis_name == 'aico1_4_v2'}">
-        <virtual_joint name="virtual_joint" type="fixed" parent_frame="world"
-            child_link="${external_axis_prefix}aico1_4_v2_base_link" />
         <group name="${external_axis_prefix}aico1_4_v2_platform_${prefix}arm">
             <chain base_link="${external_axis_prefix}aico1_4_v2_base_link" tip_link="${prefix}flange" />
         </group>
@@ -62,6 +58,8 @@
         <disable_collisions link1="${prefix}link1" link2="${external_axis_prefix}aico1_4_v2_neck_link" reason="Never" />
         <disable_collisions link1="${prefix}link1" link2="${external_axis_prefix}aico1_4_v2_head_link" reason="Never" />
 
+        <disable_collisions link1="${external_axis_prefix}aico1_4_v2_base_link" link2="${external_axis_prefix}aico1_4_v2_torso_mount" reason="Adjacent" />
+        <disable_collisions link1="${external_axis_prefix}aico1_4_v2_torso_mount" link2="${external_axis_prefix}aico1_4_v2_link1" reason="Adjacent" />
         <disable_collisions link1="${external_axis_prefix}aico1_4_v2_base_link" link2="${external_axis_prefix}aico1_4_v2_link1" reason="Adjacent" />
         <disable_collisions link1="${external_axis_prefix}aico1_4_v2_base_link" link2="${external_axis_prefix}aico1_4_v2_neck_link" reason="Never" />
         <disable_collisions link1="${external_axis_prefix}aico1_4_v2_link1" link2="${external_axis_prefix}aico1_4_v2_neck_link" reason="Adjacent" />

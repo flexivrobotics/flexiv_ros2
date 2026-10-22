@@ -6,15 +6,15 @@ package_name = "flexiv_test_nodes"
 
 setup(
     name=package_name,
-    version="0.0.1",
+    version="1.9.4",
     packages=[package_name],
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
         ("share/" + package_name + "/launch", glob("launch/*.launch.py")),
-        ("share/" + package_name + "/configs", glob("configs/*.*")),
     ],
     install_requires=["setuptools"],
+    extras_require={"test": ["pytest"]},
     zip_safe=True,
     author="Mun Seng Phoon",
     author_email="munseng.phoon@flexiv.com",
@@ -23,15 +23,12 @@ setup(
     keywords=["ROS"],
     classifiers=[
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
         "Topic :: Software Development",
     ],
     description="Demo nodes for testing flexiv_ros2.",
-    long_description="""\
-Demo nodes for for testing flexiv_ros2.""",
-    license="Apache License, Version 2.0",
-    tests_require=["pytest"],
+    long_description="Demo nodes for testing flexiv_ros2.",
+    license="Apache-2.0",
     entry_points={
         "console_scripts": [
             "publisher_joint_trajectory_controller = \
@@ -40,6 +37,8 @@ Demo nodes for for testing flexiv_ros2.""",
                 flexiv_test_nodes.robot_states_publisher:main",
             "robot_states_monitor = \
                 flexiv_test_nodes.robot_states_monitor:main",
+            "cartesian_motion_force_example = \
+                flexiv_test_nodes.cartesian_motion_force_example:main",
         ],
     },
 )

@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(gpio_controller LANGUAGES CXX)
 
-# Default to C++14
+# ROS 2 Lyrical requires C++20
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 20)
 endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -12,7 +13,9 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 find_package(controller_interface REQUIRED)
+find_package(rcutils REQUIRED)
 find_package(generate_parameter_library REQUIRED)
 find_package(flexiv_msgs REQUIRED)
 find_package(hardware_interface REQUIRED)
@@ -22,14 +25,13 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
 
 set(THIS_PACKAGE_INCLUDE_DEPENDS
-  builtin_interfaces
   controller_interface
   flexiv_msgs
   generate_parameter_library
   hardware_interface
   pluginlib
+  rclcpp
   rclcpp_lifecycle
-  rcutils
   realtime_tools
 )
 
@@ -48,8 +50,15 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   gpio_controller_parameters
 )
 
-ament_target_dependencies(${PROJECT_NAME} PUBLIC
-  ${THIS_PACKAGE_INCLUDE_DEPENDS}
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  builtin_interfaces::builtin_interfaces
+  controller_interface::controller_interface
+  flexiv_msgs::flexiv_msgs
+  hardware_interface::hardware_interface
+  pluginlib::pluginlib
+  rclcpp_lifecycle::rclcpp_lifecycle
+  rcutils::rcutils
+  realtime_tools::realtime_tools
 )
 
 # prevent pluginlib from using boost

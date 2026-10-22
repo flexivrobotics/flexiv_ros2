@@ -1,18 +1,17 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(flexiv_calibration)
 
-# Default to C++17
+# ROS 2 Lyrical requires C++20
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_STANDARD 20)
 endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
-
-find_package(fastcdr REQUIRED NO_CMAKE_PATH)
-find_package(spdlog REQUIRED NO_CMAKE_PATH)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -23,15 +22,11 @@ find_package(flexiv_rdk REQUIRED)
 add_executable(calibration_correction
   src/calibration_correction.cpp)
 
-target_link_libraries(calibration_correction
+target_link_libraries(calibration_correction PRIVATE
+  ament_index_cpp::ament_index_cpp
   flexiv::flexiv_rdk
-  fastcdr
-  spdlog::spdlog
+  rclcpp::rclcpp
 )
-
-ament_target_dependencies(calibration_correction
-  ament_index_cpp
-  rclcpp)
 
 install(TARGETS calibration_correction
   DESTINATION lib/${PROJECT_NAME})

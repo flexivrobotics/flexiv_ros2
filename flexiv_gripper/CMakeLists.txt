@@ -1,18 +1,17 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(flexiv_gripper)
 
-# Default to C++17
+# ROS 2 Lyrical requires C++20
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_STANDARD 20)
 endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
-
-find_package(fastcdr REQUIRED NO_CMAKE_PATH)
-find_package(spdlog REQUIRED NO_CMAKE_PATH)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -26,6 +25,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(flexiv_rdk REQUIRED)
+find_package(flexiv_drdk QUIET)
 
 add_library(gripper_action_server
   SHARED
@@ -37,24 +37,23 @@ add_executable(wait_for_gripper_ready
 target_include_directories(gripper_action_server PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(gripper_action_server
+target_link_libraries(gripper_action_server PUBLIC
   flexiv::flexiv_rdk
+  control_msgs::control_msgs
+  flexiv_hardware::flexiv_hardware
+  flexiv_msgs::flexiv_msgs
+  rclcpp::rclcpp
+  rclcpp_action::rclcpp_action
+  rclcpp_components::component
+  sensor_msgs::sensor_msgs
+  std_msgs::std_msgs
+  std_srvs::std_srvs
 )
 
-ament_target_dependencies(gripper_action_server
-  control_msgs
-  flexiv_hardware
-  flexiv_msgs
-  rclcpp
-  rclcpp_action
-  rclcpp_components
-  sensor_msgs
-  std_msgs
-  std_srvs)
-
-ament_target_dependencies(wait_for_gripper_ready
-  rclcpp
-  std_msgs)
+target_link_libraries(wait_for_gripper_ready PUBLIC
+  rclcpp::rclcpp
+  std_msgs::std_msgs
+)
 
 rclcpp_components_register_node(gripper_action_server
   PLUGIN "flexiv_gripper::GripperActionServer"

@@ -8,7 +8,7 @@
 #include <flexiv/rdk/model.hpp>
 #include <flexiv/rdk/robot.hpp>
 
-#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <ament_index_cpp/get_package_share_path.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <cctype>
@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 
     try {
         const fs::path description_dir
-            = ament_index_cpp::get_package_share_directory("flexiv_description");
+            = ament_index_cpp::get_package_share_path("flexiv_description");
         const auto default_template = [&](const std::string& type) {
             return (description_dir / "config" / type / "default_kinematics.yaml").string();
         };
@@ -228,8 +228,11 @@ int main(int argc, char** argv)
         RCLCPP_ERROR(logger, "%s", e.what());
         return 1;
     } catch (const std::logic_error& e) {
+        // Missing license, incompatible RDK version or unsupported robot model
         RCLCPP_ERROR(logger,
-            "%s. Reading kinematic parameters requires an RDK professional license", e.what());
+            "%s. Check that the robot has an RDK professional license, which reading kinematic "
+            "parameters requires, and that its software is compatible with this RDK version",
+            e.what());
         return 1;
     } catch (const std::exception& e) {
         RCLCPP_ERROR(logger, "%s", e.what());
