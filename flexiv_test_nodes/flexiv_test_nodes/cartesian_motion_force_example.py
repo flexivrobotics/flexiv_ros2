@@ -30,6 +30,8 @@ PRESSING_FORCE = 5.0  # Force applied during motion-force control [N]
 SEARCH_VELOCITY = 0.02  # Linear velocity used to search for contact [m/s]
 SEARCH_DISTANCE = 1.0  # Maximum distance to travel when searching for contact [m]
 MAX_WRENCH_FOR_CONTACT_SEARCH = [10.0, 10.0, 10.0, 3.0, 3.0, 3.0]
+# Velocity limit of the force-controlled axes in case contact is lost (RDK default 1.0) [m/s]
+FORCE_CONTROL_MAX_LINEAR_VEL = 0.05
 DEFAULT_MOTION_LIMITS = [
     0.5,
     1.0,
@@ -88,6 +90,8 @@ class CartesianMotionForceExample(Node):
         self.init_q = None
         self.k_x_nom = None
         self.target_wrench = [0.0] * 6
+        self.force_controlled = False
+        self.last_pose = None
 
     def states_callback(self, msg):
         self.states = msg
@@ -148,6 +152,26 @@ class CartesianMotionForceExample(Node):
         f, m = msg.wrench.force, msg.wrench.torque
         f.x, f.y, f.z, m.x, m.y, m.z = wrench
         self.command_publisher.publish(msg)
+
+    def follow_force_axis(self, pose):
+        """Move the target onto the measured TCP along the force-controlled Z
+        axis.
+
+        The robot ignores the target along a force-controlled axis,
+        while the TCP moves along it to track the force. Keeping the
+        target there means that making the axis motion-controlled again
+        in stop() does not step the target back to the contact point,
+        which real-time mode does not smooth and can fault the robot.
+        """
+        measured = self.tcp_pose()
+        n = [0.0, 0.0, 1.0]
+        if self.force_frame == "tcp":
+            w, x, y, z = measured[3:]
+            n = [2 * (x * z + w * y), 2 * (y * z - w * x), 1 - 2 * (x * x + y * y)]
+        offset = sum((measured[i] - pose[i]) * n[i] for i in range(3))
+        for i in range(3):
+            pose[i] += offset * n[i]
+        return pose
 
     def swept_pose(self):
         """Initial pose, swept along world Y unless holding."""
@@ -262,7 +286,9 @@ class CartesianMotionForceExample(Node):
             SetForceControlAxis,
             "set_force_control_axis",
             enabled_axes=[False, False, True, False, False, False],
+            max_linear_vel=[FORCE_CONTROL_MAX_LINEAR_VEL] * 3,
         )
+        self.force_controlled = True
         # Only after Z is force-controlled, so the contact force does not spike once released.
         self.request_and_wait(
             SetMaxContactWrench, "set_max_contact_wrench", max_wrench=[math.inf] * 6
@@ -280,7 +306,8 @@ class CartesianMotionForceExample(Node):
         self.create_timer(1.0 / self.rate, self.motion_force_step)
 
     def motion_force_step(self):
-        self.publish(self.swept_pose(), self.target_wrench)
+        self.last_pose = self.follow_force_axis(self.swept_pose())
+        self.publish(self.last_pose, self.target_wrench)
         self.loop_counter += 1
 
     def set_motion_limits(self, limits):
@@ -316,10 +343,21 @@ class CartesianMotionForceExample(Node):
         if self.mode != "motion_force" or self.states is None:
             return
         self.get_logger().info("Disabling force control and holding the current pose")
+        if self.force_controlled and self.last_pose is not None:
+            # Bring the target to the TCP along the force axis right before releasing it
+            rclpy.spin_once(self, timeout_sec=0.0)
+            self.publish(self.follow_force_axis(self.last_pose), self.target_wrench)
         self.request_and_wait(
             SetForceControlAxis, "set_force_control_axis", enabled_axes=[False] * 6
         )
-        self.publish(self.tcp_pose(), [0.0] * 6)
+        # Hold where the TCP is along the force axis, and at the last target elsewhere so a
+        # polishing sweep does not jump either
+        if self.force_controlled and self.last_pose is not None:
+            rclpy.spin_once(self, timeout_sec=0.0)
+            self.publish(self.follow_force_axis(self.last_pose), [0.0] * 6)
+        else:
+            self.publish(self.tcp_pose(), [0.0] * 6)
+        self.force_controlled = False
         self.set_motion_limits(DEFAULT_MOTION_LIMITS)
 
     def run(self):

@@ -68,7 +68,7 @@ ros2 launch flexiv_bringup flexiv.launch.py robot_sn:=[robot_sn] robot_type:=Enl
 ```
 
 - `mode:=pure_motion` sweeps the TCP along world Y (or holds it with `hold:=true`), and changes the null-space posture, the Cartesian stiffness and the maximum contact wrench online every 20 seconds.
-- `mode:=motion_force` searches for contact along -Z at 0.02 m/s, then presses with 5 N along Z of the `force_frame` (`world` or `tcp`), optionally sweeping along world Y with `polish:=true`.
+- `mode:=motion_force` searches for contact along -Z at 0.02 m/s, then presses with 5 N along Z of the `force_frame` (`world` or `tcp`), optionally sweeping along world Y with `polish:=true`. The force-controlled axis is limited to 0.05 m/s in case contact is lost.
 
 ```bash
 ros2 launch flexiv_bringup test_cartesian_motion_force_controller.launch.py robot_sn:=[robot_sn] mode:=motion_force polish:=true
