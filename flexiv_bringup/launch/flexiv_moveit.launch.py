@@ -58,6 +58,10 @@ def launch_setup(context):
     pan_tilt_robot_types = ["MICO-Plus", "MICO-Ultra"]
     is_dual = robot_type_str in dual_arm_robot_types
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
+    rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
+    withhold_on_timeliness_failure = LaunchConfiguration(
+        "withhold_on_timeliness_failure"
+    )
     start_rviz = LaunchConfiguration("start_rviz")
     load_gripper = LaunchConfiguration("load_gripper")
     gripper_name = LaunchConfiguration("gripper_name")
@@ -111,6 +115,12 @@ def launch_setup(context):
                 "ros2_control:=true ",
                 "rdk_control_mode:=",
                 rdk_control_mode,
+                " ",
+                "rdk_realtime_mode:=",
+                rdk_realtime_mode,
+                " ",
+                "withhold_on_timeliness_failure:=",
+                withhold_on_timeliness_failure,
                 " ",
                 "load_gripper:=",
                 load_gripper,
@@ -175,28 +185,16 @@ def launch_setup(context):
         "robot_description_kinematics": robot_description_kinematics_yaml
     }
 
-    # Planning Configuration
-    ompl_planning_pipeline_config = {
-        "move_group": {
-            "planning_plugins": ["ompl_interface/OMPLPlanner"],
-            "request_adapters": [
-                "default_planning_request_adapters/ResolveConstraintFrames",
-                "default_planning_request_adapters/ValidateWorkspaceBounds",
-                "default_planning_request_adapters/CheckStartStateBounds",
-                "default_planning_request_adapters/CheckStartStateCollision",
-            ],
-            "response_adapters": [
-                "default_planning_response_adapters/AddTimeOptimalParameterization",
-                "default_planning_response_adapters/ValidateSolution",
-                "default_planning_response_adapters/DisplayMotionPath",
-            ],
-            "start_state_max_bounds_error": 0.1,
-        }
+    # Planning Configuration. The planner configs are MoveIt's defaults, as
+    # MoveItConfigsBuilder adds them.
+    planning_pipelines = {
+        "planning_pipelines": ["ompl"],
+        "default_planning_pipeline": "ompl",
+        "ompl": {
+            **load_yaml("flexiv_moveit_config", "config/ompl_planning.yaml"),
+            **load_yaml("moveit_configs_utils", "default_configs/ompl_defaults.yaml"),
+        },
     }
-    ompl_planning_yaml = load_yaml(
-        "flexiv_moveit_config", "config/ompl_planning.yaml", replacements
-    )
-    ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
     # Trajectory Execution Configuration.
     if robot_type_str in pan_tilt_robot_types:
@@ -205,21 +203,9 @@ def launch_setup(context):
         moveit_controllers_file = "config/moveit_controllers_dual.yaml"
     else:
         moveit_controllers_file = "config/moveit_controllers.yaml"
-    moveit_simple_controllers_yaml = load_yaml(
+    moveit_controllers = load_yaml(
         "flexiv_moveit_config", moveit_controllers_file, replacements
     )
-
-    moveit_controllers = {
-        "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
-        "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
-    }
-
-    trajectory_execution = {
-        "moveit_manage_controllers": False,
-        "trajectory_execution.allowed_execution_duration_scaling": 1.2,
-        "trajectory_execution.allowed_goal_duration_margin": 0.5,
-        "trajectory_execution.allowed_start_tolerance": 0.01,
-    }
 
     planning_scene_monitor_parameters = {
         "publish_planning_scene": True,
@@ -250,8 +236,7 @@ def launch_setup(context):
             publish_robot_description_semantic,
             robot_description_kinematics,
             joint_limits_yaml,
-            ompl_planning_pipeline_config,
-            trajectory_execution,
+            planning_pipelines,
             moveit_controllers,
             planning_scene_monitor_parameters,
             warehouse_ros_config,
@@ -272,7 +257,7 @@ def launch_setup(context):
         parameters=[
             robot_description,
             robot_description_semantic,
-            ompl_planning_pipeline_config,
+            planning_pipelines,
             robot_description_kinematics,
             joint_limits_yaml,
             warehouse_ros_config,
@@ -300,6 +285,30 @@ def launch_setup(context):
         [FindPackageShare("flexiv_bringup"), "config", controllers_file]
     )
 
+    # Each arm is a separate RDK joint group, so a dual-arm robot runs one trajectory
+    # controller per arm (plus one for the MICO-Plus / MICO-Ultra torso), each accepting
+    # and preempting goals independently.
+    if robot_type_str in pan_tilt_robot_types:
+        default_robot_controllers = [
+            "left_flexiv_arm_controller",
+            "right_flexiv_arm_controller",
+            "flexiv_torso_controller",
+        ]
+    elif is_dual:
+        default_robot_controllers = [
+            "left_flexiv_arm_controller",
+            "right_flexiv_arm_controller",
+        ]
+    else:
+        default_robot_controllers = ["flexiv_arm_controller"]
+
+    robot_controller_str = robot_controller.perform(context)
+    robot_controller_names = (
+        [name.strip() for name in robot_controller_str.split(",") if name.strip()]
+        if robot_controller_str
+        else default_robot_controllers
+    )
+
     # Run controller manager
     ros2_control_node = Node(
         package="controller_manager",
@@ -307,10 +316,7 @@ def launch_setup(context):
         parameters=[
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
-            {"robot_sn": robot_sn},
-            {"rdk_control_mode": rdk_control_mode},
         ],
-        remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
     )
 
@@ -336,7 +342,10 @@ def launch_setup(context):
     robot_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=[robot_controller, "--controller-manager", "/controller_manager"],
+        arguments=[
+            *robot_controller_names,
+            *(["--activate-as-group"] if len(robot_controller_names) > 1 else []),
+        ],
     )
 
     # Run joint state broadcaster
@@ -345,8 +354,8 @@ def launch_setup(context):
         executable="spawner",
         arguments=[
             "joint_state_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
+            "--controller-ros-args",
+            "-r joint_states:=flexiv_arm/joint_states",
         ],
     )
 
@@ -376,7 +385,6 @@ def launch_setup(context):
                 package="controller_manager",
                 executable="spawner",
                 arguments=["flexiv_robot_states_broadcaster"],
-                parameters=[{"robot_sn": robot_sn}],
                 condition=UnlessCondition(use_fake_hardware),
             )
         )
@@ -522,12 +530,13 @@ def launch_setup(context):
     servo_node = Node(
         package="moveit_servo",
         condition=IfCondition(start_servo),
-        executable="servo_node_main",
+        executable="servo_node",
         parameters=[
             servo_params,
             robot_description,
             robot_description_semantic,
             robot_description_kinematics,
+            joint_limits_yaml,
         ],
         output="screen",
     )
@@ -536,8 +545,7 @@ def launch_setup(context):
     gpio_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["gpio_controller", "--controller-manager", "/controller_manager"],
-        parameters=[{"robot_sn": robot_sn}],
+        arguments=["gpio_controller"],
         condition=UnlessCondition(use_fake_hardware),
     )
 
@@ -636,6 +644,24 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            "rdk_realtime_mode",
+            default_value="true",
+            description="Use the real-time RDK modes for the joint position, velocity and Cartesian interfaces, streamed at the controller manager rate. Requires a low-latency host. false selects the non-real-time modes, where the robot's motion generator smooths the commands within the joint and Cartesian motion limits. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "withhold_on_timeliness_failure",
+            default_value="false",
+            description="With rdk_realtime_mode, withhold motion until the controllers are restarted once real-time commands arrive late too often. Enable on a real-time capable host (PREEMPT_RT kernel, real-time priority). false only warns and keeps streaming, as the RDK does. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             "start_rviz",
             default_value="true",
             description="Start RViz automatically with the launch file",
@@ -685,8 +711,14 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "robot_controller",
-            default_value="flexiv_arm_controller",
-            description="Robot controller to start. Available: flexiv_arm_controller",
+            default_value="",
+            description="Robot controller(s) to start, comma-separated, overriding the "
+            "default set for the robot type. Defaults to 'flexiv_arm_controller' for a "
+            "single-arm robot, and to 'left_flexiv_arm_controller,"
+            "right_flexiv_arm_controller' for a dual-arm robot (plus "
+            "'flexiv_torso_controller' on MICO-Plus / MICO-Ultra). Use "
+            "'cartesian_motion_force_controller' for Cartesian motion-force control, "
+            "which commands every arm of the robot.",
         )
     )
 

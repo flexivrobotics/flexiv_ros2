@@ -36,6 +36,10 @@ def launch_setup(context):
     pan_tilt_robot_types = ["MICO-Plus", "MICO-Ultra"]
     is_dual = robot_type_str in dual_arm_robot_types
     rdk_control_mode = LaunchConfiguration("rdk_control_mode")
+    rdk_realtime_mode = LaunchConfiguration("rdk_realtime_mode")
+    withhold_on_timeliness_failure = LaunchConfiguration(
+        "withhold_on_timeliness_failure"
+    )
     start_rviz = LaunchConfiguration("start_rviz")
     load_gripper = LaunchConfiguration("load_gripper")
     gripper_name = LaunchConfiguration("gripper_name")
@@ -86,6 +90,12 @@ def launch_setup(context):
                 "rdk_control_mode:=",
                 rdk_control_mode,
                 " ",
+                "rdk_realtime_mode:=",
+                rdk_realtime_mode,
+                " ",
+                "withhold_on_timeliness_failure:=",
+                withhold_on_timeliness_failure,
+                " ",
                 "load_gripper:=",
                 load_gripper,
                 " ",
@@ -131,6 +141,30 @@ def launch_setup(context):
         [FindPackageShare("flexiv_bringup"), "config", controllers_file]
     )
 
+    # Each arm is a separate RDK joint group, so a dual-arm robot runs one trajectory
+    # controller per arm (plus one for the MICO-Plus / MICO-Ultra torso), each accepting
+    # and preempting goals independently.
+    if robot_type_str in pan_tilt_robot_types:
+        default_robot_controllers = [
+            "left_flexiv_arm_controller",
+            "right_flexiv_arm_controller",
+            "flexiv_torso_controller",
+        ]
+    elif is_dual:
+        default_robot_controllers = [
+            "left_flexiv_arm_controller",
+            "right_flexiv_arm_controller",
+        ]
+    else:
+        default_robot_controllers = ["flexiv_arm_controller"]
+
+    robot_controller_str = robot_controller.perform(context)
+    robot_controller_names = (
+        [name.strip() for name in robot_controller_str.split(",") if name.strip()]
+        if robot_controller_str
+        else default_robot_controllers
+    )
+
     # Controller Manager
     ros2_control_node = Node(
         package="controller_manager",
@@ -138,10 +172,7 @@ def launch_setup(context):
         parameters=[
             robot_description,
             ParameterFile(robot_controllers, allow_substs=True),
-            {"robot_sn": robot_sn},
-            {"rdk_control_mode": rdk_control_mode},
         ],
-        remappings=[("joint_states", "flexiv_arm/joint_states")],
         output="both",
     )
 
@@ -176,7 +207,10 @@ def launch_setup(context):
     robot_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=[robot_controller, "--controller-manager", "/controller_manager"],
+        arguments=[
+            *robot_controller_names,
+            *(["--activate-as-group"] if len(robot_controller_names) > 1 else []),
+        ],
     )
 
     # Run joint state broadcaster
@@ -185,8 +219,8 @@ def launch_setup(context):
         executable="spawner",
         arguments=[
             "joint_state_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
+            "--controller-ros-args",
+            "-r joint_states:=flexiv_arm/joint_states",
         ],
     )
 
@@ -216,7 +250,6 @@ def launch_setup(context):
                 package="controller_manager",
                 executable="spawner",
                 arguments=["flexiv_robot_states_broadcaster"],
-                parameters=[{"robot_sn": robot_sn}],
                 condition=UnlessCondition(use_fake_hardware),
             )
         )
@@ -356,8 +389,7 @@ def launch_setup(context):
     gpio_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["gpio_controller", "--controller-manager", "/controller_manager"],
-        parameters=[{"robot_sn": robot_sn}],
+        arguments=["gpio_controller"],
         condition=UnlessCondition(use_fake_hardware),
     )
 
@@ -446,6 +478,24 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
+            "rdk_realtime_mode",
+            default_value="true",
+            description="Use the real-time RDK modes for the joint position, velocity and Cartesian interfaces, streamed at the controller manager rate. Requires a low-latency host. false selects the non-real-time modes, where the robot's motion generator smooths the commands within the joint and Cartesian motion limits. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "withhold_on_timeliness_failure",
+            default_value="false",
+            description="With rdk_realtime_mode, withhold motion until the controllers are restarted once real-time commands arrive late too often. Enable on a real-time capable host (PREEMPT_RT kernel, real-time priority). false only warns and keeps streaming, as the RDK does. Options: true, false",
+            choices=["true", "false"],
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
             "start_rviz",
             default_value="true",
             description="Start RViz automatically with the launch file",
@@ -520,8 +570,14 @@ def generate_launch_description():
     declared_arguments.append(
         DeclareLaunchArgument(
             "robot_controller",
-            default_value="flexiv_arm_controller",
-            description="Robot controller to start. Available: flexiv_arm_controller",
+            default_value="",
+            description="Robot controller(s) to start, comma-separated, overriding the "
+            "default set for the robot type. Defaults to 'flexiv_arm_controller' for a "
+            "single-arm robot, and to 'left_flexiv_arm_controller,"
+            "right_flexiv_arm_controller' for a dual-arm robot (plus "
+            "'flexiv_torso_controller' on MICO-Plus / MICO-Ultra). Use "
+            "'cartesian_motion_force_controller' for Cartesian motion-force control, "
+            "which commands every arm of the robot.",
         )
     )
 

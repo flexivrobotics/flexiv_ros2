@@ -2,7 +2,10 @@ controller_manager:
   ros__parameters:
     update_rate: 1000  # Hz
 
-    flexiv_arm_controller:
+    left_flexiv_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    right_flexiv_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
     joint_state_broadcaster:
@@ -17,7 +20,10 @@ controller_manager:
     right_flexiv_robot_states_broadcaster:
       type: flexiv_robot_states_broadcaster/FlexivRobotStatesBroadcaster
 
-flexiv_arm_controller:
+    cartesian_motion_force_controller:
+      type: cartesian_motion_force_controller/CartesianMotionForceController
+
+left_flexiv_arm_controller:
   ros__parameters:
     joints:
       - left_$(var robot_sn)_joint1
@@ -27,6 +33,38 @@ flexiv_arm_controller:
       - left_$(var robot_sn)_joint5
       - left_$(var robot_sn)_joint6
       - left_$(var robot_sn)_joint7
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: false
+    # MoveIt Servo streams trajectories whose last point is still moving
+    allow_nonzero_velocity_at_trajectory_end: true
+    constraints:
+      stopped_velocity_tolerance: 0.01
+      # A goal fails unless every joint ends within its tolerance, so a robot that does not
+      # follow, e.g. while the driver withholds motion, is reported instead of succeeding
+      goal_time: 0.5
+      left_$(var robot_sn)_joint1:
+        goal: 0.05
+      left_$(var robot_sn)_joint2:
+        goal: 0.05
+      left_$(var robot_sn)_joint3:
+        goal: 0.05
+      left_$(var robot_sn)_joint4:
+        goal: 0.05
+      left_$(var robot_sn)_joint5:
+        goal: 0.05
+      left_$(var robot_sn)_joint6:
+        goal: 0.05
+      left_$(var robot_sn)_joint7:
+        goal: 0.05
+
+right_flexiv_arm_controller:
+  ros__parameters:
+    joints:
       - right_$(var robot_sn)_joint1
       - right_$(var robot_sn)_joint2
       - right_$(var robot_sn)_joint3
@@ -39,14 +77,29 @@ flexiv_arm_controller:
     state_interfaces:
       - position
       - velocity
-    state_publish_rate: 100.0
     action_monitor_rate: 20.0
-    # Allow MoveIt to command a single-arm planning group (left_arm / right_arm) on this 14-joint
-    # controller.
-    allow_partial_joints_goal: true
+    allow_partial_joints_goal: false
+    # MoveIt Servo streams trajectories whose last point is still moving
+    allow_nonzero_velocity_at_trajectory_end: true
     constraints:
       stopped_velocity_tolerance: 0.01
-      goal_time: 0.0
+      # A goal fails unless every joint ends within its tolerance, so a robot that does not
+      # follow, e.g. while the driver withholds motion, is reported instead of succeeding
+      goal_time: 0.5
+      right_$(var robot_sn)_joint1:
+        goal: 0.05
+      right_$(var robot_sn)_joint2:
+        goal: 0.05
+      right_$(var robot_sn)_joint3:
+        goal: 0.05
+      right_$(var robot_sn)_joint4:
+        goal: 0.05
+      right_$(var robot_sn)_joint5:
+        goal: 0.05
+      right_$(var robot_sn)_joint6:
+        goal: 0.05
+      right_$(var robot_sn)_joint7:
+        goal: 0.05
 
 left_flexiv_robot_states_broadcaster:
   ros__parameters:
@@ -55,3 +108,15 @@ left_flexiv_robot_states_broadcaster:
 right_flexiv_robot_states_broadcaster:
   ros__parameters:
     robot_sn: right_$(var robot_sn)
+
+gpio_controller:
+  ros__parameters:
+    robot_sn: $(var robot_sn)
+
+cartesian_motion_force_controller:
+  ros__parameters:
+    # Claims the TCP interfaces of both arms: the robot has one control mode, so both arms
+    # enter the Cartesian motion-force mode together.
+    prefixes:
+      - left_$(var robot_sn)_
+      - right_$(var robot_sn)_

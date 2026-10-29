@@ -9,12 +9,14 @@
 #ifndef GPIO_CONTROLLER__GPIO_CONTROLLER_HPP_
 #define GPIO_CONTROLLER__GPIO_CONTROLLER_HPP_
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "controller_interface/controller_interface.hpp"
 #include "flexiv/rdk/data.hpp"
+#include "realtime_tools/realtime_buffer.hpp"
 #include "gpio_controller/gpio_controller_parameters.hpp"
 #include "flexiv_msgs/msg/gpio_states.hpp"
 
@@ -54,8 +56,8 @@ protected:
 
     void initMsgs();
 
-    // internal commands
-    std::array<double, kIOPorts> digital_outputs_cmd_;
+    // internal commands, written by the subscription and read in update()
+    realtime_tools::RealtimeBuffer<std::array<double, kIOPorts>> digital_outputs_cmd_;
 
     // publisher
     std::shared_ptr<rclcpp::Publisher<CmdType>> gpio_inputs_publisher_;
