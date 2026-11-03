@@ -777,10 +777,18 @@ hardware_interface::return_type FlexivHardwareInterface::write(
                 getLogger(), "Motion is withheld until the controller is restarted: %s", reason);
         };
         try {
-            // The RDK only warns once real-time commands arrive late too often, it does not throw.
-            // Act on the flag only once it was seen clear, since it is still raised from before a
-            // restart until about a second of commands has arrived on time.
-            if (SendMotionCommands(period.seconds())) {
+            // The robot can leave the control mode without a fault, e.g. to IDLE after real-time
+            // commands were lost. Nothing would stream, so motion stops without a trace otherwise.
+            const auto mode = robot_->mode();
+            if (((position_controller_running_ || velocity_controller_running_)
+                    && mode != rdk_control_mode_)
+                || (torque_controller_running_ && mode != flexiv::rdk::Mode::RT_JOINT_TORQUE)
+                || (cartesian_controller_running_ && mode != rdk_cartesian_mode_)) {
+                withhold_motion(("the robot dropped to " + ControlModeName(mode)).c_str());
+            } else if (SendMotionCommands(period.seconds())) {
+                // The RDK only warns once real-time commands arrive late too often, it does not
+                // throw. Act on the flag only once it was seen clear, since it is still raised from
+                // before a restart until about a second of commands has arrived on time.
                 if (!robot_->reached_timeliness_failure_limit()) {
                     timeliness_clear_since_sync_ = true;
                 } else if (timeliness_clear_since_sync_ && withhold_on_timeliness_failure_) {
