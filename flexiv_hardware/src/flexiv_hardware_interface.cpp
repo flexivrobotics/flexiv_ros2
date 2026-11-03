@@ -1071,22 +1071,31 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         cartesian_config_node_->DisablePassiveForceControl();
     }
 
+    // SwitchMode() stops a moving robot itself, so stopping is only needed when nothing starts.
+    const bool start_requested = !start_modes_.empty() || cartesian_start_requested_;
+
     if (stop_modes_.size() != 0
         && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_POSITION)
                != stop_modes_.end()) {
         position_controller_running_ = false;
-        StopIfOperational();
+        if (!start_requested) {
+            StopIfOperational();
+        }
     } else if (stop_modes_.size() != 0
                && std::find(
                       stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_VELOCITY)
                       != stop_modes_.end()) {
         velocity_controller_running_ = false;
-        StopIfOperational();
+        if (!start_requested) {
+            StopIfOperational();
+        }
     } else if (stop_modes_.size() != 0
                && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_EFFORT)
                       != stop_modes_.end()) {
         torque_controller_running_ = false;
-        StopIfOperational();
+        if (!start_requested) {
+            StopIfOperational();
+        }
     }
 
     if (start_modes_.size() != 0
