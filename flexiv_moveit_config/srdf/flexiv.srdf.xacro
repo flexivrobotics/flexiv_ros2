@@ -83,6 +83,13 @@
         <xacro:mico_rigid_to_arm_bases link="${torso_prefix}head_link" />
     </xacro:macro>
 
+    <!-- Each arm's link1 sits in the arm base, which is recessed into the torso mount link, so the
+         link1 collision mesh overlaps the mount by a few mm at every joint1 angle. -->
+    <xacro:macro name="mico_mount_to_arm_link1" params="mount">
+        <disable_collisions link1="${mount}" link2="${left_prefix}link1" reason="Adjacent" />
+        <disable_collisions link1="${mount}" link2="${right_prefix}link1" reason="Adjacent" />
+    </xacro:macro>
+
     <!-- MICO-Core: fixed torso; both arm bases mount directly on the torso base_link. -->
     <xacro:if value="${is_mico_core}">
         <disable_collisions link1="${torso_prefix}base_link" link2="${left_prefix}base_link"
@@ -91,6 +98,7 @@
             reason="Adjacent" />
         <disable_collisions link1="${left_prefix}base_link" link2="${right_prefix}base_link"
             reason="Never" />
+        <xacro:mico_mount_to_arm_link1 mount="${torso_prefix}base_link" />
         <xacro:mico_neck_head_collisions mount="${torso_prefix}base_link" />
     </xacro:if>
 
@@ -123,6 +131,7 @@
             reason="Never" />
         <disable_collisions link1="${left_prefix}base_link" link2="${right_prefix}base_link"
             reason="Never" />
+        <xacro:mico_mount_to_arm_link1 mount="${torso_prefix}link2" />
         <xacro:mico_neck_head_collisions mount="${torso_prefix}link2" />
     </xacro:if>
 
