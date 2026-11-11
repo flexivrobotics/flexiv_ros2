@@ -110,18 +110,22 @@ On success the robot is **operational and in `IDLE`**, and the result reports `r
 Recovery does not restore the control mode. Restart the controller:
 
 ```bash
-ros2 control switch_controllers --deactivate flexiv_arm_controller --activate flexiv_arm_controller
+ros2 control switch_controllers --deactivate flexiv_arm_controller
+ros2 control switch_controllers --activate flexiv_arm_controller
 ```
+
+The controller manager in Humble refuses to deactivate and activate the same controller in one switch, so the restart takes two calls.
 
 The switch triggers `perform_command_mode_switch()`, which calls `SwitchMode()` — e.g. `RT_JOINT_POSITION`, or `NRT_JOINT_POSITION` with `rdk_realtime_mode:=false`, for the position interface — and re-synchronizes the command buffer with the measured joint positions in the same step. In a joint impedance control mode it also re-applies whatever joint impedance properties were set, see [Joint impedance configuration](#joint-impedance-configuration).
 
 **The restart is required after every interruption, not only after a recovery action.** Once the driver has left `READY` for any reason, motion stays withheld until a controller restart, even if the robot became operational again on its own or the operator resolved the condition in Flexiv Elements.
 
-On a dual-arm robot each arm runs its own joint trajectory controller (`left_`/`right_flexiv_arm_controller`, plus `flexiv_torso_controller` on MICO-Plus/Ultra), so restart every controller that was running, in one switch. A switch that restarts only some of them is refused while motion is withheld: the controller left running would resume from its stale setpoint.
+On a dual-arm robot each arm runs its own joint trajectory controller (`left_`/`right_flexiv_arm_controller`, plus `flexiv_torso_controller` on MICO-Plus/Ultra), so deactivate every controller that was running, then activate them together in one switch. A switch that starts some of them while another is left running is refused while motion is withheld: the controller left running would resume from its stale setpoint.
 
 ```bash
 ros2 control switch_controllers \
-  --deactivate left_flexiv_arm_controller right_flexiv_arm_controller \
+  --deactivate left_flexiv_arm_controller right_flexiv_arm_controller
+ros2 control switch_controllers \
   --activate left_flexiv_arm_controller right_flexiv_arm_controller
 ```
 

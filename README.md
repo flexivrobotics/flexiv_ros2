@@ -207,11 +207,11 @@ ros2 action send_goal /Enlight_L_123456/flexiv_recovery_node/error_recovery \
   flexiv_msgs/action/ErrorRecovery "{}" --feedback
 
 # Step 3: Restore the control mode, e.g. RT_JOINT_POSITION for the position interface
-ros2 control switch_controllers \
-  --deactivate flexiv_arm_controller --activate flexiv_arm_controller
+ros2 control switch_controllers --deactivate flexiv_arm_controller
+ros2 control switch_controllers --activate flexiv_arm_controller
 ```
 
-On a dual-arm robot, restart every controller that was running in one switch, e.g. `--deactivate left_flexiv_arm_controller right_flexiv_arm_controller --activate left_flexiv_arm_controller right_flexiv_arm_controller`.
+On a dual-arm robot, deactivate every controller that was running, then activate them together, e.g. `--deactivate left_flexiv_arm_controller right_flexiv_arm_controller` followed by `--activate left_flexiv_arm_controller right_flexiv_arm_controller`.
 
 See [`flexiv_hardware/README.md`](flexiv_hardware/README.md#error-recovery) for the recovery policies, the `ClearFault()` guidance and the dual-arm notes.
 
