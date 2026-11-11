@@ -94,8 +94,7 @@ std::vector<double> ConvertRDKToROSOrder(
 //========================================= JOINT SELECTION ========================================
 
 bool ResolveJointSelection(const std::vector<std::string>& requested_names,
-    const std::vector<std::string>& joint_names, std::vector<size_t>& indices,
-    std::string& message)
+    const std::vector<std::string>& joint_names, std::vector<size_t>& indices, std::string& message)
 {
     indices.clear();
 

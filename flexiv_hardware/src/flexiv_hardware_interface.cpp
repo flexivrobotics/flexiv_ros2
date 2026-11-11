@@ -1128,8 +1128,9 @@ std::vector<hardware_interface::StateInterface> FlexivHardwareInterface::export_
     // The TCP belongs to the arm, so it is named like the arm's joints
     for (size_t arm = 0; arm < arm_prefixes_.size(); ++arm) {
         for (size_t i = 0; i < flexiv::rdk::kPoseSize; i++) {
-            state_interfaces.emplace_back(hardware_interface::StateInterface(arm_prefixes_[arm] + "tcp",
-                kCartesianPoseInterfaces[i], &hw_states_cartesian_pose_[arm][i]));
+            state_interfaces.emplace_back(
+                hardware_interface::StateInterface(arm_prefixes_[arm] + "tcp",
+                    kCartesianPoseInterfaces[i], &hw_states_cartesian_pose_[arm][i]));
         }
     }
 

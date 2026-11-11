@@ -8,7 +8,7 @@ These nodes demonstrate how to publish and monitor Flexiv robot states directly 
 
 ### Requirements
 
-- ROS 2 Jazzy
+- ROS 2 Humble
 - `flexivrdk` Python package (`pip install flexivrdk`), version must match the Flexiv robot software version
 - `flexiv_msgs` package (built with `flexiv_ros2`)
 

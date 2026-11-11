@@ -319,10 +319,9 @@ void CartesianMotionForceConfigNode::HandleSetForceControlAxis(
     std::shared_ptr<SetForceControlAxis::Response> response)
 {
     const size_t linear_size = num_robots() * (kCartDoF / 2);
-    const auto max_linear_vel_flat
-        = request->max_linear_vel.empty()
-              ? std::vector<double>(linear_size, kDefaultForceControlLinearVel)
-              : request->max_linear_vel;
+    const auto max_linear_vel_flat = request->max_linear_vel.empty() ? std::vector<double>(
+                                         linear_size, kDefaultForceControlLinearVel)
+                                                                     : request->max_linear_vel;
 
     auto error = CheckLength(request->enabled_axes.size(), num_robots() * kCartDoF, "enabled_axes");
     if (error.empty()) {

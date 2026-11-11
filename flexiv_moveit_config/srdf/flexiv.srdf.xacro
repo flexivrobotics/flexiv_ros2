@@ -67,7 +67,7 @@
         value="${'$(arg robot_type)' in ['MICO-Plus', 'MICO-Ultra']}" />
     <xacro:property name="torso_prefix" value="${'$(arg robot_sn)' + '_torso_'}" />
 
-    <!-- The neck and head (flexiv_description jazzy-v3.1) are fixed to the torso link the arms
+    <!-- The neck and head (flexiv_description humble-v3.1) are fixed to the torso link the arms
          mount on, so their poses relative to that link and to both arm bases never change. Their
          collision checks are disabled against all of these; the arm links keep theirs. -->
     <xacro:macro name="mico_neck_head_collisions" params="mount">
