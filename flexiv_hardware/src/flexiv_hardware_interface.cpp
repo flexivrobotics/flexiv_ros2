@@ -1393,10 +1393,19 @@ hardware_interface::return_type FlexivHardwareInterface::write(
                 getLogger(), "Motion is withheld until the controller is restarted: %s", reason);
         };
         try {
-            // The RDK only warns once real-time commands arrive late too often, it does not throw.
-            // Act on the flag only once it was seen clear, since it is still raised from before a
-            // restart until about a second of commands has arrived on time.
-            if (SendMotionCommands(period.seconds())) {
+            // The robot can leave the control mode without a fault, e.g. to IDLE after real-time
+            // commands were lost. Nothing would stream, so motion stops without a trace otherwise.
+            const auto required_mode = RequiredRdkMode();
+            const auto mode = robot_->mode();
+            if (required_mode != flexiv::rdk::Mode::UNKNOWN && mode != required_mode) {
+                // A fault resets the mode to IDLE too, and is left to read() and recovery
+                if (!robot_->fault()) {
+                    withhold_motion(("the robot dropped to " + ControlModeName(mode)).c_str());
+                }
+            } else if (SendMotionCommands(period.seconds())) {
+                // The RDK only warns once real-time commands arrive late too often, it does not
+                // throw. Act on the flag only once it was seen clear, since it is still raised from
+                // before a restart until about a second of commands has arrived on time.
                 if (!robot_->reached_timeliness_failure_limit()) {
                     timeliness_clear_since_sync_ = true;
                 } else if (timeliness_clear_since_sync_ && withhold_on_timeliness_failure_) {
@@ -1460,8 +1469,8 @@ hardware_interface::return_type FlexivHardwareInterface::write(
 
 bool FlexivHardwareInterface::SendMotionCommands(double dt)
 {
-    const auto required_mode = RequiredRdkMode();
-    if (required_mode == flexiv::rdk::Mode::UNKNOWN || robot_->mode() != required_mode) {
+    // write() has checked that the robot is in the required mode
+    if (RequiredRdkMode() == flexiv::rdk::Mode::UNKNOWN) {
         return false;
     }
     return cartesian_claimed_ ? SendCartesianCommands() : SendJointCommands(dt);
