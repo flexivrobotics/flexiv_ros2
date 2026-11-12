@@ -94,8 +94,7 @@ std::vector<double> ConvertRDKToROSOrder(
 //========================================= JOINT SELECTION ========================================
 
 bool ResolveJointSelection(const std::vector<std::string>& requested_names,
-    const std::vector<std::string>& joint_names, std::vector<size_t>& indices,
-    std::string& message)
+    const std::vector<std::string>& joint_names, std::vector<size_t>& indices, std::string& message)
 {
     indices.clear();
 
@@ -249,10 +248,6 @@ JointImpedanceConfigNode::JointImpedanceConfigNode(const std::string& robot_sn,
             "'%s/set_max_contact_torque', '%s/set_joint_inertia_scale'",
             this->get_fully_qualified_name(), this->get_fully_qualified_name(),
             this->get_fully_qualified_name());
-    } else {
-        RCLCPP_INFO(this->get_logger(),
-            "Joint impedance interface is advertised but inactive: the driver runs in "
-            "'joint_position' mode. Relaunch with 'rdk_control_mode:=joint_impedance' to use it.");
     }
 }
 

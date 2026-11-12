@@ -8,6 +8,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 
 set(msg_files
+  msg/CartesianMotionForce.msg
   msg/Digital.msg
   msg/GPIOStates.msg
   msg/JointImpedance.msg
@@ -23,9 +24,17 @@ set(msg_files
 
 set(srv_files
   srv/GetOperationalStatus.srv
+  srv/SetCartesianImpedance.srv
+  srv/SetCartesianMotionLimits.srv
+  srv/SetForceControlAxis.srv
+  srv/SetForceControlFrame.srv
   srv/SetJointImpedance.srv
   srv/SetJointInertiaScale.srv
   srv/SetMaxContactTorque.srv
+  srv/SetMaxContactWrench.srv
+  srv/SetNullSpaceObjectives.srv
+  srv/SetNullSpacePosture.srv
+  srv/SetPassiveForceControl.srv
 )
 
 set(action_files

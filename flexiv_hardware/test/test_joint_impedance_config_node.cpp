@@ -24,11 +24,11 @@
 
 using flexiv_hardware::ConvertRDKToROSOrder;
 using flexiv_hardware::ConvertROSToRDKOrder;
-using flexiv_hardware::ResolveJointSelection;
 using flexiv_hardware::kMaxDampingRatio;
 using flexiv_hardware::kMaxInertiaScale;
 using flexiv_hardware::kMinDampingRatio;
 using flexiv_hardware::kMinInertiaScale;
+using flexiv_hardware::ResolveJointSelection;
 using flexiv_hardware::ValidateJointValues;
 
 namespace {
@@ -278,31 +278,29 @@ protected:
         bounds.tau_max = std::vector<double>(kDoF, 50.0);
 
         JointImpedanceSetters setters;
-        setters.set_joint_impedance = [this](const std::vector<double>& k_q,
-                                          const std::vector<double>& z_q,
-                                          const flexiv_hardware::JointMask& touched) {
-            if (throw_on_impedance_) {
-                throw std::runtime_error("stub: failed to deliver the request");
-            }
-            ++impedance_calls_;
-            last_k_q_ = k_q;
-            last_z_q_ = z_q;
+        setters.set_joint_impedance
+            = [this](const std::vector<double>& k_q, const std::vector<double>& z_q,
+                  const flexiv_hardware::JointMask& touched) {
+                  if (throw_on_impedance_) {
+                      throw std::runtime_error("stub: failed to deliver the request");
+                  }
+                  ++impedance_calls_;
+                  last_k_q_ = k_q;
+                  last_z_q_ = z_q;
+                  last_touched_ = touched;
+              };
+        setters.set_max_contact_torque = [this](const std::vector<double>& max_torques,
+                                             const flexiv_hardware::JointMask& touched) {
+            ++contact_torque_calls_;
+            last_max_contact_torques_ = max_torques;
             last_touched_ = touched;
         };
-        setters.set_max_contact_torque
-            = [this](const std::vector<double>& max_torques,
-                  const flexiv_hardware::JointMask& touched) {
-                  ++contact_torque_calls_;
-                  last_max_contact_torques_ = max_torques;
-                  last_touched_ = touched;
-              };
-        setters.set_joint_inertia_scale
-            = [this](const std::vector<double>& inertia_scales,
-                  const flexiv_hardware::JointMask& touched) {
-                  ++inertia_calls_;
-                  last_inertia_scales_ = inertia_scales;
-                  last_touched_ = touched;
-              };
+        setters.set_joint_inertia_scale = [this](const std::vector<double>& inertia_scales,
+                                              const flexiv_hardware::JointMask& touched) {
+            ++inertia_calls_;
+            last_inertia_scales_ = inertia_scales;
+            last_touched_ = touched;
+        };
 
         // A serial number unique to this test, so no two tests ever share a node namespace. Reusing
         // one name across nodes that are created and destroyed in quick succession makes service

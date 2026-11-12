@@ -18,6 +18,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(urdf REQUIRED)
 find_package(flexiv_msgs REQUIRED)
 find_package(flexiv_rdk REQUIRED)
 
@@ -28,6 +29,8 @@ add_library(
   src/fault_recovery.cpp
   src/recovery_node.cpp
   src/joint_impedance_config_node.cpp
+  src/cartesian_motion_force_config_node.cpp
+  src/joint_motion_limits.cpp
 )
 
 target_include_directories(
@@ -50,6 +53,7 @@ ament_target_dependencies(
   rclcpp
   rclcpp_action
   rclcpp_lifecycle
+  urdf
 )
 
 pluginlib_export_plugin_description_file(hardware_interface flexiv_hardware_interface_plugin.xml)
@@ -81,6 +85,10 @@ if(BUILD_TESTING)
   ament_add_gtest(test_joint_impedance_config_node test/test_joint_impedance_config_node.cpp)
   target_include_directories(test_joint_impedance_config_node PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
   target_link_libraries(test_joint_impedance_config_node ${PROJECT_NAME} flexiv::flexiv_rdk)
+
+  ament_add_gtest(test_cartesian_motion_force_config_node test/test_cartesian_motion_force_config_node.cpp)
+  target_include_directories(test_cartesian_motion_force_config_node PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_link_libraries(test_cartesian_motion_force_config_node ${PROJECT_NAME} flexiv::flexiv_rdk)
 endif()
 
 # EXPORTS

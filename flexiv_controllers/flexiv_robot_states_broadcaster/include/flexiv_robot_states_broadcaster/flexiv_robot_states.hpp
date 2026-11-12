@@ -30,6 +30,7 @@ namespace {
 
 const std::string kWorldFrameId = "world";
 const std::string kFlangeFrameId = "flange";
+const std::string kTcpFrameId = "tcp";
 
 } // namespace
 
@@ -52,9 +53,9 @@ public:
         message.tcp_twist.header.frame_id = kWorldFrameId;
         message.flange_pose.header.frame_id = kWorldFrameId;
         message.raw_ft_sensor.header.frame_id = name_ + "_" + kFlangeFrameId;
-        message.tcp_wrench_local.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.tcp_wrench_local.header.frame_id = name_ + "_" + kTcpFrameId;
         message.tcp_wrench.header.frame_id = kWorldFrameId;
-        message.raw_tcp_wrench_local.header.frame_id = name_ + "_" + kFlangeFrameId;
+        message.raw_tcp_wrench_local.header.frame_id = name_ + "_" + kTcpFrameId;
         message.raw_tcp_wrench.header.frame_id = kWorldFrameId;
     }
 

@@ -1,0 +1,17 @@
+# Set the Cartesian axes that are force-controlled in the Cartesian motion-force control mode. The
+# other axes stay motion-controlled. For a dual-arm robot, each array holds the left arm's (ARM_1) values
+# first.
+#
+# An invalid request is rejected as a whole and nothing changes.
+
+# Force control flags [X, Y, Z, Rx, Ry, Rz] in the force control frame, 6 per arm
+bool[] enabled_axes
+
+# Velocity limit of the force-controlled linear axes [X, Y, Z], 3 per arm, protecting against
+# contact loss under active force control. Valid range [0.005, 2.0]. Empty means 1.0. [m/s]
+float64[] max_linear_vel
+---
+bool success
+
+# Operator-facing explanation of the outcome
+string message

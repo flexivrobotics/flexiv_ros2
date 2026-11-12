@@ -28,7 +28,7 @@ class StateMonitor(Node):
         topic_robot_sn = robot_sn.replace("-", "_")
         topic_name = f"/{topic_robot_sn}/flexiv_robot_states"
 
-        self.get_logger().info(f"State Monitor started")
+        self.get_logger().info("State Monitor started")
         self.get_logger().info(f"Subscribing to topic: {topic_name}")
 
         # Create subscription

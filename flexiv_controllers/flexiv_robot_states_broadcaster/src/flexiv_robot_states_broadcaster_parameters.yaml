@@ -4,3 +4,8 @@ flexiv_robot_states_broadcaster:
     default_value: "",
     description: "Robot arm serial number",
   }
+  publish_tcp_tf: {
+    type: bool,
+    default_value: true,
+    description: "Publish the measured TCP as the TF frame <robot_sn>_tcp, child of <robot_sn>_flange, so that the TCP-frame wrench topics can be placed",
+  }

@@ -20,6 +20,13 @@
   <xacro:arg name="use_fake_hardware" default="false" />
   <xacro:arg name="fake_sensor_commands" default="false" />
   <xacro:arg name="initial_positions_file" default="" />
+  <!-- Real-time RDK modes for the joint and Cartesian interfaces, streamed at the control rate.
+       false selects the non-real-time modes, smoothed by the robot's motion generator. -->
+  <xacro:arg name="rdk_realtime_mode" default="true" />
+  <!-- Withhold motion when real-time commands arrive late too often, or only warn as the RDK does -->
+  <xacro:arg name="withhold_on_timeliness_failure" default="false" />
+  <!-- Acceleration limit of the robot's joint motion generator in the non-real-time modes [rad/s^2] -->
+  <xacro:arg name="max_joint_acceleration" default="5.0" />
 
   <!-- Robot model, including the arg declarations this file relies on
        (robot_sn, arm_prefix). -->
@@ -30,6 +37,7 @@
     <xacro:include filename="$(find flexiv_hardware)/ros2_control/flexiv.ros2_control.xacro" />
     <xacro:include filename="$(find flexiv_hardware)/ros2_control/flexiv_dual.ros2_control.xacro" />
     <xacro:include filename="$(find flexiv_hardware)/ros2_control/flexiv_mico.ros2_control.xacro" />
+    <xacro:include filename="$(find flexiv_hardware)/ros2_control/cartesian.ros2_control.xacro" />
 
     <xacro:property name="cfg" value="$(find flexiv_description)/config" />
     <xacro:property name="rtype" value="$(arg robot_type)" />
@@ -63,6 +71,9 @@
         prefix="${prefix}"
         robot_sn="$(arg robot_sn)"
         rdk_control_mode="$(arg rdk_control_mode)"
+        rdk_realtime_mode="$(arg rdk_realtime_mode)"
+        withhold_on_timeliness_failure="$(arg withhold_on_timeliness_failure)"
+        max_joint_acceleration="$(arg max_joint_acceleration)"
         use_fake_hardware="$(arg use_fake_hardware)"
         fake_sensor_commands="$(arg fake_sensor_commands)"
         initial_positions_file="${init_file}"
@@ -86,6 +97,9 @@
           prefix_right="${prefix_right}"
           robot_sn="$(arg robot_sn)"
           rdk_control_mode="$(arg rdk_control_mode)"
+          rdk_realtime_mode="$(arg rdk_realtime_mode)"
+          withhold_on_timeliness_failure="$(arg withhold_on_timeliness_failure)"
+          max_joint_acceleration="$(arg max_joint_acceleration)"
           use_fake_hardware="$(arg use_fake_hardware)"
           fake_sensor_commands="$(arg fake_sensor_commands)"
           initial_positions_file_left="${arm_init}"
@@ -99,6 +113,9 @@
           prefix_right="${prefix_right}"
           robot_sn="$(arg robot_sn)"
           rdk_control_mode="$(arg rdk_control_mode)"
+          rdk_realtime_mode="$(arg rdk_realtime_mode)"
+          withhold_on_timeliness_failure="$(arg withhold_on_timeliness_failure)"
+          max_joint_acceleration="$(arg max_joint_acceleration)"
           use_fake_hardware="$(arg use_fake_hardware)"
           fake_sensor_commands="$(arg fake_sensor_commands)"
           initial_positions_file_left="${arm_init}"

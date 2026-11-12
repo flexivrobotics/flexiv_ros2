@@ -15,6 +15,9 @@
     prefix_right
     robot_sn
     rdk_control_mode:='joint_position'
+    rdk_realtime_mode:=true
+    withhold_on_timeliness_failure:=false
+    max_joint_acceleration:=5.0
     use_fake_hardware:=false
     fake_sensor_commands:=false
     initial_positions_file_left
@@ -46,6 +49,9 @@
           <param name="prefix_left">${prefix_left}</param>
           <param name="prefix_right">${prefix_right}</param>
           <param name="rdk_control_mode">${rdk_control_mode}</param>
+          <param name="rdk_realtime_mode">${rdk_realtime_mode}</param>
+          <param name="withhold_on_timeliness_failure">${withhold_on_timeliness_failure}</param>
+          <param name="max_joint_acceleration">${max_joint_acceleration}</param>
         </xacro:unless>
       </hardware>
 
@@ -88,6 +94,10 @@
         <xacro:loop_gpio idx="0" />
       </gpio>
 
+
+      <!-- The TCP belongs to the arm, so it is named like the joints. -->
+      <xacro:flexiv_cartesian_gpio name="${prefix_left}tcp" />
+      <xacro:flexiv_cartesian_gpio name="${prefix_right}tcp" />
     </ros2_control>
   </xacro:macro>
 </robot>

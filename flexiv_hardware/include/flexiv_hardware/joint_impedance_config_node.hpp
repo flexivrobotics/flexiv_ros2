@@ -104,8 +104,8 @@ using JointMask = std::vector<bool>;
  */
 struct JointImpedanceSetters
 {
-    std::function<void(const std::vector<double>& k_q, const std::vector<double>& z_q,
-        const JointMask& touched)>
+    std::function<void(
+        const std::vector<double>& k_q, const std::vector<double>& z_q, const JointMask& touched)>
         set_joint_impedance;
     std::function<void(const std::vector<double>& max_torques, const JointMask& touched)>
         set_max_contact_torque;
