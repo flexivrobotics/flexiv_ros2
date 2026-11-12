@@ -976,9 +976,12 @@ hardware_interface::return_type FlexivDualHardwareInterface::write(
                     && !in(rdk_control_mode_))
                 || (torque_controller_running_ && !in(flexiv::rdk::Mode::RT_JOINT_TORQUE))
                 || (cartesian_controller_running_ && !in(rdk_cartesian_mode_))) {
-                withhold_motion(("the robots dropped to " + ControlModeName(mode.first) + " and "
-                                 + ControlModeName(mode.second))
-                                    .c_str());
+                // A fault resets the mode to IDLE too, and is left to read() and recovery
+                if (!robot_pair_->fault()) {
+                    withhold_motion(("the robots dropped to " + ControlModeName(mode.first)
+                                     + " and " + ControlModeName(mode.second))
+                                        .c_str());
+                }
             } else if (SendMotionCommands(period.seconds())) {
                 // The RDK only warns once real-time commands arrive late too often, it does not
                 // throw. Act on the flag only once it was seen clear, since it is still raised from
@@ -1047,15 +1050,13 @@ bool FlexivDualHardwareInterface::SendMotionCommands(double dt)
     const auto any_nan = [](const std::vector<double>& values) {
         return std::any_of(values.begin(), values.end(), [](double v) { return std::isnan(v); });
     };
-    const auto mode = robot_pair_->mode();
-    const auto joint_mode = std::pair {rdk_control_mode_, rdk_control_mode_};
-
     // Velocity control resumes from the measured position after NaN commands
     if (any_nan(hw_commands_joint_velocities_)) {
         velocity_targets_ = hw_states_joint_positions_;
     }
 
-    if (position_controller_running_ && mode == joint_mode) {
+    // write() has checked that the robots are in the running controller's mode
+    if (position_controller_running_) {
         // A joint without a position command holds its measured position, or in a real-time mode
         // its last target, which does not sag under load
         for (size_t i = 0; i < info_.joints.size(); i++) {
@@ -1082,7 +1083,7 @@ bool FlexivDualHardwareInterface::SendMotionCommands(double dt)
             robot_pair_->SendJointPosition(
                 target_pos_, target_vel_, max_joint_vel_, max_joint_acc_);
         }
-    } else if (velocity_controller_running_ && mode == joint_mode) {
+    } else if (velocity_controller_running_) {
         if (!any_nan(hw_commands_joint_velocities_)) {
             // The target moves ahead of the robots at the commanded velocity. The velocity is the
             // one to have on arriving at the target, or the feed-forward in a real-time mode.
@@ -1105,16 +1106,11 @@ bool FlexivDualHardwareInterface::SendMotionCommands(double dt)
             robot_pair_->SendJointPosition(
                 target_pos_, target_vel_, max_joint_vel_, max_joint_acc_);
         }
-    } else if (torque_controller_running_
-               && mode
-                      == std::pair {flexiv::rdk::Mode::RT_JOINT_TORQUE,
-                          flexiv::rdk::Mode::RT_JOINT_TORQUE}
-               && !any_nan(hw_commands_joint_efforts_)) {
+    } else if (torque_controller_running_ && !any_nan(hw_commands_joint_efforts_)) {
         ToDRDKOrderInPlace(hw_commands_joint_efforts_, target_torque_);
         robot_pair_->StreamJointTorque(target_torque_);
         return true;
-    } else if (cartesian_controller_running_
-               && mode == std::pair {rdk_cartesian_mode_, rdk_cartesian_mode_}) {
+    } else if (cartesian_controller_running_) {
         const bool finite = AllFinite(hw_commands_cartesian_pose_)
                             && AllFinite(hw_commands_cartesian_wrench_)
                             && AllFinite(hw_commands_cartesian_velocity_);
