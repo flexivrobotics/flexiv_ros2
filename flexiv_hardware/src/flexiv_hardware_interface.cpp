@@ -780,10 +780,21 @@ hardware_interface::return_type FlexivHardwareInterface::write(
                 getLogger(), "Motion is withheld until the controller is restarted: %s", reason);
         };
         try {
-            // The RDK only warns once real-time commands arrive late too often, it does not throw.
-            // Act on the flag only once it was seen clear, since it is still raised from before a
-            // restart until about a second of commands has arrived on time.
-            if (SendMotionCommands(period.seconds())) {
+            // The robot can leave the control mode without a fault, e.g. to IDLE after real-time
+            // commands were lost. Nothing would stream, so motion stops without a trace otherwise.
+            const auto mode = robot_->mode();
+            if (((position_controller_running_ || velocity_controller_running_)
+                    && mode != rdk_control_mode_)
+                || (torque_controller_running_ && mode != flexiv::rdk::Mode::RT_JOINT_TORQUE)
+                || (cartesian_controller_running_ && mode != rdk_cartesian_mode_)) {
+                // A fault resets the mode to IDLE too, and is left to read() and recovery
+                if (!robot_->fault()) {
+                    withhold_motion(("the robot dropped to " + ControlModeName(mode)).c_str());
+                }
+            } else if (SendMotionCommands(period.seconds())) {
+                // The RDK only warns once real-time commands arrive late too often, it does not
+                // throw. Act on the flag only once it was seen clear, since it is still raised from
+                // before a restart until about a second of commands has arrived on time.
                 if (!robot_->reached_timeliness_failure_limit()) {
                     timeliness_clear_since_sync_ = true;
                 } else if (timeliness_clear_since_sync_ && withhold_on_timeliness_failure_) {
@@ -835,9 +846,9 @@ bool FlexivHardwareInterface::SendMotionCommands(double dt)
     const auto all_finite = [](const std::vector<double>& values) {
         return std::all_of(values.begin(), values.end(), [](double v) { return std::isfinite(v); });
     };
-    const auto mode = robot_->mode();
 
-    if (position_controller_running_ && mode == rdk_control_mode_) {
+    // write() has checked that the robot is in the running controller's mode
+    if (position_controller_running_) {
         if (all_finite(hw_commands_joint_positions_)) {
             for (size_t rdk_idx = 0; rdk_idx < rdk_dof_; ++rdk_idx) {
                 target_pos_[rdk_idx] = hw_commands_joint_positions_[rdk_to_ros_map_[rdk_idx]];
@@ -857,7 +868,7 @@ bool FlexivHardwareInterface::SendMotionCommands(double dt)
             return true;
         }
         robot_->SendJointPosition(target_pos_, target_vel_, max_joint_vel_, max_joint_acc_);
-    } else if (velocity_controller_running_ && mode == rdk_control_mode_) {
+    } else if (velocity_controller_running_) {
         if (all_finite(hw_commands_joint_velocities_)) {
             // The target moves ahead of the robot at the commanded velocity. The velocity is the
             // one to have on arriving at the target, or the feed-forward in a real-time mode.
@@ -882,14 +893,13 @@ bool FlexivHardwareInterface::SendMotionCommands(double dt)
             return true;
         }
         robot_->SendJointPosition(target_pos_, target_vel_, max_joint_vel_, max_joint_acc_);
-    } else if (torque_controller_running_ && mode == flexiv::rdk::Mode::RT_JOINT_TORQUE
-               && all_finite(hw_commands_joint_efforts_)) {
+    } else if (torque_controller_running_ && all_finite(hw_commands_joint_efforts_)) {
         for (size_t rdk_idx = 0; rdk_idx < rdk_dof_; ++rdk_idx) {
             target_torque_[rdk_idx] = hw_commands_joint_efforts_[rdk_to_ros_map_[rdk_idx]];
         }
         robot_->StreamJointTorque(target_torque_, true, true);
         return true;
-    } else if (cartesian_controller_running_ && mode == rdk_cartesian_mode_) {
+    } else if (cartesian_controller_running_) {
         const bool finite = AllFinite(hw_commands_cartesian_pose_)
                             && AllFinite(hw_commands_cartesian_wrench_)
                             && AllFinite(hw_commands_cartesian_velocity_);
@@ -1063,22 +1073,42 @@ hardware_interface::return_type FlexivHardwareInterface::perform_command_mode_sw
         cartesian_config_node_->DisablePassiveForceControl();
     }
 
+    // SwitchMode() stops a moving robot before it changes the mode, so the stop is skipped only
+    // when the starting controller needs another mode. A position <-> velocity swap stays in
+    // rdk_control_mode_, so it still stops and re-enters the mode as before.
+    auto start_mode = flexiv::rdk::Mode::UNKNOWN;
+    if (!start_modes_.empty()) {
+        start_mode = start_modes_.front() == hardware_interface::HW_IF_EFFORT
+                         ? flexiv::rdk::Mode::RT_JOINT_TORQUE
+                         : rdk_control_mode_;
+    } else if (cartesian_start_requested_) {
+        start_mode = rdk_cartesian_mode_;
+    }
+    const bool switch_stops_robot
+        = start_mode != flexiv::rdk::Mode::UNKNOWN && robot_->mode() != start_mode;
+
     if (stop_modes_.size() != 0
         && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_POSITION)
                != stop_modes_.end()) {
         position_controller_running_ = false;
-        StopIfOperational();
+        if (!switch_stops_robot) {
+            StopIfOperational();
+        }
     } else if (stop_modes_.size() != 0
                && std::find(
                       stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_VELOCITY)
                       != stop_modes_.end()) {
         velocity_controller_running_ = false;
-        StopIfOperational();
+        if (!switch_stops_robot) {
+            StopIfOperational();
+        }
     } else if (stop_modes_.size() != 0
                && std::find(stop_modes_.begin(), stop_modes_.end(), StoppingInterface::STOP_EFFORT)
                       != stop_modes_.end()) {
         torque_controller_running_ = false;
-        StopIfOperational();
+        if (!switch_stops_robot) {
+            StopIfOperational();
+        }
     }
 
     if (start_modes_.size() != 0
