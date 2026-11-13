@@ -47,9 +47,11 @@ def generate_launch_description():
     use_fake_hardware_param_name = "use_fake_hardware"
     fake_sensor_commands_param_name = "fake_sensor_commands"
     load_gripper_left_param_name = "load_gripper_left"
-    gripper_name_left_param_name = "gripper_name_left"
+    gripper_type_left_param_name = "gripper_type_left"
+    device_name_left_param_name = "device_name_left"
     load_gripper_right_param_name = "load_gripper_right"
-    gripper_name_right_param_name = "gripper_name_right"
+    gripper_type_right_param_name = "gripper_type_right"
+    device_name_right_param_name = "device_name_right"
     load_mounted_ft_sensor_left_param_name = "load_mounted_ft_sensor_left"
     load_mounted_ft_sensor_right_param_name = "load_mounted_ft_sensor_right"
     robot_type_param_name = "robot_type"
@@ -151,13 +153,21 @@ def generate_launch_description():
         DeclareLaunchArgument(
             load_gripper_left_param_name,
             default_value="false",
-            description="Flag to load the Flexiv Grav gripper as the end-effector of the left robot.",
+            description="Flag to load the gripper selected by gripper_type_left as the end-effector of the left robot.",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            gripper_name_left_param_name,
+            gripper_type_left_param_name,
+            default_value="Grav",
+            description="Type of the left gripper model, see flexiv_description/config/gripper_types.yaml",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            device_name_left_param_name,
             default_value="Flexiv-GN01",
             description="Full name of the left gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
         )
@@ -167,13 +177,21 @@ def generate_launch_description():
         DeclareLaunchArgument(
             load_gripper_right_param_name,
             default_value="false",
-            description="Flag to load the Flexiv Grav gripper as the end-effector of the right robot.",
+            description="Flag to load the gripper selected by gripper_type_right as the end-effector of the right robot.",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            gripper_name_right_param_name,
+            gripper_type_right_param_name,
+            default_value="Grav",
+            description="Type of the right gripper model, see flexiv_description/config/gripper_types.yaml",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            device_name_right_param_name,
             default_value="Flexiv-GN01",
             description="Full name of the right gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device",
         )
@@ -242,9 +260,11 @@ def generate_launch_description():
     use_fake_hardware = LaunchConfiguration(use_fake_hardware_param_name)
     fake_sensor_commands = LaunchConfiguration(fake_sensor_commands_param_name)
     load_gripper_left = LaunchConfiguration(load_gripper_left_param_name)
-    gripper_name_left = LaunchConfiguration(gripper_name_left_param_name)
+    gripper_type_left = LaunchConfiguration(gripper_type_left_param_name)
+    device_name_left = LaunchConfiguration(device_name_left_param_name)
     load_gripper_right = LaunchConfiguration(load_gripper_right_param_name)
-    gripper_name_right = LaunchConfiguration(gripper_name_right_param_name)
+    gripper_type_right = LaunchConfiguration(gripper_type_right_param_name)
+    device_name_right = LaunchConfiguration(device_name_right_param_name)
     load_mounted_ft_sensor_left = LaunchConfiguration(
         load_mounted_ft_sensor_left_param_name
     )
@@ -376,14 +396,14 @@ def generate_launch_description():
                 "load_gripper_left:=",
                 load_gripper_left,
                 " ",
-                "gripper_name_left:=",
-                gripper_name_left,
+                "gripper_type_left:=",
+                gripper_type_left,
                 " ",
                 "load_gripper_right:=",
                 load_gripper_right,
                 " ",
-                "gripper_name_right:=",
-                gripper_name_right,
+                "gripper_type_right:=",
+                gripper_type_right,
                 " ",
                 "load_mounted_ft_sensor_left:=",
                 load_mounted_ft_sensor_left,
@@ -564,7 +584,7 @@ def generate_launch_description():
         launch_arguments={
             "gripper_node_name": "left_gripper_node",
             "robot_sn": robot_sn_left,
-            "gripper_name": gripper_name_left,
+            "device_name": device_name_left,
             "use_lite_rdk": "true",
             "gripper_joint_names": [
                 "[",
@@ -586,7 +606,7 @@ def generate_launch_description():
         launch_arguments={
             "gripper_node_name": "right_gripper_node",
             "robot_sn": robot_sn_right,
-            "gripper_name": gripper_name_right,
+            "device_name": device_name_right,
             "use_lite_rdk": "true",
             "gripper_joint_names": [
                 "[",

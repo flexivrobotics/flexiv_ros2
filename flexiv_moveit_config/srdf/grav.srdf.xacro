@@ -5,18 +5,15 @@
 
         <group name="${prefix}grav_gripper">
             <joint name="${prefix}gripper_base_joint" />
-            <joint name="${prefix}open_fingers_tcp_joint" />
-            <joint name="${prefix}closed_fingers_tcp_joint" />
+            <joint name="${prefix}base_to_tcp" />
             <joint name="${prefix}left_outer_knuckle_joint" />
             <joint name="${prefix}left_inner_knuckle_joint" />
             <joint name="${prefix}left_inner_finger_joint" />
             <joint name="${prefix}left_inner_finger_pad_joint" />
-            <joint name="${prefix}left_finger_tcp_joint" />
             <joint name="${prefix}right_outer_knuckle_joint" />
             <joint name="${prefix}right_inner_knuckle_joint" />
             <joint name="${prefix}right_inner_finger_joint" />
             <joint name="${prefix}right_inner_finger_pad_joint" />
-            <joint name="${prefix}right_finger_tcp_joint" />
             <joint name="${prefix}finger_width_joint" />
         </group>
 
@@ -39,12 +36,6 @@
             group="${prefix}grav_gripper" parent_group="${prefix}arm" />
 
         <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}grav_tcp" reason="Never" />
-        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}closed_fingers_tcp"
-            reason="Never" />
-        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}right_finger_tcp"
-            reason="Never" />
-        <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}left_finger_tcp"
-            reason="Never" />
         <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}left_outer_bar"
             reason="Adjacent" />
         <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}left_inner_bar"
@@ -81,17 +72,9 @@
             reason="Never" />
         <disable_collisions link1="${prefix}right_finger_mount" link2="${prefix}right_finger_tip"
             reason="Adjacent" />
-        <disable_collisions link1="${prefix}left_finger_tip" link2="${prefix}closed_fingers_tcp"
-            reason="Adjacent" />
-        <disable_collisions link1="${prefix}right_finger_tip" link2="${prefix}closed_fingers_tcp"
-            reason="Adjacent" />
 
         <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}link7" reason="Adjacent" />
         <disable_collisions link1="${prefix}grav_base_link" link2="${prefix}flange"
-            reason="Adjacent" />
-        <disable_collisions link1="${prefix}closed_fingers_tcp" link2="${prefix}link7"
-            reason="Adjacent" />
-        <disable_collisions link1="${prefix}closed_fingers_tcp" link2="${prefix}flange"
             reason="Adjacent" />
 
         <xacro:if value="${load_mounted_ft_sensor}">
@@ -101,16 +84,6 @@
             <disable_collisions link1="${prefix}grav_base_link"
                 link2="${prefix}wrist-sensor.proximal_link" reason="Adjacent" />
             <disable_collisions link1="${prefix}grav_base_link"
-                link2="${prefix}wrist-sensor.distal_link" reason="Adjacent" />
-            <disable_collisions link1="${prefix}closed_fingers_tcp" link2="${prefix}link7"
-                reason="Adjacent" />
-            <disable_collisions link1="${prefix}closed_fingers_tcp" link2="${prefix}flange"
-                reason="Adjacent" />
-            <disable_collisions link1="${prefix}closed_fingers_tcp"
-                link2="${prefix}wrist-sensor.base_link" reason="Adjacent" />
-            <disable_collisions link1="${prefix}closed_fingers_tcp"
-                link2="${prefix}wrist-sensor.proximal_link" reason="Adjacent" />
-            <disable_collisions link1="${prefix}closed_fingers_tcp"
                 link2="${prefix}wrist-sensor.distal_link" reason="Adjacent" />
         </xacro:if>
 

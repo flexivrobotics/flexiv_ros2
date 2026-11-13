@@ -37,7 +37,8 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
 : Node("flexiv_gripper_node", options)
 {
     this->declare_parameter("robot_sn", std::string());
-    this->declare_parameter("gripper_name", std::string());
+    this->declare_parameter("device_name", std::string());
+    this->declare_parameter("gripper_name", std::string()); // deprecated alias of device_name
     this->declare_parameter("tool_name", std::string());
     this->declare_parameter("state_publish_rate", kDefaultStatePublishRate);
     this->declare_parameter("feedback_publish_rate", kDefaultFeedbackPublishRate);
@@ -54,17 +55,24 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         throw std::invalid_argument("Parameter 'robot_sn' is not set");
     }
 
-    const std::string gripper_name = this->get_parameter("gripper_name").as_string();
-    if (gripper_name.empty()) {
-        RCLCPP_FATAL(this->get_logger(), "Parameter 'gripper_name' is not set");
-        throw std::invalid_argument("Parameter 'gripper_name' is not set");
+    std::string device_name = this->get_parameter("device_name").as_string();
+    const std::string deprecated_gripper_name = this->get_parameter("gripper_name").as_string();
+    if (!deprecated_gripper_name.empty()) {
+        RCLCPP_WARN(this->get_logger(),
+            "Parameter 'gripper_name' is deprecated, use 'device_name' instead. Using '%s'",
+            deprecated_gripper_name.c_str());
+        device_name = deprecated_gripper_name;
+    }
+    if (device_name.empty()) {
+        RCLCPP_FATAL(this->get_logger(), "Parameter 'device_name' is not set");
+        throw std::invalid_argument("Parameter 'device_name' is not set");
     }
 
     // The tool is usually named after the gripper, but Flexiv Elements lists tools and devices
     // separately
     std::string tool_name = this->get_parameter("tool_name").as_string();
     if (tool_name.empty()) {
-        tool_name = gripper_name;
+        tool_name = device_name;
     }
 
     this->default_velocity_ = this->get_parameter("default_velocity").as_double();
@@ -151,8 +159,8 @@ GripperActionServer::GripperActionServer(const rclcpp::NodeOptions& options)
         this->tool_ = std::make_unique<flexiv::rdk::Tool>(*robot_);
 
         // Enable the specified gripper as a device
-        RCLCPP_INFO(this->get_logger(), "Enabling gripper %s ...", gripper_name.c_str());
-        gripper_->Enable(gripper_name);
+        RCLCPP_INFO(this->get_logger(), "Enabling gripper %s ...", device_name.c_str());
+        gripper_->Enable(device_name);
         gripper_params_ = gripper_->params();
         RCLCPP_INFO(this->get_logger(),
             "Gripper limits: width [%.3f, %.3f] m, velocity [%.3f, %.3f] m/s, force [%.1f, %.1f] N",
