@@ -3,7 +3,7 @@
 Action server for grippers connected to a Flexiv robot, such as Flexiv Grav (`Flexiv-GN01`).
 
 ```bash
-ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01
+ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] device_name:=Flexiv-GN01
 ```
 
 By default the node opens a normal RDK connection, so it runs without the robot driver. When the
@@ -30,8 +30,9 @@ All names are relative to the node, `flexiv_gripper_node` by default.
 | Parameter | Default | Description |
 | --- | --- | --- |
 | `robot_sn` | required | Serial number of the robot, for example `Enlight-L-123456` |
-| `gripper_name` | required | Gripper name as listed in Flexiv Elements -> Settings -> Device |
-| `tool_name` | `gripper_name` | Robot tool to switch to, as listed in Flexiv Elements -> Settings -> Tool, when it is named differently from the gripper |
+| `device_name` | required | Gripper name as listed in Flexiv Elements -> Settings -> Device |
+| `gripper_name` | `""` | Deprecated alias of `device_name`; overrides it when set |
+| `tool_name` | `device_name` | Robot tool to switch to, as listed in Flexiv Elements -> Settings -> Tool, when it is named differently from the gripper |
 | `use_lite_rdk` | `false` | Use a lite RDK instance alongside the robot driver |
 | `joint_group` | auto | Arm whose gripper to control, `ARM_1` (left) or `ARM_2` (right). Empty picks the only arm of a single-arm robot; required on a dual-arm robot, which runs one node per arm |
 | `gripper_joint_names` | `[finger_width_joint]` | Joint name published on `~/gripper_joint_states`; prefix it to match the URDF |
