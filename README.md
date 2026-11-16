@@ -147,7 +147,8 @@ The main launch file to start the robot driver is the `rizon.launch.py` - it loa
 - `rdk_realtime_mode` (default: *false*) - use the real-time RDK modes (`RT_JOINT_POSITION`, `RT_JOINT_IMPEDANCE`, `RT_CARTESIAN_MOTION_FORCE`) instead of the non-real-time ones. See [Real-time control modes](flexiv_hardware/README.md#real-time-control-modes)
 - `withhold_on_timeliness_failure` (default: *true*) - with `rdk_realtime_mode:=true`, withhold motion until the controller is restarted once real-time commands arrive late too often. *false* only logs a warning and keeps streaming.
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
-- `gripper_name` (default: *Flexiv-GN01*) - full name of the gripper to be controlled, as shown in Flexiv Elements -> Settings -> Device.
+- `gripper_type` (default: *Grav*) - gripper model to load, `Grav` or `Grav-Enhanced` (see `flexiv_description/config/gripper_types.yaml`).
+- `device_name` (default: *Flexiv-GN01*) - full name of the gripper to be controlled, as shown in Flexiv Elements -> Settings -> Device. Grav and Grav Enhanced both use *Flexiv-GN01*.
 - `load_mounted_ft_sensor` (default: *false*) - loads the mounted force-torque sensor. Only available for Rizon4, Rizon4R, Rizon10 and Rizon10R.
 - `use_fake_hardware` (default: *false*) - starts `mock_components/GenericSystem` instead of real hardware. This is a simple simulation that mirrors joint commands to their states. The gripper, GPIO and Flexiv robot states are not available with it.
 - `start_rviz` (default: *true*) - starts RViz automatically with the launch file.
@@ -162,7 +163,7 @@ There are extra or different launch arguments for Flexiv AICO1, AICO2, and dual 
 - `robot_type` (default: *AICO1-4-V1* for `aico1.launch.py`, *AICO2-4-V1* for `aico2.launch.py`) - type of the Flexiv AICO robot platform. AICO1 options: *AICO1-4-V1*, *AICO1-4-V2*. AICO2 options: *AICO2-4-V1*, *AICO2-4-V2*, *AICO2-4-D3*, *AICO2-4E-D1*, *AICO2-4U-D1*, *AICO2-10-V1*, *AICO2-10-D2*, *AICO2-10E-D1*, *AICO2-10U-D1*
 - `kinematics_params_file_left`, `kinematics_params_file_right` (default: *empty*, dual robot setups) - per-arm equivalents of `kinematics_params_file`.
 - `robot_controller` (default: *rizon_arm_controller*, dual robot setups) - *rizon_arm_controller* starts `left_rizon_arm_controller` and `right_rizon_arm_controller`. *cartesian_motion_force_controller* starts one controller for both arms and loads the arm controllers inactive.
-- `load_gripper_left`, `load_gripper_right`, `gripper_name_left`, `gripper_name_right`, `load_mounted_ft_sensor_left`, `load_mounted_ft_sensor_right` (dual robot setups) - per-arm equivalents of `load_gripper`, `gripper_name` and `load_mounted_ft_sensor`.
+- `load_gripper_left`, `load_gripper_right`, `gripper_type_left`, `gripper_type_right`, `device_name_left`, `device_name_right`, `load_mounted_ft_sensor_left`, `load_mounted_ft_sensor_right` (dual robot setups) - per-arm equivalents of `load_gripper`, `gripper_type`, `device_name` and `load_mounted_ft_sensor`.
 - `arm_type_left`, `arm_type_right` (default: *Rizon4* and *Rizon4R*, `rizon_dual.launch.py`) - type of each arm.
 - `arm_type` (AICO setups) - arm carried by the platform. `aico1.launch.py` defaults to *Rizon4* (options: *Rizon4*, *Rizon4s*). `aico2.launch.py` defaults to empty, which picks the arm the selected `robot_type` carries: *Rizon4* for the AICO2-4 platforms, *Rizon10* for the AICO2-10 ones.
 - `external_axis_prefix` (default: *empty*, AICO setups) - prefix for the external axis links and joints.
@@ -363,13 +364,13 @@ The gripper control is implemented in the `flexiv_gripper` package to interface 
 Start the `flexiv_gripper_node` with the following launch file, the default gripper is Flexiv Grav (Flexiv-GN01). This standalone launch uses a normal RDK instance by default, so it can run without the ROS 2 robot driver:
 
 ```bash
-ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01
+ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] device_name:=Flexiv-GN01
 ```
 
 If the robot driver is already running and you want to avoid creating another normal RDK instance, launch the gripper separately with a lite instance:
 
 ```bash
-ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01 use_lite_rdk:=true
+ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] device_name:=Flexiv-GN01 use_lite_rdk:=true
 ```
 
 The lite instance requires another normal RDK instance to already be connected to the robot, for example the one created by the ROS 2 robot driver.

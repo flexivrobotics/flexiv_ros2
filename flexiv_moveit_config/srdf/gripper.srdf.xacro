@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- Picks the gripper SRDF matching gripper_type, see
+         flexiv_description/config/gripper_types.yaml. -->
+    <xacro:macro name="gripper_srdf" params="prefix gripper_type load_mounted_ft_sensor">
+        <xacro:if value="${gripper_type == 'Grav'}">
+            <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav.srdf.xacro" />
+            <xacro:grav_srdf prefix="${prefix}" load_mounted_ft_sensor="${load_mounted_ft_sensor}" />
+        </xacro:if>
+        <xacro:if value="${gripper_type in ['Grav-Enhanced', 'Grav-Enhanced-A']}">
+            <xacro:include filename="$(find flexiv_moveit_config)/srdf/grav_enhanced.srdf.xacro" />
+            <xacro:grav_enhanced_srdf prefix="${prefix}"
+                mode="${'EG-P' if gripper_type == 'Grav-Enhanced' else 'EG-A'}"
+                load_mounted_ft_sensor="${load_mounted_ft_sensor}" />
+        </xacro:if>
+        <xacro:unless value="${gripper_type in ['Grav', 'Grav-Enhanced', 'Grav-Enhanced-A']}">
+            ${xacro.fatal('Invalid gripper_type \'' + gripper_type + '\'. Available: Grav, Grav-Enhanced, Grav-Enhanced-A.')}
+        </xacro:unless>
+    </xacro:macro>
+</robot>
