@@ -64,9 +64,10 @@ def launch_setup(context):
     )
     start_rviz = LaunchConfiguration("start_rviz")
     load_gripper = LaunchConfiguration("load_gripper")
-    gripper_name = LaunchConfiguration("gripper_name")
-    gripper_name_left = LaunchConfiguration("gripper_name_left")
-    gripper_name_right = LaunchConfiguration("gripper_name_right")
+    gripper_type = LaunchConfiguration("gripper_type")
+    device_name = LaunchConfiguration("device_name")
+    device_name_left = LaunchConfiguration("device_name_left")
+    device_name_right = LaunchConfiguration("device_name_right")
     robot_controller = LaunchConfiguration("robot_controller")
     rdk_install_prefix = LaunchConfiguration("rdk_install_prefix")
     load_mounted_ft_sensor = LaunchConfiguration("load_mounted_ft_sensor")
@@ -125,8 +126,8 @@ def launch_setup(context):
                 "load_gripper:=",
                 load_gripper,
                 " ",
-                "gripper_name:=",
-                gripper_name,
+                "gripper_type:=",
+                gripper_type,
                 " ",
                 "load_mounted_ft_sensor:=",
                 load_mounted_ft_sensor,
@@ -163,6 +164,9 @@ def launch_setup(context):
                 " ",
                 "load_gripper:=",
                 load_gripper,
+                " ",
+                "gripper_type:=",
+                gripper_type,
                 " ",
                 "load_mounted_ft_sensor:=",
                 load_mounted_ft_sensor,
@@ -394,7 +398,7 @@ def launch_setup(context):
         args = {
             "gripper_node_name": node_name,
             "robot_sn": robot_sn,
-            "gripper_name": name,
+            "device_name": name,
             "use_fake_hardware": use_fake_hardware,
             "use_lite_rdk": "true",
             "rdk_install_prefix": rdk_install_prefix,
@@ -438,13 +442,13 @@ def launch_setup(context):
     if is_dual:
         load_gripper_launch_left = gripper_launch(
             "left_flexiv_gripper_node",
-            gripper_name_left,
+            device_name_left,
             "ARM_1",
             gripper_joint_names=["[left_", robot_sn, "_finger_width_joint]"],
         )
         load_gripper_launch_right = gripper_launch(
             "right_flexiv_gripper_node",
-            gripper_name_right,
+            device_name_right,
             "ARM_2",
             gripper_joint_names=["[right_", robot_sn, "_finger_width_joint]"],
         )
@@ -493,7 +497,7 @@ def launch_setup(context):
     else:
         load_gripper_launch = gripper_launch(
             "flexiv_gripper_node",
-            gripper_name,
+            device_name,
             gripper_joint_names=["[", robot_sn, "_finger_width_joint]"],
         )
         gripper_ready_waiter = gripper_ready_waiter_node(
@@ -669,13 +673,21 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "load_gripper",
             default_value="false",
-            description="Flag to load the Flexiv Grav gripper as the end-effector of the robot.",
+            description="Flag to load the gripper selected by gripper_type as the end-effector of the robot.",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "gripper_name",
+            "gripper_type",
+            default_value="Grav",
+            description="Type of the gripper model, see flexiv_description/config/gripper_types.yaml. Both arms of a dual-arm robot use the same type.",
+        )
+    )
+
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "device_name",
             default_value="Flexiv-GN01",
             description="Full name of the gripper to be controlled, can be found in Flexiv Elements -> Settings -> Device. For single-arm robots and as the default for both arms of a dual-arm robot.",
         )
@@ -683,17 +695,17 @@ def generate_launch_description():
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "gripper_name_left",
-            default_value=LaunchConfiguration("gripper_name"),
-            description="Gripper device name for the LEFT arm (ARM_1) of a dual-arm robot. Defaults to 'gripper_name'.",
+            "device_name_left",
+            default_value=LaunchConfiguration("device_name"),
+            description="Gripper device name for the LEFT arm (ARM_1) of a dual-arm robot. Defaults to 'device_name'.",
         )
     )
 
     declared_arguments.append(
         DeclareLaunchArgument(
-            "gripper_name_right",
-            default_value=LaunchConfiguration("gripper_name"),
-            description="Gripper device name for the RIGHT arm (ARM_2) of a dual-arm robot. Defaults to 'gripper_name'.",
+            "device_name_right",
+            default_value=LaunchConfiguration("device_name"),
+            description="Gripper device name for the RIGHT arm (ARM_2) of a dual-arm robot. Defaults to 'device_name'.",
         )
     )
 

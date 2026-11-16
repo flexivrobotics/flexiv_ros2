@@ -124,6 +124,9 @@ The launch file to start the single-arm robot driver is `flexiv.launch.py` - it 
 - `rdk_realtime_mode` (default: *true*) - use the real-time RDK modes (`RT_JOINT_POSITION`, `RT_JOINT_IMPEDANCE`, `RT_CARTESIAN_MOTION_FORCE`), streamed at the controller manager rate. *false* selects the non-real-time ones, smoothed by the robot's motion generator within the joint and Cartesian motion limits. See [Real-time control modes](flexiv_hardware/README.md#real-time-control-modes)
 - `withhold_on_timeliness_failure` (default: *false*) - with `rdk_realtime_mode:=true`, *true* withholds motion until the controllers are restarted once real-time commands arrive late too often. *false* logs a warning and keeps streaming.
 - `load_gripper` (default: *false*) - loads the Flexiv Grav gripper as the end-effector of the robot and the gripper control node.
+- `gripper_type` (default: *Grav*) - gripper model to load, `Grav` or `Grav-Enhanced` (see `flexiv_description/config/gripper_types.yaml`). Both arms of a dual-arm robot use the same type.
+- `device_name` (default: *Flexiv-GN01*) - full name of the gripper to be controlled, as shown in Flexiv Elements -> Settings -> Device. Grav and Grav Enhanced both use *Flexiv-GN01*.
+- `device_name_left`, `device_name_right` (default: `device_name`, dual-arm robots) - per-arm gripper device names.
 - `use_fake_hardware` (default: *false*) - starts `mock_components/GenericSystem` instead of real hardware. This is a simple simulation that mirrors joint commands to their states. The gripper, GPIO and Flexiv robot states are not available with it.
 - `start_rviz` (default: *true*) - starts RViz automatically with the launch file.
 - `fake_sensor_commands` (default: *false*) - enables fake command interfaces for sensors used for simulations. Used only if `use_fake_hardware` parameter is true.
@@ -305,13 +308,13 @@ The gripper control is implemented in the `flexiv_gripper` package to interface 
 Start the `flexiv_gripper_node` with the following launch file, the default gripper is Flexiv Grav (Flexiv-GN01). This standalone launch uses a normal RDK instance by default, so it can run without the ROS 2 robot driver:
 
 ```bash
-ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01
+ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] device_name:=Flexiv-GN01
 ```
 
 If the robot driver is already running and you want to avoid creating another normal RDK instance, launch the gripper separately with a lite instance:
 
 ```bash
-ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] gripper_name:=Flexiv-GN01 use_lite_rdk:=true
+ros2 launch flexiv_gripper flexiv_gripper.launch.py robot_sn:=[robot_sn] device_name:=Flexiv-GN01 use_lite_rdk:=true
 ```
 
 The lite instance requires another normal RDK instance to already be connected to the robot, for example the one created by the ROS 2 robot driver.
